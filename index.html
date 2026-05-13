@@ -118,13 +118,13 @@ body.is-picking-color, body.is-picking-color * { cursor: none !important; }
 }
 .panel-title .amp { color: var(--accent); }
 
-.panel-body {
+.panel- {
   overflow-y: auto; overflow-x: visible;
   padding: 12px 22px 18px;
   max-height: calc(100vh - 202px);
 }
-.panel-body::-webkit-scrollbar { width: 4px; }
-.panel-body::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 2px; }
+.panel-::-webkit-scrollbar { width: 4px; }
+.panel-::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 2px; }
 
 /* ─── Icon buttons ────────────────────────────────────────────────────────── */
 .icon-btn {
@@ -505,7 +505,8 @@ body.is-picking-color, body.is-picking-color * { cursor: none !important; }
 }
 </style>
 </head>
-<body>
+  <link rel="stylesheet" href="nurr-mobile.css?v=1">
+<>
   <div id="root"></div>
   <script src="https://unpkg.com/react@18.3.1/umd/react.development.js"></script>
   <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js"></script>
@@ -722,7 +723,7 @@ function downloadCanvas(canvas, filename='wallpaper.png') {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = filename;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    document..appendChild(a); a.click(); document..removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 1500);
   }, 'image/png');
 }
@@ -2621,4 +2622,5 @@ function App() {
 ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   </script>
 </body>
+  <script src="nurr-mobile.js?v=1"></script>
 </html>
