@@ -77,7 +77,11 @@ function GradientMode({ tweaks, registerSnapshot, mouseRef }) {
   const glRef = gmUR(null);
   const progRef = gmUR(null);
   WP.useStageSize(canvasRef);
-  const stateRef = gmUR({ pulse:0, frozen:false, frozenMouse:null });
+  const stateRef = gmUR({
+    pulse: 0,
+    frozen: false,
+    frozenMouse: null
+  });
 
   gmUE(() => {
     const canvas = canvasRef.current;
@@ -92,25 +96,37 @@ function GradientMode({ tweaks, registerSnapshot, mouseRef }) {
 
   gmUE(() => {
     const onDown = (e) => {
-      if (e.target.closest('.panel,.icon-btn,.rail,.layout-card,.palette-card,.nature-thumb,.swatch,.color-wheel-card,.eyedropper-follow,button,input,.drop-zone')) return;
+      if (
+        e.target.closest(
+          '.panel,.icon-btn,.rail,.layout-card,.palette-card,.nature-thumb,.swatch,.color-wheel-card,.eyedropper-follow,button,input,.drop-zone'
+        )
+      ) return;
 
       const canvas = canvasRef.current;
-      if (!canvas || e.target !== canvas) return;
+      if (!canvas) return;
 
       const rect = canvas.getBoundingClientRect();
+      const insideCanvas =
+        e.clientX >= rect.left &&
+        e.clientX <= rect.right &&
+        e.clientY >= rect.top &&
+        e.clientY <= rect.bottom;
+
+      if (!insideCanvas) return;
+
       const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
       const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
-      const live = mouseRef.current || { x, y, chaosX:x, chaosY:y };
 
-      // Keep the existing click ripple/pulse as tactile feedback.
+      // Keep the existing click ripple / pulse as feedback.
       stateRef.current.pulse = 1.0;
 
-      // Click artwork once to freeze the gradient at that point.
-      // Click artwork again to unlock normal mouse-following behavior.
+      // Click artwork once = freeze at that exact visual point.
+      // Click artwork again = unfreeze and return to live mouse behavior.
       if (stateRef.current.frozen) {
         stateRef.current.frozen = false;
         stateRef.current.frozenMouse = null;
       } else {
+        const live = mouseRef.current || { x, y, chaosX: x, chaosY: y };
         stateRef.current.frozen = true;
         stateRef.current.frozenMouse = {
           x,
@@ -120,15 +136,18 @@ function GradientMode({ tweaks, registerSnapshot, mouseRef }) {
         };
       }
     };
-    window.addEventListener('mousedown', onDown);
-    return () => window.removeEventListener('mousedown', onDown);
+
+    window.addEventListener('mousedown', onDown, true);
+    return () => window.removeEventListener('mousedown', onDown, true);
   }, []);
 
   const drawAt = (targetW, targetH) => {
     const gl = glRef.current; const prog = progRef.current;
     if (!gl || !prog) return;
     gl.viewport(0, 0, targetW, targetH);
-    const m = (stateRef.current.frozen && stateRef.current.frozenMouse) ? stateRef.current.frozenMouse : mouseRef.current;
+    const m = stateRef.current.frozen && stateRef.current.frozenMouse
+      ? stateRef.current.frozenMouse
+      : mouseRef.current;
     const t = performance.now() / 1000;
     gl.useProgram(prog);
     gl.uniform1f(gl.getUniformLocation(prog,'u_time'), t);
@@ -205,7 +224,7 @@ function GradientControls({ tweaks, setTweaks }) {
       </div>
 
       <div className="help compact-help">
-        Click the artwork to freeze/unfreeze the gradient. The ripple stays as click feedback.
+        Click the artwork to freeze/unfreeze the gradient before saving.
       </div>
     </>
   );
