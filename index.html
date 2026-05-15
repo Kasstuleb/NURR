@@ -6,7 +6,7 @@
 <title>NURR — Wallpaper Studio</title>
 
 <link rel="stylesheet" href="https://use.typekit.net/uib5hvg.css" />
-<link rel="stylesheet" href="css/base.css?v=support-strip-1" />
+<link rel="stylesheet" href="css/base.css?v=support-modal-strip-1" />
 <link rel="stylesheet" href="css/mobile.css?v=ripple-strip-1" />
 <link rel="stylesheet" href="css/color-picker-working.css?v=low-lag-picker-1" />
 <link rel="stylesheet" href="css/palette-mode.css?v=palette-mix-1" />
@@ -30,16 +30,50 @@
   <script type="text/babel" src="js/app.js?v=palette-mix-1"></script>
   <script src="js/mobile.js?v=1"></script>
 
+  <div class="nurr-support-strip">
+    <span>NURR is independent.</span>
+    <button type="button" id="nurrSupportOpen">Support me</button>
+  </div>
 
+  <div class="nurr-kofi-modal" id="nurrKofiModal" aria-hidden="true">
+    <div class="nurr-kofi-backdrop" id="nurrKofiClose"></div>
+
+    <div class="nurr-kofi-window">
+      <button type="button" class="nurr-kofi-x" id="nurrKofiCloseBtn">×</button>
+
+      <iframe
+        src="https://ko-fi.com/kasstuleb/?hidefeed=true&widget=true&embed=true&preview=true"
+        title="Support NURR on Ko-fi"
+        loading="lazy">
+      </iframe>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const openBtn = document.getElementById('nurrSupportOpen');
+      const modal = document.getElementById('nurrKofiModal');
+      const closeBg = document.getElementById('nurrKofiClose');
+      const closeBtn = document.getElementById('nurrKofiCloseBtn');
+
+      function openModal() {
+        modal.classList.add('is-open');
+        modal.setAttribute('aria-hidden', 'false');
+      }
+
+      function closeModal() {
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden', 'true');
+      }
+
+      openBtn && openBtn.addEventListener('click', openModal);
+      closeBg && closeBg.addEventListener('click', closeModal);
+      closeBtn && closeBtn.addEventListener('click', closeModal);
+
+      window.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeModal();
+      });
+    }());
+  </script>
 </body>
-<div class="nurr-support-strip">
-  <span>NURR is independent.</span>
-  <a
-    href="https://ko-fi.com/kasstuleb"
-    target="_blank"
-    rel="noopener noreferrer"
-  >
-    Support me
-  </a>
-</div>
 </html>
