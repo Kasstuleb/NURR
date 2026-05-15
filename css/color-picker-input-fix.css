@@ -1,0 +1,93 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   NURR — color-picker-input-fix.css
+   Adds manual HEX/RGB input styling and improves droplet layer stability.
+
+   Load after color-picker-working.css:
+   <link rel="stylesheet" href="css/color-picker-input-fix.css?v=1" />
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.manual-color-entry {
+  margin-top: 16px !important;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  color: #101010 !important;
+}
+
+.manual-color-entry label {
+  display: block !important;
+  margin-bottom: 6px !important;
+  font-size: 10px !important;
+  line-height: 1 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  color: rgba(20, 20, 42, 0.64) !important;
+}
+
+.manual-color-row {
+  display: grid !important;
+  grid-template-columns: 1fr auto !important;
+  gap: 8px !important;
+  align-items: center !important;
+}
+
+.manual-color-row input {
+  display: block !important;
+  width: 100% !important;
+  height: 32px !important;
+  padding: 0 9px !important;
+
+  background: rgba(255,255,255,0.48) !important;
+  border: 1px solid rgba(10,5,64,0.22) !important;
+  border-radius: 999px !important;
+  color: #101010 !important;
+
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  font-size: 12px !important;
+  letter-spacing: 0.01em !important;
+  outline: none !important;
+  box-shadow: none !important;
+
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  position: static !important;
+}
+
+.manual-color-row input:focus {
+  border-color: rgba(10,5,64,0.52) !important;
+  background: rgba(255,255,255,0.70) !important;
+}
+
+.manual-color-row button {
+  height: 32px !important;
+  padding: 0 12px !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(10,5,64,0.22) !important;
+  background: rgba(255,255,255,0.60) !important;
+  color: #101010 !important;
+
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  font-size: 10px !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  cursor: pointer !important;
+}
+
+.manual-color-row button:hover {
+  background: #14142a !important;
+  color: #e9eee9 !important;
+}
+
+.eyedropper-follow {
+  transform: translate3d(-27px, -27px, 0) !important;
+  will-change: left, top !important;
+  backface-visibility: hidden !important;
+  -webkit-backface-visibility: hidden !important;
+}
+
+.color-wheel-card {
+  pointer-events: auto !important;
+}
+
+.color-wheel-surface {
+  touch-action: none !important;
+}

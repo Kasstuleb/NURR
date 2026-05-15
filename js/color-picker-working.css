@@ -1,0 +1,318 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   NURR — color-picker-working.css
+   Restores the exact working color picker behavior from the old monolithic HTML.
+
+   Load AFTER base.css and mobile.css:
+   <link rel="stylesheet" href="css/color-picker-working.css?v=1" />
+
+   Do NOT use color-picker-portal.js with this.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Critical: old working version allowed the fixed picker to escape panel bounds. */
+.panel {
+  overflow: hidden !important;
+}
+
+/* Critical: old working version allowed horizontal overflow from panel body. */
+.panel-body {
+  overflow-y: auto !important;
+  overflow-x: visible !important;
+}
+
+/* Safari can trap fixed children inside transformed ancestors.
+   The old working version had no transform animation on the panel. */
+@media (min-width: 821px) and (min-height: 651px) {
+  .panel {
+    animation: none !important;
+    transform: none !important;
+  }
+}
+
+/* Exact old working picker structure/styling */
+.color-wheel-card {
+  position: fixed !important;
+  right: 142px !important;
+  top: 292px !important;
+  width: 270px !important;
+  padding: 24px 27px 25px !important;
+  background: var(--nurr-panel-soft, #eef3ed) !important;
+  border-radius: 18px !important;
+  z-index: 99990 !important;
+  box-shadow: 0 24px 72px rgba(10,5,64,0.18) !important;
+  border: 0 !important;
+
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+.color-wheel-surface {
+  position: relative !important;
+  height: 142px !important;
+  border-radius: 32px !important;
+  overflow: hidden !important;
+  cursor: none !important;
+  border: 0 !important;
+  touch-action: none !important;
+  background:
+    linear-gradient(to bottom, rgba(255,255,255,1) 0%, rgba(255,255,255,0.72) 9%, rgba(255,255,255,0) 29%, rgba(0,0,0,0) 58%, rgba(0,0,0,0.95) 100%),
+    linear-gradient(to right, #ff2b2b 0%, #ff8e1f 9%, #ffe436 18%, #57f04d 31%, #00d9a6 43%, #13c9ff 56%, #2261ff 68%, #7a41ff 80%, #ff4fe9 91%, #ff2b2b 100%) !important;
+}
+
+.color-wheel-surface::after {
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 !important;
+  pointer-events: none !important;
+  background: linear-gradient(to right, rgba(255,255,255,0.52), rgba(255,255,255,0) 18%, rgba(0,0,0,0) 74%, rgba(0,0,0,0.32)) !important;
+  mix-blend-mode: soft-light !important;
+}
+
+.color-readout {
+  margin-top: 18px !important;
+  border-top: 1px solid rgba(10,5,64,0.28) !important;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  color: #101010 !important;
+}
+
+.color-readout div {
+  display: flex !important;
+  gap: 10px !important;
+  padding: 7px 0 !important;
+  border-bottom: 1px solid rgba(10,5,64,0.28) !important;
+  font-size: 13px !important;
+  letter-spacing: 0.01em !important;
+  white-space: nowrap !important;
+}
+
+.color-readout span:first-child {
+  width: 52px !important;
+  font-weight: 500 !important;
+}
+
+.color-readout strong {
+  font-weight: 400 !important;
+}
+
+.eyedropper-follow {
+  position: fixed !important;
+  z-index: 99999 !important;
+  width: 54px !important;
+  height: 54px !important;
+  transform: translate3d(-27px, -27px, 0) !important;
+  pointer-events: none !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  will-change: left, top !important;
+}
+
+.eyedropper-follow svg {
+  width: 28px !important;
+  height: 28px !important;
+  color: #050505 !important;
+  filter: drop-shadow(0 1px 2px rgba(255,255,255,0.55)) !important;
+  z-index: 2 !important;
+  transform: translate(3px, -3px) !important;
+}
+
+.eyedropper-color {
+  position: absolute !important;
+  width: 45px !important;
+  height: 45px !important;
+  border-radius: 50% !important;
+  border: 2px solid rgba(255,255,255,0.92) !important;
+  box-shadow: 0 4px 18px rgba(0,0,0,0.24) !important;
+  opacity: 0.96 !important;
+  z-index: 1 !important;
+}
+
+/* Keep swatches clickable and visible */
+.swatch {
+  overflow: visible !important;
+}
+
+.swatch.active {
+  outline: 2px solid var(--nurr-blue, #08015F) !important;
+  outline-offset: 3px !important;
+}
+
+/* Mobile: preserve old behavior but make it fit the viewport. */
+@media (max-width: 820px), (max-height: 650px) {
+  .color-wheel-card {
+    position: fixed !important;
+    left: 50% !important;
+    right: auto !important;
+    top: 50% !important;
+    width: min(88vw, 300px) !important;
+    padding: 18px 20px 20px !important;
+    transform: translate(-50%, -50%) !important;
+    border-radius: 22px !important;
+    z-index: 99990 !important;
+  }
+
+  .color-wheel-surface {
+    height: 140px !important;
+    border-radius: 13px !important;
+  }
+
+  .color-readout div {
+    font-size: 11px !important;
+    padding: 5px 0 !important;
+  }
+
+  .eyedropper-follow {
+    width: 50px !important;
+    height: 50px !important;
+    transform: translate3d(-25px,-25px,0) !important;
+  }
+
+  .eyedropper-color {
+    width: 42px !important;
+    height: 42px !important;
+  }
+
+  .eyedropper-follow svg {
+    width: 26px !important;
+    height: 26px !important;
+  }
+}
+
+
+/* ─── Final white-strip repair ────────────────────────────────────────────── */
+/* The white strip is a native input/upload control rendered at the panel edge.
+   Hide direct panel inputs and all file inputs without touching sliders. */
+
+.panel {
+  overflow: hidden !important;
+  animation: none !important;
+  transform: none !important;
+}
+
+.panel-body {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding-bottom: 22px !important;
+}
+
+.panel > input,
+.panel > textarea,
+.panel > select,
+.panel > button:not(.icon-btn):not(.btn),
+.panel-body > input:not([type="range"]):not([type="color"]):not([type="text"]):not([type="search"]),
+.panel-body > textarea,
+.panel-body > select,
+input[type="file"],
+.panel input[type="file"],
+.panel-body input[type="file"] {
+  display: none !important;
+  position: fixed !important;
+  left: -100vw !important;
+  top: -100vh !important;
+  width: 1px !important;
+  height: 1px !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+}
+
+.panel::before,
+.panel::after,
+.panel-body::before,
+.panel-body::after {
+  content: none !important;
+  display: none !important;
+}
+
+/* Keep the picker above the clipped panel. */
+.color-wheel-card,
+.eyedropper-follow {
+  position: fixed !important;
+  z-index: 999999 !important;
+}
+
+/* Keep all presets visible; panel scrolls instead of clipping swatches. */
+.presets-section .palette-grid,
+.palette-grid {
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+
+/* ─── Editable color inputs (HEX / RGB / CMYK) ──────────────────────────────
+   These styles were previously in color-picker-input-fix.css (not loaded).
+   Absorbed here so no index.html change is needed.
+   The .color-readout rows now contain a <span> label + <input.color-input>.     */
+
+/* Row layout: label left, input right */
+.color-readout div {
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+/* The editable inputs — force-visible, override any stray panel hide rules */
+input.color-input {
+  display:    block  !important;
+  position:   static !important;
+  left:  auto !important;
+  top:   auto !important;
+  flex:  1 1 auto !important;
+  min-width: 0 !important;
+  width: auto !important;
+  height: 22px !important;
+  padding: 0 8px !important;
+  margin: 0 !important;
+
+  background:  rgba(255,255,255,0.30) !important;
+  border:      1px solid rgba(10,5,64,0.18) !important;
+  border-radius: 4px !important;
+
+  color:          #101010 !important;
+  font-family:    "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  font-size:      11px !important;
+  font-weight:    400 !important;
+  letter-spacing: 0.01em !important;
+  font-variant-numeric: tabular-nums !important;
+
+  outline:     none !important;
+  box-shadow:  none !important;
+  opacity:     1 !important;
+  visibility:  visible !important;
+  pointer-events: auto !important;
+  cursor:      text !important;
+
+  appearance: none !important;
+  -webkit-appearance: none !important;
+}
+
+input.color-input:focus {
+  border-color: rgba(10,5,64,0.46) !important;
+  background:   rgba(255,255,255,0.60) !important;
+  outline: none !important;
+}
+
+/* Hint line below readout */
+.color-readout-hint {
+  margin-top:     9px !important;
+  font-family:    "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  font-size:      9px !important;
+  letter-spacing: 0.07em !important;
+  text-transform: uppercase !important;
+  color:          rgba(10,5,64,0.38) !important;
+  text-align:     center !important;
+  pointer-events: none !important;
+  user-select:    none !important;
+}
+
+/* Eyedropper: stabilise position transform */
+.eyedropper-follow {
+  transform: translate3d(-27px,-27px,0) !important;
+  will-change: left, top !important;
+  backface-visibility: hidden !important;
+  -webkit-backface-visibility: hidden !important;
+}

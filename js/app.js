@@ -48,6 +48,7 @@ function App() {
   const [geometricTweaks, setGeometricTweaks] = useState(window.GEOMETRIC_DEFAULTS);
   const [natureTweaks,    setNatureTweaks]    = useState(window.NATURE_DEFAULTS);
   const [abstractTweaks,  setAbstractTweaks]  = useState(window.ABSTRACT_DEFAULTS);
+  const [paletteTweaks,   setPaletteTweaks]   = useState(window.PALETTE_DEFAULTS);
 
   // ── Nature / photo state ──
   // Start empty — no phantom './nature/01.jpg' path.
@@ -75,7 +76,7 @@ function App() {
   const [history, setHistory] = useState([]);
   const suppressHistory = useRef(false);
 
-  const currentState = () => ({ mode, gradientTweaks, geometricTweaks, natureTweaks, abstractTweaks, currentImg });
+  const currentState = () => ({ mode, gradientTweaks, geometricTweaks, natureTweaks, abstractTweaks, paletteTweaks, currentImg });
   const pushHistory = () => {
     if (suppressHistory.current) return;
     setHistory(h => [...h.slice(-9), currentState()]);
@@ -86,6 +87,7 @@ function App() {
   const patchGeometric = (p) => { pushHistory(); setGeometricTweaks(s => ({ ...s, ...p })); };
   const patchNature    = (p) => { pushHistory(); setNatureTweaks(s    => ({ ...s, ...p })); };
   const patchAbstract  = (p) => { pushHistory(); setAbstractTweaks(s  => ({ ...s, ...p })); };
+  const patchPalette   = (p) => { pushHistory(); setPaletteTweaks(s   => ({ ...s, ...p })); };
 
   const undo = () => {
     setHistory(h => {
@@ -97,6 +99,7 @@ function App() {
       setGeometricTweaks(prev.geometricTweaks);
       setNatureTweaks(prev.natureTweaks);
       setAbstractTweaks(prev.abstractTweaks);
+      if (prev.paletteTweaks) setPaletteTweaks(prev.paletteTweaks);
       if (prev.currentImg != null) setCurrentImg(prev.currentImg);
       setTimeout(() => { suppressHistory.current = false; }, 0);
       return h.slice(0, -1);
@@ -162,6 +165,7 @@ function App() {
       if (e.key === '2') changeMode('geometric');
       if (e.key === '3') changeMode('nature');
       if (e.key === '4') changeMode('abstract');
+      if (e.key === '5') changeMode('palette');
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
       if (e.key === 'h' || e.key === 'H') setCollapsed(c => !c);
     };
@@ -205,6 +209,7 @@ function App() {
     { id: 'geometric', label: 'Geometric', num: 'ii.'  },
     { id: 'nature',    label: 'Photo',     num: 'iii.' },
     { id: 'abstract',  label: 'Abstract',  num: 'iv.'  },
+    { id: 'palette',   label: 'Palette',   num: 'v.'   },
   ];
 
   return (
@@ -225,6 +230,9 @@ function App() {
       )}
       {mode === 'abstract' && (
         <AbstractMode tweaks={abstractTweaks} registerSnapshot={registerSnapshot} mouseRef={mouseRef} />
+      )}
+      {mode === 'palette' && (
+        <PaletteMode tweaks={paletteTweaks} registerSnapshot={registerSnapshot} mouseRef={mouseRef} />
       )}
 
       {/* ── Brand ── */}
@@ -249,7 +257,7 @@ function App() {
       </div>
 
       {/* ── Panel ── */}
-      <div ref={panelRef} className={'panel' + (collapsed ? ' collapsed' : '')} style={panelStyle}>
+      <div ref={panelRef} className={'panel mode-' + mode + (collapsed ? ' collapsed' : '')} style={panelStyle}>
         <div className="panel-header" onMouseDown={onHeaderDown}>
           <div>
             <div className="panel-eyebrow">WALLPAPER STUDIO</div>
@@ -287,6 +295,7 @@ function App() {
                 onFiles={onFiles} />
             )}
             {mode === 'abstract'  && <AbstractControls  tweaks={abstractTweaks}  setTweaks={patchAbstract}  />}
+            {mode === 'palette'   && <PaletteControls   tweaks={paletteTweaks}   setTweaks={patchPalette}   />}
 
             <div className="btn-row" style={{ marginTop: 18 }}>
               <button className="btn primary btn-italic" onClick={doSnapshot} title="Download 3840×2160 PNG">
