@@ -6,7 +6,7 @@
 <title>NURR — Wallpaper Studio</title>
 
 <link rel="stylesheet" href="https://use.typekit.net/uib5hvg.css" />
-<link rel="stylesheet" href="css/base.css?v=support-button-2" />
+<link rel="stylesheet" href="css/base.css?v=support-strip-1" />
 <link rel="stylesheet" href="css/mobile.css?v=ripple-strip-1" />
 <link rel="stylesheet" href="css/color-picker-working.css?v=low-lag-picker-1" />
 <link rel="stylesheet" href="css/palette-mode.css?v=palette-mix-1" />
@@ -30,35 +30,16 @@
   <script type="text/babel" src="js/app.js?v=palette-mix-1"></script>
   <script src="js/mobile.js?v=1"></script>
 
-<script src="https://storage.ko-fi.com/cdn/scripts/overlay-widget.js"></script>
 
-<script>
-  kofiWidgetOverlay.draw('kasstuleb', {
-    type: 'floating-chat',
-    'floating-chat.donateButton.text': 'Support me',
-    'floating-chat.donateButton.background-color': '#ff38b8',
-    'floating-chat.donateButton.text-color': '#fff'
-  });
-</script>
-
-<style>
-  /* Ko-fi widget — top right, visually opposite NURR */
-  .floatingchat-container-wrap {
-    top: 24px !important;
-    right: 34px !important;
-    bottom: auto !important;
-    left: auto !important;
-    z-index: 99999 !important;
-  }
-
-  @media (max-width: 820px) {
-    .floatingchat-container-wrap {
-      top: 14px !important;
-      right: 14px !important;
-      bottom: auto !important;
-      left: auto !important;
-    }
-  }
-  </style>
 </body>
+<div class="nurr-support-strip">
+  <span>NURR is independent.</span>
+  <a
+    href="https://ko-fi.com/kasstuleb"
+    target="_blank"
+    rel="noopener noreferrer"
+  >
+    Support me
+  </a>
+</div>
 </html>
