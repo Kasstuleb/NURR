@@ -30,7 +30,6 @@
   <script type="text/babel" src="js/app.js?v=palette-mix-1"></script>
   <script src="js/mobile.js?v=1"></script>
 
-  <script src='https://storage.ko-fi.com/cdn/scripts/overlay-widget.js'></script>
 <script>
   kofiWidgetOverlay.draw('kasstuleb', {
     'type': 'floating-chat',
@@ -39,6 +38,22 @@
     'floating-chat.donateButton.text-color': '#fff'
   });
 </script>
+
+<style>
+  /* Ko-fi floating button position */
+  .floatingchat-container-wrap {
+    bottom: 8px !important;
+    left: 110px !important;
+    z-index: 99999 !important;
+  }
+
+  @media (max-width: 820px) {
+    .floatingchat-container-wrap {
+      left: 14px !important;
+      bottom: 12px !important;
+    }
+  }
+</style>
 
 </body>
 </html>
