@@ -725,8 +725,9 @@ input[type="file"],
   max-height: none !important;
   overflow: visible !important;
 }
+
 /* ─────────────────────────────────────────────
-   NURR support footer strip
+   NURR support footer strip + Ko-fi modal
    ───────────────────────────────────────────── */
 
 .nurr-support-strip {
@@ -780,76 +781,64 @@ input[type="file"],
 .nurr-support-strip button:hover {
   background: #141414;
 }
-/* ─────────────────────────────────────────────
-   Mobile bottom layout repair
-   support strip + mode menu + panel
-   ───────────────────────────────────────────── */
 
-@media (max-width: 820px) {
-  :root {
-    --nurr-support-height: 44px;
-    --nurr-mobile-rail-height: 56px;
-    --nurr-bottom-safe: calc(var(--nurr-support-height) + var(--nurr-mobile-rail-height));
-  }
-
-  .nurr-support-strip {
-    height: var(--nurr-support-height);
-    bottom: 0;
-
-    justify-content: space-between;
-    padding: 0 16px;
-  }
-
-  .nurr-support-strip span {
-    font-size: 10px;
-  }
-
-  .nurr-support-strip button {
-    height: 30px;
-    padding: 0 14px;
-    font-size: 11px;
-  }
-
-  /* Bottom mode menu sits above support strip */
-  .rail {
-    position: fixed !important;
-    left: 0 !important;
-    right: 0 !important;
-    bottom: var(--nurr-support-height) !important;
-    z-index: 9998 !important;
-
-    height: var(--nurr-mobile-rail-height) !important;
-  }
-
-  .rail-group {
-    height: 100% !important;
-    align-items: center !important;
-  }
-
-  /* Panel stops above the bottom menu + support strip */
-  .panel {
-    bottom: var(--nurr-bottom-safe) !important;
-    max-height: calc(100vh - 112px - var(--nurr-bottom-safe)) !important;
-  }
-
-  .panel-body {
-    padding-bottom: 96px !important;
-  }
-
-  /* Save/export button must remain reachable */
-  .save-btn,
-  .download-btn,
-  .panel .btn.primary,
-  .panel button[title*="Save"],
-  .panel button[title*="save"] {
-    margin-bottom: 18px !important;
-  }
+/* Ko-fi modal */
+.nurr-kofi-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: none;
 }
 
-@media (max-width: 420px) {
-  .nurr-support-strip span {
-    max-width: 48vw;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
+.nurr-kofi-modal.is-open {
+  display: block;
+}
+
+.nurr-kofi-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(5, 4, 10, 0.58);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.nurr-kofi-window {
+  position: absolute;
+  right: 34px;
+  bottom: 62px;
+
+  width: min(420px, calc(100vw - 32px));
+  height: min(720px, calc(100vh - 96px));
+
+  background: #efeee9;
+  border: 1px solid rgba(5, 5, 5, 0.24);
+  border-radius: 24px;
+  box-shadow: 0 32px 120px rgba(0,0,0,0.36);
+  overflow: hidden;
+}
+
+.nurr-kofi-window iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #f9f9f9;
+}
+
+.nurr-kofi-x {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+
+  width: 34px;
+  height: 34px;
+
+  border: 1px solid rgba(5,5,5,0.18);
+  border-radius: 999px;
+  background: rgba(239,238,233,0.92);
+  color: #050505;
+
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
 }

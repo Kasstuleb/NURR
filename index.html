@@ -6,8 +6,8 @@
 <title>NURR — Wallpaper Studio</title>
 
 <link rel="stylesheet" href="https://use.typekit.net/uib5hvg.css" />
-<link rel="stylesheet" href="css/mobile.css?v=support-footer-strip-2" />
-<link rel="stylesheet" href="css/mobile.css?v=ripple-strip-1" />
+<link rel="stylesheet" href="css/base.css?v=support-layout-fix-1" />
+<link rel="stylesheet" href="css/mobile.css?v=support-layout-fix-1" />
 <link rel="stylesheet" href="css/color-picker-working.css?v=low-lag-picker-1" />
 <link rel="stylesheet" href="css/palette-mode.css?v=palette-mix-1" />
 </head>
@@ -21,59 +21,12 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
   <script src="js/helpers.js?v=1"></script>
-  <script type="text/babel" src="js/palette.js?v=low-lag-picker-1"></script>
-  <script type="text/babel" src="js/gradient.js?v=gradient-freeze-2"></script>
+  <script type="text/babel" src="js/palette.js?v=working-picker-restore-2"></script>
+  <script type="text/babel" src="js/gradient.js?v=grain-assets-2"></script>
   <script type="text/babel" src="js/geometric.js?v=1"></script>
   <script type="text/babel" src="js/nature.js?v=1"></script>
-  <script type="text/babel" src="js/abstract.js?v=abstract-mouse-grain-1"></script>
-  <script type="text/babel" src="js/palette-lab-mode.js?v=1"></script>
-  <script type="text/babel" src="js/app.js?v=palette-mix-1"></script>
+  <script type="text/babel" src="js/abstract.js?v=ripple-strip-1"></script>
+  <script type="text/babel" src="js/app.js?v=1"></script>
   <script src="js/mobile.js?v=1"></script>
-
-  <div class="nurr-support-strip">
-    <span>NURR is independent.</span>
-    <button type="button" id="nurrSupportOpen">Support me</button>
-  </div>
-
-  <div class="nurr-kofi-modal" id="nurrKofiModal" aria-hidden="true">
-    <div class="nurr-kofi-backdrop" id="nurrKofiClose"></div>
-
-    <div class="nurr-kofi-window">
-      <button type="button" class="nurr-kofi-x" id="nurrKofiCloseBtn">×</button>
-
-      <iframe
-        src="https://ko-fi.com/kasstuleb/?hidefeed=true&widget=true&embed=true&preview=true"
-        title="Support NURR on Ko-fi"
-        loading="lazy">
-      </iframe>
-    </div>
-  </div>
-
-  <script>
-    (function () {
-      const openBtn = document.getElementById('nurrSupportOpen');
-      const modal = document.getElementById('nurrKofiModal');
-      const closeBg = document.getElementById('nurrKofiClose');
-      const closeBtn = document.getElementById('nurrKofiCloseBtn');
-
-      function openModal() {
-        modal.classList.add('is-open');
-        modal.setAttribute('aria-hidden', 'false');
-      }
-
-      function closeModal() {
-        modal.classList.remove('is-open');
-        modal.setAttribute('aria-hidden', 'true');
-      }
-
-      openBtn && openBtn.addEventListener('click', openModal);
-      closeBg && closeBg.addEventListener('click', closeModal);
-      closeBtn && closeBtn.addEventListener('click', closeModal);
-
-      window.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') closeModal();
-      });
-    }());
-  </script>
 </body>
 </html>
