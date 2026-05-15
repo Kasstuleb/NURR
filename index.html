@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="css/base.css?v=support-layout-fix-1" />
 <link rel="stylesheet" href="css/mobile.css?v=support-layout-fix-1" />
 <link rel="stylesheet" href="css/color-picker-working.css?v=low-lag-picker-1" />
-<link rel="stylesheet" href="css/palette-mode.css?v=palette-mix-1" />
+<link rel="stylesheet" href="css/palette-mode.css?v=palette-footer-fix-1" />
 </head>
 
 <body>
@@ -30,52 +30,61 @@
   <script type="text/babel" src="js/app.js?v=palette-mix-1"></script>
   <script src="js/mobile.js?v=1"></script>
 
-  <div class="nurr-support-strip">
-    <span>NURR is independent.</span>
-    <button type="button" id="nurrSupportOpen">Support me</button>
+<div class="nurr-support-strip">
+  <span>NURR is independent.</span>
+  <a
+    href="https://ko-fi.com/kasstuleb"
+    target="_blank"
+    rel="noopener noreferrer"
+    id="nurrSupportOpen"
+  >
+    Support me
+  </a>
+</div>
+
+<div class="nurr-kofi-modal" id="nurrKofiModal" aria-hidden="true">
+  <button type="button" class="nurr-kofi-backdrop" id="nurrKofiClose" aria-label="Close support window"></button>
+
+  <div class="nurr-kofi-window">
+    <button type="button" class="nurr-kofi-x" id="nurrKofiCloseBtn">×</button>
+
+    <iframe
+      src="https://ko-fi.com/kasstuleb/?hidefeed=true&widget=true&embed=true&preview=true"
+      title="Support NURR on Ko-fi"
+      loading="lazy">
+    </iframe>
   </div>
+</div>
+<script>
+  window.addEventListener('DOMContentLoaded', function () {
+    const openBtn = document.getElementById('nurrSupportOpen');
+    const modal = document.getElementById('nurrKofiModal');
+    const closeBg = document.getElementById('nurrKofiClose');
+    const closeBtn = document.getElementById('nurrKofiCloseBtn');
 
-  <div class="nurr-kofi-modal" id="nurrKofiModal" aria-hidden="true">
-    <div class="nurr-kofi-backdrop" id="nurrKofiClose"></div>
+    function openModal(event) {
+      if (!modal) return;
+      event.preventDefault();
+      modal.classList.add('is-open');
+      modal.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('nurr-modal-open');
+    }
 
-    <div class="nurr-kofi-window">
-      <button type="button" class="nurr-kofi-x" id="nurrKofiCloseBtn">×</button>
+    function closeModal() {
+      if (!modal) return;
+      modal.classList.remove('is-open');
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('nurr-modal-open');
+    }
 
-      <iframe
-        src="https://ko-fi.com/kasstuleb/?hidefeed=true&widget=true&embed=true&preview=true"
-        title="Support NURR on Ko-fi"
-        loading="lazy">
-      </iframe>
-    </div>
-  </div>
+    openBtn && openBtn.addEventListener('click', openModal);
+    closeBg && closeBg.addEventListener('click', closeModal);
+    closeBtn && closeBtn.addEventListener('click', closeModal);
 
-  <script>
-    (function () {
-      const openBtn = document.getElementById('nurrSupportOpen');
-      const modal = document.getElementById('nurrKofiModal');
-      const closeBg = document.getElementById('nurrKofiClose');
-      const closeBtn = document.getElementById('nurrKofiCloseBtn');
-
-      function openModal() {
-        if (!modal) return;
-        modal.classList.add('is-open');
-        modal.setAttribute('aria-hidden', 'false');
-      }
-
-      function closeModal() {
-        if (!modal) return;
-        modal.classList.remove('is-open');
-        modal.setAttribute('aria-hidden', 'true');
-      }
-
-      openBtn && openBtn.addEventListener('click', openModal);
-      closeBg && closeBg.addEventListener('click', closeModal);
-      closeBtn && closeBtn.addEventListener('click', closeModal);
-
-      window.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') closeModal();
-      });
-    }());
-  </script>
+    window.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closeModal();
+    });
+  });
+</script>
 </body>
 </html>

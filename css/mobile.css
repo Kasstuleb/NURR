@@ -249,8 +249,10 @@
     -webkit-appearance: none !important;
   }
 }
+
 /* ─────────────────────────────────────────────
-   Mobile footer + mode menu repair
+   Support footer mobile layout fix
+   Must stay at the absolute bottom of mobile.css.
    ───────────────────────────────────────────── */
 
 @media (max-width: 820px), (max-height: 650px) {
@@ -264,31 +266,28 @@
   }
 
   .nurr-support-strip {
-    height: var(--nurr-support-height);
-    bottom: 0;
-
-    justify-content: space-between;
-    padding: 0 16px;
+    height: var(--nurr-support-height) !important;
+    bottom: 0 !important;
+    justify-content: space-between !important;
+    padding: 0 16px !important;
   }
 
   .nurr-support-strip span {
-    font-size: 10px;
+    font-size: 10px !important;
   }
 
-  .nurr-support-strip button {
-    height: 30px;
-    padding: 0 14px;
-    font-size: 11px;
+  .nurr-support-strip a {
+    height: 30px !important;
+    padding: 0 14px !important;
+    font-size: 11px !important;
   }
 
-  /* Mobile mode menu sits at the bottom of the app area,
-     not over the support footer */
+  /* Mode menu sits above the support strip. */
   .rail {
     position: fixed !important;
     left: 0 !important;
     right: 0 !important;
     bottom: var(--nurr-support-height) !important;
-
     height: var(--nurr-mobile-rail-height) !important;
     z-index: 9998 !important;
   }
@@ -298,28 +297,36 @@
     align-items: center !important;
   }
 
-  /* Panel stops above mode menu + support strip */
+  /* Panel stops above mode menu + support footer. */
   .panel {
     bottom: calc(var(--nurr-support-height) + var(--nurr-mobile-rail-height)) !important;
-    max-height: calc(
-      100svh - 112px - var(--nurr-support-height) - var(--nurr-mobile-rail-height)
-    ) !important;
+    max-height: calc(100svh - 112px - var(--nurr-support-height) - var(--nurr-mobile-rail-height)) !important;
   }
 
   .panel-body {
-    padding-bottom: 120px !important;
+    padding-bottom: 140px !important;
   }
 
   .collection-drawer,
   .snapshot-toast {
     bottom: calc(var(--nurr-support-height) + var(--nurr-mobile-rail-height) + 14px) !important;
   }
+
+  .nurr-kofi-window {
+    left: 12px !important;
+    right: 12px !important;
+    top: 72px !important;
+    bottom: calc(var(--nurr-support-height) + 12px) !important;
+    width: auto !important;
+    height: auto !important;
+    border-radius: 22px !important;
+  }
 }
 
 @media (max-width: 420px) {
   .nurr-support-strip span {
-    max-width: 48vw;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    max-width: 48vw !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
   }
 }

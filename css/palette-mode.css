@@ -443,7 +443,8 @@
 
 .panel.mode-palette {
   width: min(600px, calc(100vw - 48px)) !important;
-  max-height: calc(100vh - 88px) !important;
+  max-height: calc(100vh - 80px - var(--nurr-support-height, 46px) - 18px) !important;
+  max-height: calc(100svh - 80px - var(--nurr-support-height, 46px) - 18px) !important;
   top: 80px !important;
 }
 
@@ -575,16 +576,20 @@
   }
 }
 /* ─────────────────────────────────────────────
-   Palette mode mobile scroll repair
+   Palette mode footer-aware mobile repair
+   Keeps Palette controls above the bottom mode rail + support footer.
    ───────────────────────────────────────────── */
 
-@media (max-width: 820px) {
+@media (max-width: 820px), (max-height: 650px) {
   .panel.mode-palette {
     position: fixed !important;
     top: 108px !important;
     left: 12px !important;
     right: 12px !important;
-    bottom: 96px !important;
+    bottom: calc(
+      var(--nurr-support-height, 44px) +
+      var(--nurr-mobile-rail-height, 56px)
+    ) !important;
 
     width: auto !important;
     max-height: none !important;
@@ -600,6 +605,24 @@
     overflow-x: hidden !important;
 
     -webkit-overflow-scrolling: touch !important;
-    padding-bottom: 140px !important;
+    padding-bottom: 156px !important;
+  }
+
+  .panel.mode-palette .nurr-palette-export,
+  .panel.mode-palette .nurr-palette-values,
+  .panel.mode-palette .nurr-palette-related {
+    scroll-margin-bottom: 156px !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .panel.mode-palette {
+    top: 96px !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: calc(
+      var(--nurr-support-height, 44px) +
+      var(--nurr-mobile-rail-height, 56px)
+    ) !important;
   }
 }
