@@ -626,3 +626,24 @@
     ) !important;
   }
 }
+/* ─────────────────────────────────────────────
+   Palette mobile collapse repair
+   The generic mobile drawer uses body.mobile-panel-open.
+   The React arrow uses .panel.collapsed.
+   This makes the arrow win in Palette mode.
+   ───────────────────────────────────────────── */
+
+@media (max-width: 820px), (max-height: 650px) {
+  .panel.mode-palette.collapsed {
+    transform: translateY(calc(100% - 66px)) !important;
+    box-shadow: 0 -20px 60px rgba(0, 0, 0, 0.50) !important;
+  }
+
+  body.mobile-panel-open .panel.mode-palette.collapsed {
+    transform: translateY(calc(100% - 66px)) !important;
+  }
+
+  .panel.mode-palette.collapsed .panel-body {
+    display: none !important;
+  }
+}
