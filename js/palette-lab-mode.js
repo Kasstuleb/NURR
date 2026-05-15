@@ -65,6 +65,59 @@
     return hslToHex(hsl.h,hsl.s,hsl.l);
   }
 
+
+
+  function adjustPaletteColor(hex, index, baseColors, opts){
+    // Slider logic is deterministic:
+    // pigment     0.50 = original saturation, lower = muted, higher = vivid
+    // contrast    0.50 = original lightness spread, lower = flatter, higher = more separation
+    // temperature 0.00 = original hue, negative = cooler, positive = warmer
+    const pigment = clamp(Number(opts && opts.intensity), 0, 1);
+    const contrast = clamp(Number(opts && opts.contrast), 0, 1);
+    const temperature = clamp(Number(opts && opts.temperature), -1, 1);
+    const base = (baseColors || []).map(function(c){ return rgbToHsl(hexToRgb(c)); });
+    const avgL = base.length ? base.reduce(function(sum,c){ return sum + c.l; }, 0) / base.length : 0.5;
+
+    let hsl = rgbToHsl(hexToRgb(hex));
+
+    // Temperature: gentle hue bias only, not a new palette generation.
+    hsl.h += temperature * 18;
+    if (temperature > 0) {
+      // Warm bias pulls slightly toward red/orange while preserving identity.
+      if (hsl.h > 180 && hsl.h < 330) hsl.h += temperature * 6;
+    } else if (temperature < 0) {
+      // Cool bias pulls slightly toward cyan/blue.
+      if (hsl.h < 80 || hsl.h > 300) hsl.h += temperature * 5;
+    }
+
+    // Pigment: saturation only.
+    if (pigment < 0.5) {
+      hsl.s = hsl.s * (pigment / 0.5);
+    } else {
+      hsl.s = hsl.s + (1 - hsl.s) * ((pigment - 0.5) / 0.5);
+    }
+
+    // Contrast: value/lightness range only. 0.5 keeps the original palette.
+    const spread = 0.45 + contrast * 1.35; // 0.45..1.80
+    hsl.l = avgL + (hsl.l - avgL) * spread;
+
+    hsl.s = clamp(hsl.s, 0, 1);
+    hsl.l = clamp(hsl.l, 0.04, 0.96);
+    return hslToHex(hsl.h, hsl.s, hsl.l);
+  }
+
+  function adjustedPaletteFromBase(baseColors, opts){
+    opts = opts || {};
+    return (baseColors || []).map(function(c, i){ return adjustPaletteColor(c, i, baseColors, opts); });
+  }
+
+  function withAdjustedColors(palette, opts){
+    if (!palette) return palette;
+    const base = (palette.baseColors || palette.colors || []).slice();
+    const adjusted = adjustedPaletteFromBase(base, opts || {});
+    return Object.assign({}, palette, { baseColors: base, colors: adjusted });
+  }
+
   function generatePalette(opts){
     opts = opts || {};
     const fam = SEEDS.find(function(f){ return f.id === (opts.family || 'digital-candy'); }) || SEEDS[1];
@@ -74,13 +127,14 @@
     const out = [];
     for(let i=0;i<count;i++){
       let src = ordered[i % ordered.length];
-      let next = mutateColor(src, i, { count:count, personality:personality, intensity:opts.intensity ?? .68, contrast:opts.contrast ?? .58, temperature:opts.temperature ?? 0 });
+      let next = mutateColor(src, i, { count:count, personality:personality, intensity:0.58, contrast:.58, temperature:0 });
       if(i >= ordered.length) next = mix(next, ordered[(i+2)%ordered.length], .28);
       out.push(next);
     }
     if(personality==='soft') out[0]=mix(out[0],'#F4EDE0',.45);
     if(personality==='dark') out[0]=mix(out[0],'#05040A',.55);
-    return { id:'nurr-'+Date.now()+'-'+Math.floor(Math.random()*9999), name:NAMES[Math.floor(Math.random()*NAMES.length)], family:fam, personality:personality, colors:out, created:new Date().toISOString() };
+    const baseColors = out.slice();
+    return { id:'nurr-'+Date.now()+'-'+Math.floor(Math.random()*9999), name:NAMES[Math.floor(Math.random()*NAMES.length)], family:fam, personality:personality, baseColors:baseColors, colors:adjustedPaletteFromBase(baseColors, { intensity:opts.intensity ?? .5, contrast:opts.contrast ?? .5, temperature:opts.temperature ?? 0 }), created:new Date().toISOString() };
   }
 
   function gradientFromPalette(palette){
@@ -188,9 +242,9 @@
   window.NURR_PALETTE_SEEDS = SEEDS;
   window.NURR_PALETTE_ENGINE = ENGINE;
 
-  const DEFAULT_PALETTE = generatePalette({ family:'digital-candy', personality:'electric', count:5, intensity:.68, contrast:.58, temperature:0 });
+  const DEFAULT_PALETTE = generatePalette({ family:'digital-candy', personality:'electric', count:5, intensity:.5, contrast:.5, temperature:0 });
   window.PALETTE_DEFAULTS = {
-    family:'digital-candy', personality:'electric', count:5, intensity:.68, contrast:.58, temperature:0,
+    family:'digital-candy', personality:'electric', count:5, intensity:.5, contrast:.5, temperature:0,
     palette: DEFAULT_PALETTE,
     gradientColors: gradientFromPalette(DEFAULT_PALETTE),
     history: []
@@ -230,7 +284,20 @@
 
     function patch(p){ setTweaks(p); }
     function generateNew(){ patch(patchWithGenerated(st, {})); }
-    function setControl(key, value){ const p={}; p[key]=value; patch(patchWithGenerated(st, p)); }
+    function setControl(key, value){
+      const p={}; p[key]=value;
+      if(key === 'intensity' || key === 'contrast' || key === 'temperature'){
+        const nextSettings = Object.assign({}, st, p);
+        const nextPalette = withAdjustedColors(palette, {
+          intensity: nextSettings.intensity,
+          contrast: nextSettings.contrast,
+          temperature: nextSettings.temperature
+        });
+        patch(Object.assign({}, p, { palette:nextPalette, gradientColors:gradientFromPalette(nextPalette) }));
+        return;
+      }
+      patch(patchWithGenerated(st, p));
+    }
     function setGradientColor(i, value){ const next = gradientColors.slice(); next[i] = normalizeHex(value, next[i]); patch({ gradientColors: next }); }
     function openRelated(p){
       patch({ history: (st.history||[]).concat([{ palette:palette, gradientColors:gradientColors, family:st.family, personality:st.personality, count:st.count, intensity:st.intensity, contrast:st.contrast, temperature:st.temperature }]).slice(-8), palette:p, family:p.family.id, personality:p.personality, gradientColors:gradientFromPalette(p) });
@@ -266,7 +333,7 @@
           {palette.colors.map(function(c,i){return <div key={i}><button className="nurr-palette-swatch" style={{background:c}} title={c}></button><code>{c}</code></div>;})}
         </div>
 
-        {[['count','Color count',2,8,1],['intensity','Intensity',0,1,.01],['contrast','Contrast',0,1,.01],['temperature','Temperature',-1,1,.01]].map(function(row){ const key=row[0], label=row[1]; return (
+        {[['count','Color count',2,8,1],['intensity','Pigment',0,1,.01],['contrast','Contrast',0,1,.01],['temperature','Temperature',-1,1,.01]].map(function(row){ const key=row[0], label=row[1]; return (
           <div className="section" key={key}>
             <div className="section-label"><span className="name">{label}</span><span className="value">{key==='count'?st[key]:Math.round((st[key]||0)*100)}</span></div>
             <input className="slider" type="range" min={row[2]} max={row[3]} step={row[4]} value={st[key]} onChange={function(e){ setControl(key, key==='count'?parseInt(e.target.value,10):parseFloat(e.target.value)); }} />
