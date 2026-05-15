@@ -1,0 +1,204 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   gradient.css — scoped polish for the gradient mode panel
+   All rules are prefixed with .mode-gradient so nothing bleeds into other modes.
+   Add to index.html after base.css:
+     <link rel="stylesheet" href="css/gradient.css">
+   ───────────────────────────────────────────────────────────────────────────── */
+
+
+/* ─── Section spacing — breathe a little more than base default ─────────────── */
+
+.mode-gradient .panel-body .section {
+  margin-top: 22px;
+}
+
+.mode-gradient .panel-body .section:first-child {
+  margin-top: 0;
+}
+
+
+/* ─── Section label — value readout gets tabular figures + slightly stronger ─── */
+
+.mode-gradient .section-label .value {
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink-2);
+  letter-spacing: 0.06em;
+}
+
+
+/* ─── Sliders — thicker track, tactile accent thumb on interaction ────────────
+   Track: 3px rounded.
+   Thumb: larger (15px), gains accent fill + halo on :active/:focus.
+   Never using `transition: all` — only exact properties.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.mode-gradient .slider {
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(20, 20, 42, 0.14);
+  margin: 14px 0 6px;
+  cursor: pointer;
+}
+
+.mode-gradient .slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--panel);
+  border: 2px solid var(--ink-2);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.22);
+  cursor: pointer;
+  transition:
+    transform      0.15s var(--ease-out),
+    background     0.15s var(--ease-out),
+    border-color   0.15s var(--ease-out),
+    box-shadow     0.15s var(--ease-out);
+}
+
+.mode-gradient .slider::-moz-range-thumb {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--panel);
+  border: 2px solid var(--ink-2);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.22);
+  cursor: pointer;
+  transition:
+    transform      0.15s var(--ease-out),
+    background     0.15s var(--ease-out),
+    border-color   0.15s var(--ease-out),
+    box-shadow     0.15s var(--ease-out);
+}
+
+/* Hover — thumb scales slightly */
+@media (hover: hover) and (pointer: fine) {
+  .mode-gradient .slider:hover::-webkit-slider-thumb {
+    transform: scale(1.12);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+  }
+  .mode-gradient .slider:hover::-moz-range-thumb {
+    transform: scale(1.12);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+  }
+}
+
+/* Active / focus — thumb turns accent with a soft halo */
+.mode-gradient .slider:active::-webkit-slider-thumb,
+.mode-gradient .slider:focus::-webkit-slider-thumb {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 5px var(--accent-soft),
+    0 1px 4px rgba(0, 0, 0, 0.22);
+  transform: scale(1.18);
+}
+
+.mode-gradient .slider:active::-moz-range-thumb,
+.mode-gradient .slider:focus::-moz-range-thumb {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 5px var(--accent-soft),
+    0 1px 4px rgba(0, 0, 0, 0.22);
+  transform: scale(1.18);
+}
+
+/* Focus outline — keep keyboard navigation visible without the default ring */
+.mode-gradient .slider:focus {
+  outline: none;
+}
+
+.mode-gradient .slider:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: 2px;
+}
+
+
+/* ─── Presets grid — taller cards so color bands read better ─────────────────
+   4-column grid, each card raised from 32px to 42px.
+   Active gets accent border + a faint accent glow.
+   Hover gets a nudge up + ink border.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.mode-gradient .presets-section {
+  margin-top: 24px;
+}
+
+.mode-gradient .palette-grid {
+  gap: 7px;
+}
+
+.mode-gradient .palette-card {
+  height: 42px;
+  border-radius: 5px;
+  overflow: hidden;
+  border: 1.5px solid transparent;
+  padding: 0;
+  transition:
+    transform    0.15s var(--ease-out),
+    border-color 0.15s,
+    box-shadow   0.15s;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mode-gradient .palette-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--ink-dim);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.14);
+  }
+}
+
+.mode-gradient .palette-card:active {
+  transform: scale(0.96);
+}
+
+.mode-gradient .palette-card.active {
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 2px var(--accent-soft),
+    0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+/* Color band spans fill the full card height */
+.mode-gradient .palette-card span {
+  display: block;
+  flex: 1;
+  height: 100%;
+}
+
+
+/* ─── Swatches — active outline aligns with accent system ────────────────────
+   In base.css, active uses --nurr-blue. Override to accent for gradient mode.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.mode-gradient .swatch.active {
+  outline: 2.5px solid var(--accent);
+  outline-offset: 3px;
+}
+
+
+/* ─── Help / freeze hint — styled as a quiet card rather than a bare rule ─────
+   Replaces the plain top-border divider from base.css with a subtle inset card.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.mode-gradient .help.compact-help {
+  background: rgba(20, 20, 42, 0.05);
+  border: 1px solid var(--rule);
+  border-top: 1px solid var(--rule);  /* override base.css border-top rule */
+  border-radius: 8px;
+  padding: 11px 13px;
+  margin-top: 22px;
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--ink-dim);
+}
+
+/* Keyboard shortcut keys inherit the kbd style from base — just tighten spacing */
+.mode-gradient .help.compact-help kbd {
+  font-size: 9px;
+  padding: 1px 4px;
+}
