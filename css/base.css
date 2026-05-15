@@ -726,111 +726,71 @@ input[type="file"],
   overflow: visible !important;
 }
 /* ─────────────────────────────────────────────
-   Buy Me a Coffee button — NURR global support
+   NURR support button
    ───────────────────────────────────────────── */
 
-.bmc-btn-container,
-.bmc-button-container,
-[data-name="bmc-button"] {
-  position: fixed !important;
-  left: 136px !important;
-  bottom: 34px !important;
-  z-index: 9999 !important;
-}
+.nurr-support-btn {
+  position: fixed;
+  left: 136px;
+  bottom: 34px;
+  z-index: 99999;
 
-/* Actual generated BMC button */
-.bmc-btn,
-.bmc-button,
-a.bmc-btn {
-  height: 36px !important;
-  min-width: 164px !important;
-  padding: 0 18px !important;
+  height: 36px;
+  padding: 0 18px;
 
-  border-radius: 8px !important;
-  border: 1px solid rgba(5, 5, 5, 0.82) !important;
-  box-shadow: none !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
 
-  background: #ff93be !important;
-  color: #050505 !important;
+  border-radius: 8px;
+  border: 1px solid rgba(5, 5, 5, 0.82);
+  background: #ff93be;
+  color: #050505;
 
-  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif !important;
-  font-size: 13px !important;
-  font-weight: 800 !important;
-  letter-spacing: -0.01em !important;
-  line-height: 36px !important;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1;
+  text-decoration: none;
 
-  transform: none !important;
+  box-shadow: none;
+  cursor: pointer;
   transition:
     transform 0.18s var(--ease-out, ease),
     background 0.18s var(--ease-out, ease),
-    border-color 0.18s var(--ease-out, ease) !important;
+    border-color 0.18s var(--ease-out, ease);
 }
 
-/* Remove / tame default BMC inner styling */
-.bmc-btn span,
-.bmc-button span,
-a.bmc-btn span {
-  color: #050505 !important;
-  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif !important;
-  font-size: 13px !important;
-  font-weight: 800 !important;
-  letter-spacing: -0.01em !important;
+.nurr-support-btn:hover {
+  background: #ffa8cb;
+  border-color: #050505;
+  transform: translateY(-1px);
 }
 
-.bmc-btn:hover,
-.bmc-button:hover,
-a.bmc-btn:hover {
-  transform: translateY(-1px) !important;
-  background: #ffa8cb !important;
-  border-color: #050505 !important;
-}
-
-/* Keep it away from the side rail on smaller desktop widths */
 @media (max-width: 1180px) {
-  .bmc-btn-container,
-  .bmc-button-container,
-  [data-name="bmc-button"] {
-    left: 96px !important;
-    bottom: 26px !important;
+  .nurr-support-btn {
+    left: 96px;
+    bottom: 26px;
   }
 }
 
-/* Mobile: make it small, fixed, and not in the way */
 @media (max-width: 820px) {
-  .bmc-btn-container,
-  .bmc-button-container,
-  [data-name="bmc-button"] {
-    left: 14px !important;
-    right: auto !important;
-    bottom: 14px !important;
-    z-index: 9999 !important;
-  }
-
-  .bmc-btn,
-  .bmc-button,
-  a.bmc-btn {
-    height: 32px !important;
-    min-width: 0 !important;
-    padding: 0 12px !important;
-    border-radius: 999px !important;
-
-    font-size: 11px !important;
-    line-height: 32px !important;
-  }
-
-  .bmc-btn span,
-  .bmc-button span,
-  a.bmc-btn span {
-    font-size: 11px !important;
+  .nurr-support-btn {
+    left: 14px;
+    bottom: 14px;
+    height: 32px;
+    padding: 0 12px;
+    border-radius: 999px;
+    font-size: 11px;
   }
 }
 
-/* Very small screens: shorten visual weight */
 @media (max-width: 420px) {
-  .bmc-btn,
-  .bmc-button,
-  a.bmc-btn {
-    max-width: 150px !important;
-    overflow: hidden !important;
-    white-space: nowrap !important;
+  .nurr-support-btn {
+    max-width: 150px;
+    overflow: hidden;
+    white-space: nowrap;
   }
+}
