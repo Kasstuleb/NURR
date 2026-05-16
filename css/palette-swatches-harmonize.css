@@ -1,0 +1,206 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   palette-swatches-harmonize.css — small visual patch for Palette mode
+   Add after palette-mode.css. It keeps the existing palette layout, but makes
+   swatches / sliders / preset-like elements feel closer to the gradient facelift.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.mode-palette .section-label .value,
+.panel.mode-palette .section-label .value {
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink-2);
+  letter-spacing: 0.06em;
+}
+
+.mode-palette .slider,
+.panel.mode-palette .slider {
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(20, 20, 42, 0.14);
+  margin: 14px 0 6px;
+  cursor: pointer;
+}
+
+.mode-palette .slider::-webkit-slider-thumb,
+.panel.mode-palette .slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--panel);
+  border: 2px solid var(--ink-2);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.22);
+  cursor: pointer;
+  transition:
+    transform      0.15s var(--ease-out),
+    background     0.15s var(--ease-out),
+    border-color   0.15s var(--ease-out),
+    box-shadow     0.15s var(--ease-out);
+}
+
+.mode-palette .slider::-moz-range-thumb,
+.panel.mode-palette .slider::-moz-range-thumb {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--panel);
+  border: 2px solid var(--ink-2);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.22);
+  cursor: pointer;
+  transition:
+    transform      0.15s var(--ease-out),
+    background     0.15s var(--ease-out),
+    border-color   0.15s var(--ease-out),
+    box-shadow     0.15s var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mode-palette .slider:hover::-webkit-slider-thumb,
+  .panel.mode-palette .slider:hover::-webkit-slider-thumb {
+    transform: scale(1.12);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+  }
+
+  .mode-palette .slider:hover::-moz-range-thumb,
+  .panel.mode-palette .slider:hover::-moz-range-thumb {
+    transform: scale(1.12);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+  }
+}
+
+.mode-palette .slider:active::-webkit-slider-thumb,
+.mode-palette .slider:focus::-webkit-slider-thumb,
+.panel.mode-palette .slider:active::-webkit-slider-thumb,
+.panel.mode-palette .slider:focus::-webkit-slider-thumb {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 5px var(--accent-soft),
+    0 1px 4px rgba(0, 0, 0, 0.22);
+  transform: scale(1.18);
+}
+
+.mode-palette .slider:active::-moz-range-thumb,
+.mode-palette .slider:focus::-moz-range-thumb,
+.panel.mode-palette .slider:active::-moz-range-thumb,
+.panel.mode-palette .slider:focus::-moz-range-thumb {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 5px var(--accent-soft),
+    0 1px 4px rgba(0, 0, 0, 0.22);
+  transform: scale(1.18);
+}
+
+.mode-palette .slider:focus,
+.panel.mode-palette .slider:focus {
+  outline: none;
+}
+
+.mode-palette .slider:focus-visible,
+.panel.mode-palette .slider:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: 2px;
+}
+
+/* Main palette swatches — softer, tactile, same accent logic */
+.panel.mode-palette .nurr-palette-inline-swatches {
+  gap: 14px !important;
+}
+
+.panel.mode-palette .nurr-palette-swatch {
+  border: 0 !important;
+  border-radius: 14px !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.16),
+    inset 0 -2px 8px rgba(0, 0, 0, 0.10),
+    0 1px 4px rgba(0, 0, 0, 0.12) !important;
+  transition:
+    transform 0.15s var(--ease-out),
+    box-shadow 0.15s var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .panel.mode-palette .nurr-palette-swatch:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.18),
+      inset 0 -2px 8px rgba(0, 0, 0, 0.10),
+      0 4px 12px rgba(0, 0, 0, 0.14) !important;
+  }
+}
+
+.panel.mode-palette .nurr-palette-swatch:active {
+  transform: scale(0.96);
+}
+
+/* Mosaic becomes closer to the new softer card system */
+.panel.mode-palette .nurr-palette-mosaic {
+  border-radius: 10px !important;
+  border: 0 !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.10),
+    0 4px 18px rgba(0, 0, 0, 0.10) !important;
+}
+
+/* Gradient preview echoes gradient mode card tactility */
+.panel.mode-palette .nurr-palette-gradient-preview {
+  border-radius: 16px !important;
+  border: 0 !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.12),
+    inset 0 -18px 48px rgba(0, 0, 0, 0.06),
+    0 4px 14px rgba(0, 0, 0, 0.10) !important;
+}
+
+/* Related cards: same lifted hover as preset cards */
+.panel.mode-palette .nurr-palette-related-card {
+  border-radius: 8px !important;
+  border: 1.5px solid transparent !important;
+  background: rgba(255, 255, 255, 0.14) !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08) !important;
+  transition:
+    transform    0.15s var(--ease-out),
+    border-color 0.15s,
+    box-shadow   0.15s;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .panel.mode-palette .nurr-palette-related-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--ink-dim) !important;
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.10),
+      0 4px 12px rgba(0, 0, 0, 0.14) !important;
+  }
+}
+
+.panel.mode-palette .nurr-palette-related-card:active {
+  transform: scale(0.96);
+}
+
+/* Export menu buttons follow the same pill language */
+.panel.mode-palette .nurr-palette-export-menu button {
+  border: 1.5px solid transparent !important;
+  background: rgba(255, 255, 255, 0.18) !important;
+  transition:
+    transform    0.15s var(--ease-out),
+    border-color 0.15s,
+    background   0.15s,
+    box-shadow   0.15s;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .panel.mode-palette .nurr-palette-export-menu button:hover {
+    transform: translateY(-1px);
+    border-color: var(--ink-dim) !important;
+    background: var(--pm-pink, var(--accent-soft)) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12) !important;
+  }
+}
+
+.panel.mode-palette .nurr-palette-export-menu button:active {
+  transform: scale(0.97);
+}

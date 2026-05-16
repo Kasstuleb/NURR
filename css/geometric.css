@@ -1,0 +1,243 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   geometric.css — scoped polish for the geometric mode panel
+   All rules are prefixed with .mode-geometric so nothing bleeds into other modes.
+   Add to index.html after base.css and gradient.css:
+     <link rel="stylesheet" href="css/geometric.css">
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Section rhythm — mirrors gradient.css */
+.mode-geometric .panel-body .section {
+  margin-top: 22px;
+}
+
+.mode-geometric .panel-body .section:first-child {
+  margin-top: 0;
+}
+
+.mode-geometric .section-label .value {
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink-2);
+  letter-spacing: 0.06em;
+}
+
+/* Sliders — same tactile system as gradient mode */
+.mode-geometric .slider {
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(20, 20, 42, 0.14);
+  margin: 14px 0 6px;
+  cursor: pointer;
+}
+
+.mode-geometric .slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--panel);
+  border: 2px solid var(--ink-2);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.22);
+  cursor: pointer;
+  transition:
+    transform      0.15s var(--ease-out),
+    background     0.15s var(--ease-out),
+    border-color   0.15s var(--ease-out),
+    box-shadow     0.15s var(--ease-out);
+}
+
+.mode-geometric .slider::-moz-range-thumb {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--panel);
+  border: 2px solid var(--ink-2);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.22);
+  cursor: pointer;
+  transition:
+    transform      0.15s var(--ease-out),
+    background     0.15s var(--ease-out),
+    border-color   0.15s var(--ease-out),
+    box-shadow     0.15s var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mode-geometric .slider:hover::-webkit-slider-thumb {
+    transform: scale(1.12);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+  }
+
+  .mode-geometric .slider:hover::-moz-range-thumb {
+    transform: scale(1.12);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+  }
+}
+
+.mode-geometric .slider:active::-webkit-slider-thumb,
+.mode-geometric .slider:focus::-webkit-slider-thumb {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 5px var(--accent-soft),
+    0 1px 4px rgba(0, 0, 0, 0.22);
+  transform: scale(1.18);
+}
+
+.mode-geometric .slider:active::-moz-range-thumb,
+.mode-geometric .slider:focus::-moz-range-thumb {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 5px var(--accent-soft),
+    0 1px 4px rgba(0, 0, 0, 0.22);
+  transform: scale(1.18);
+}
+
+.mode-geometric .slider:focus {
+  outline: none;
+}
+
+.mode-geometric .slider:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: 2px;
+}
+
+/* Composition cards — same facelift language as gradient palette cards */
+.mode-geometric .layout-grid {
+  gap: 7px;
+}
+
+.mode-geometric .layout-card {
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1.5px solid transparent;
+  background: rgba(255, 255, 255, 0.20);
+  padding: 0;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  transition:
+    transform    0.15s var(--ease-out),
+    border-color 0.15s,
+    box-shadow   0.15s;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mode-geometric .layout-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--ink-dim);
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.10),
+      0 4px 12px rgba(0, 0, 0, 0.14);
+  }
+}
+
+.mode-geometric .layout-card:active {
+  transform: scale(0.96);
+}
+
+.mode-geometric .layout-card.active {
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 2px var(--accent-soft),
+    0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.mode-geometric .layout-card.active::after {
+  display: none;
+}
+
+.mode-geometric .layout-card svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Color swatches — same active accent system as gradient */
+.mode-geometric .swatches {
+  gap: 12px;
+}
+
+.mode-geometric .swatch {
+  width: 36px;
+  height: 36px;
+  border: 0;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.16),
+    inset 0 -2px 8px rgba(0, 0, 0, 0.10),
+    0 1px 4px rgba(0, 0, 0, 0.12);
+}
+
+.mode-geometric .swatch.active {
+  outline: 2.5px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.mode-geometric .swatch.add {
+  border: 1.5px dashed rgba(20, 20, 42, 0.18);
+  box-shadow: none;
+}
+
+/* Presets grid — aligned with gradient preset treatment */
+.mode-geometric .presets-section {
+  margin-top: 24px;
+}
+
+.mode-geometric .palette-grid {
+  gap: 7px;
+}
+
+.mode-geometric .palette-card {
+  height: 42px;
+  border-radius: 5px;
+  overflow: hidden;
+  border: 1.5px solid transparent;
+  padding: 0;
+  transition:
+    transform    0.15s var(--ease-out),
+    border-color 0.15s,
+    box-shadow   0.15s;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mode-geometric .palette-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--ink-dim);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.14);
+  }
+}
+
+.mode-geometric .palette-card:active {
+  transform: scale(0.96);
+}
+
+.mode-geometric .palette-card.active {
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 2px var(--accent-soft),
+    0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.mode-geometric .palette-card span {
+  display: block;
+  flex: 1;
+  height: 100%;
+}
+
+/* Help card — same quiet card as gradient */
+.mode-geometric .help.compact-help {
+  background: rgba(20, 20, 42, 0.05);
+  border: 1px solid var(--rule);
+  border-top: 1px solid var(--rule);
+  border-radius: 8px;
+  padding: 11px 13px;
+  margin-top: 22px;
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--ink-dim);
+}
+
+.mode-geometric .help.compact-help kbd {
+  font-size: 9px;
+  padding: 1px 4px;
+}

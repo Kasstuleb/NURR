@@ -1,0 +1,855 @@
+/* NURR Palette mode — scoped only. Safe to edit without touching other modes.
+   Mix version: keeps the integrated NURR polish, restores the clearer / more brutal
+   palette-lab scale for swatches, mosaic and values. */
+
+/* Palette mode gets a wider control panel only while this mode is active. */
+.panel.mode-palette {
+  width: min(520px, calc(100vw - 56px));
+  max-height: calc(100vh - 96px);
+  top: 86px;
+}
+
+.panel.mode-palette .panel-body {
+  padding: 18px 26px 26px;
+}
+
+.panel.mode-palette .panel-title {
+  max-width: 280px;
+}
+
+.nurr-palette-stage {
+  background: var(--bg);
+}
+
+.nurr-palette-controls {
+  --pm-rule: rgba(20,20,42,.22);
+  --pm-rule-strong: rgba(20,20,42,.34);
+  --pm-paper-soft: rgba(255,255,255,.18);
+  --pm-pink: #f4cbd7;
+  --pm-ink: var(--ink-2, #14142a);
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  color: var(--pm-ink);
+  min-width: 0;
+}
+
+.nurr-palette-controls * {
+  box-sizing: border-box;
+}
+
+.nurr-palette-topline,
+.nurr-palette-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  min-width: 0;
+}
+
+.nurr-palette-topline {
+  font-size: 9px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  font-weight: 800;
+  color: var(--ink-dim);
+}
+
+.nurr-palette-pill,
+.nurr-palette-back {
+  padding: 7px 13px !important;
+  font-size: 10px !important;
+  min-height: 28px;
+  white-space: nowrap;
+  border-radius: 999px !important;
+  background: var(--pm-pink) !important;
+  border-color: var(--pm-rule) !important;
+}
+
+.nurr-palette-title-row {
+  margin-top: 10px;
+  align-items: flex-end;
+}
+
+.nurr-palette-title {
+  font-size: clamp(38px, 4.2vw, 58px);
+  line-height: .88;
+  letter-spacing: -.075em;
+  font-weight: 900;
+  color: var(--pm-ink);
+  max-width: 340px;
+}
+
+.nurr-palette-name {
+  margin-top: 10px;
+  font-size: 10px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* Large palette object — closer to the standalone lab, but still fits the NURR panel. */
+.nurr-palette-mosaic {
+  margin-top: 22px;
+  display: grid;
+  grid-template-columns: 1.12fr 1.12fr .62fr;
+  grid-template-rows: 150px 102px 102px;
+  overflow: hidden;
+  border-radius: 0;
+  background: var(--pretty-gradient);
+  border: 1px solid rgba(20,20,42,.12);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.10);
+}
+
+.nurr-palette-mosaic > div {
+  padding: 14px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 3px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  line-height: 1.18;
+  overflow: hidden;
+}
+
+.nurr-palette-mosaic > div:first-child { grid-column: 1 / 3; grid-row: 1 / 2; }
+.nurr-palette-mosaic > div:nth-child(2) { grid-column: 1 / 2; grid-row: 2 / 3; }
+.nurr-palette-mosaic > div:nth-child(3) { grid-column: 2 / 3; grid-row: 2 / 3; }
+.nurr-palette-mosaic > div:nth-child(4) { grid-column: 1 / 2; grid-row: 3 / 4; }
+.nurr-palette-mosaic > div:nth-child(5) { grid-column: 2 / 3; grid-row: 3 / 4; }
+.nurr-palette-mosaic-gradient {
+  grid-column: 3 / 4 !important;
+  grid-row: 1 / 4 !important;
+  background: var(--pretty-gradient);
+  color: white;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  font-weight: 900;
+  text-shadow: 0 1px 3px rgba(0,0,0,.28);
+}
+
+.nurr-palette-mosaic b,
+.nurr-palette-mosaic span {
+  display: block;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.nurr-palette-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-top: 24px !important;
+}
+
+.nurr-palette-form-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.nurr-palette-form-grid label span {
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: -.04em;
+}
+
+.nurr-palette-form-grid select {
+  display: block !important;
+  position: static !important;
+  appearance: auto !important;
+  -webkit-appearance: menulist !important;
+  width: 100%;
+  min-width: 0;
+  height: 32px;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: transparent;
+  color: var(--pm-ink);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+/* Larger standalone swatches — but no horizontal blowout. */
+.nurr-palette-inline-swatches {
+  margin-top: 20px;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+
+.nurr-palette-inline-swatches > div {
+  min-width: 0;
+}
+
+.nurr-palette-swatch {
+  width: 100%;
+  aspect-ratio: 1 / .82;
+  min-height: 76px;
+  border: 1px solid rgba(20,20,42,.16);
+  border-radius: 16px;
+  cursor: default;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);
+}
+
+.nurr-palette-inline-swatches code {
+  display: block;
+  margin-top: 9px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  line-height: 1.18;
+  letter-spacing: -.035em;
+  color: var(--pm-ink);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.nurr-palette-gradient-preview {
+  height: 156px;
+  border-radius: 22px;
+  border: 1px solid rgba(20,20,42,.13);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.10);
+  background-size: 165% 165% !important;
+}
+
+.nurr-palette-stop-list {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.nurr-palette-stop {
+  display: grid;
+  grid-template-columns: 26px 34px 1fr;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+
+.nurr-palette-stop span {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid rgba(20,20,42,.16);
+}
+
+.nurr-palette-stop input[type="color"] {
+  display: block !important;
+  position: static !important;
+  width: 34px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid rgba(20,20,42,.18);
+  border-radius: 8px;
+  background: transparent;
+  appearance: auto !important;
+  -webkit-appearance: color-well !important;
+  cursor: pointer;
+}
+
+.nurr-palette-stop input[type="text"] {
+  display: block !important;
+  position: static !important;
+  width: 100%;
+  height: 30px;
+  min-width: 0;
+  border: 1px solid var(--pm-rule);
+  border-radius: 8px;
+  background: rgba(255,255,255,.26);
+  padding: 0 9px;
+  font-size: 11px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  text-transform: uppercase;
+  color: var(--pm-ink);
+}
+
+.nurr-palette-export {
+  position: relative;
+  width: min(240px, 100%);
+  margin-left: auto;
+}
+
+.nurr-palette-export > .btn {
+  width: 100%;
+  border-radius: 999px !important;
+  background: var(--pm-pink) !important;
+  border-color: var(--pm-rule) !important;
+  font-weight: 900 !important;
+}
+
+.nurr-palette-export-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 30;
+  width: min(340px, calc(100vw - 48px));
+  padding: 12px;
+  border-radius: 18px;
+  background: var(--nurr-panel-soft);
+  border: 1px solid rgba(20,20,42,.22);
+  box-shadow: 0 24px 70px rgba(0,0,0,.24);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.nurr-palette-export-menu button {
+  display: block;
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid rgba(20,20,42,.16);
+  border-radius: 999px;
+  background: rgba(255,255,255,.18);
+  color: var(--pm-ink);
+  font-size: 10px;
+  font-weight: 800;
+  text-align: center;
+  cursor: pointer;
+}
+
+.nurr-palette-export-menu button:hover {
+  background: var(--pm-pink);
+}
+
+.nurr-palette-values {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.nurr-palette-value {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 5px;
+  align-items: start;
+  padding-top: 12px;
+  border-top: 1px solid var(--pm-rule);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  line-height: 1.36;
+}
+
+.nurr-palette-value div {
+  width: 100%;
+  height: 58px;
+  border-radius: 13px;
+  border: 1px solid rgba(20,20,42,.14);
+  margin-bottom: 5px;
+}
+
+.nurr-palette-value b {
+  display: block;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 10px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.nurr-palette-value code,
+.nurr-palette-value span {
+  overflow-wrap: anywhere;
+}
+
+.nurr-palette-related {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0,1fr));
+  gap: 12px;
+}
+
+.nurr-palette-related-card {
+  border: 1px solid rgba(20,20,42,.18);
+  background: rgba(255,255,255,.10);
+  border-radius: 0;
+  padding: 7px;
+  cursor: pointer;
+  color: var(--pm-ink);
+  text-align: left;
+}
+
+.nurr-palette-related-card span {
+  display: block;
+  height: 24px;
+}
+
+.nurr-palette-related-card span:first-child { border-radius: 8px 8px 0 0; }
+.nurr-palette-related-card span:nth-child(5) { border-radius: 0 0 8px 8px; }
+
+.nurr-palette-related-card em {
+  display: block;
+  margin-top: 7px;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 900;
+  line-height: 1.05;
+  letter-spacing: -.02em;
+}
+
+@media (max-width: 1180px) {
+  .panel.mode-palette {
+    width: min(470px, calc(100vw - 36px));
+    right: 18px;
+  }
+
+  .nurr-palette-mosaic {
+    grid-template-rows: 130px 92px 92px;
+  }
+
+  .nurr-palette-inline-swatches {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .nurr-palette-swatch { min-height: 62px; border-radius: 13px; }
+  .nurr-palette-inline-swatches code { font-size: 8px; }
+}
+
+@media (max-width: 820px) {
+  .panel.mode-palette {
+    width: calc(100vw - 24px);
+    top: 82px;
+    right: 12px;
+    max-height: calc(100vh - 104px);
+  }
+
+  .panel.mode-palette .panel-body { padding: 16px 18px 22px; }
+  .nurr-palette-title { font-size: 34px; }
+  .nurr-palette-form-grid { grid-template-columns: 1fr; }
+  .nurr-palette-inline-swatches { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .nurr-palette-stop-list { grid-template-columns: 1fr; }
+  .nurr-palette-values { grid-template-columns: 1fr; }
+  .nurr-palette-related { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .nurr-palette-export { width: 100%; }
+  .nurr-palette-export-menu { position: static; width: 100%; margin-top: 10px; }
+}
+
+@media (max-width: 520px) {
+  .nurr-palette-mosaic {
+    grid-template-columns: 1fr 1fr .55fr;
+    grid-template-rows: 112px 82px 82px;
+  }
+  .nurr-palette-mosaic > div { padding: 9px; font-size: 8px; }
+  .nurr-palette-inline-swatches { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Palette panel refinement — larger, cleaner, less outlined
+   Safe: scoped to Palette mode only.
+   ────────────────────────────────────────────────────────────── */
+
+.panel.mode-palette {
+  width: min(600px, calc(100vw - 48px)) !important;
+  max-height: calc(100vh - 80px - var(--nurr-support-height, 46px) - 18px) !important;
+  max-height: calc(100svh - 80px - var(--nurr-support-height, 46px) - 18px) !important;
+  top: 80px !important;
+}
+
+.panel.mode-palette .panel-body {
+  padding: 20px 30px 30px !important;
+}
+
+/* Top row: left family label and Generate button align more intentionally. */
+.nurr-palette-topline {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  align-items: center !important;
+  gap: 20px !important;
+  margin-bottom: 20px !important;
+}
+
+.nurr-palette-topline > span {
+  min-width: 0 !important;
+  letter-spacing: .16em !important;
+}
+
+.nurr-palette-pill,
+.nurr-palette-back {
+  height: 36px !important;
+  min-height: 36px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 22px !important;
+  font-size: 10px !important;
+  letter-spacing: .15em !important;
+  text-transform: uppercase !important;
+}
+
+.nurr-palette-pill {
+  min-width: 190px !important;
+}
+
+/* Title spacing: keeps the strong current look, but gives the mosaic breathing room. */
+.nurr-palette-title-row {
+  margin-top: 8px !important;
+  margin-bottom: 28px !important;
+}
+
+.nurr-palette-title {
+  max-width: none !important;
+  letter-spacing: -.085em !important;
+}
+
+.nurr-palette-name {
+  margin-top: 16px !important;
+}
+
+/* Main palette object: remove the harsh dark outline, preserve structure. */
+.nurr-palette-mosaic {
+  margin-top: 0 !important;
+  border: none !important;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.10) !important;
+}
+
+.nurr-palette-mosaic > div {
+  border: none !important;
+  outline: none !important;
+}
+
+/* Standalone swatches: remove dark outline, make them softer but still tactile. */
+.nurr-palette-swatch {
+  border: none !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,.14),
+    inset 0 -2px 8px rgba(0,0,0,.08) !important;
+}
+
+.nurr-palette-inline-swatches {
+  gap: 16px !important;
+}
+
+.nurr-palette-inline-swatches code {
+  margin-top: 10px !important;
+}
+
+/* Controls: slightly more editorial spacing after swatches. */
+.nurr-palette-inline-swatches + .section {
+  margin-top: 24px !important;
+}
+
+.nurr-palette-form-grid {
+  margin-top: 26px !important;
+}
+
+/* Gradient preview: less boxed, closer to the backdrop feel. */
+.nurr-palette-gradient-preview {
+  border: none !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,.12),
+    inset 0 -18px 48px rgba(0,0,0,.06) !important;
+}
+
+/* Related palettes: clearer hit area, less decorative border noise. */
+.nurr-palette-related-card {
+  border: none !important;
+  background: rgba(255,255,255,.12) !important;
+  box-shadow: inset 0 0 0 1px rgba(20,20,42,.10) !important;
+}
+
+/* Keep the wider panel sane on medium screens. */
+@media (max-width: 1180px) {
+  .panel.mode-palette {
+    width: min(540px, calc(100vw - 36px)) !important;
+    right: 18px !important;
+  }
+}
+
+@media (max-width: 820px) {
+  .panel.mode-palette {
+    width: calc(100vw - 24px) !important;
+    top: 82px !important;
+    right: 12px !important;
+  }
+
+  .nurr-palette-topline {
+    grid-template-columns: 1fr !important;
+    align-items: start !important;
+  }
+
+  .nurr-palette-pill {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+}
+/* ─────────────────────────────────────────────
+   Palette mode footer-aware mobile repair
+   Keeps Palette controls above the bottom mode rail + support footer.
+   ───────────────────────────────────────────── */
+
+@media (max-width: 820px), (max-height: 650px) {
+  .panel.mode-palette {
+    position: fixed !important;
+    top: 108px !important;
+    left: 12px !important;
+    right: 12px !important;
+    bottom: calc(
+      var(--nurr-support-height, 44px) +
+      var(--nurr-mobile-rail-height, 56px)
+    ) !important;
+
+    width: auto !important;
+    max-height: none !important;
+    height: auto !important;
+
+    overflow: hidden !important;
+  }
+
+  .panel.mode-palette .panel-body {
+    height: 100% !important;
+    max-height: none !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+
+    -webkit-overflow-scrolling: touch !important;
+    padding-bottom: 156px !important;
+  }
+
+  .panel.mode-palette .nurr-palette-export,
+  .panel.mode-palette .nurr-palette-values,
+  .panel.mode-palette .nurr-palette-related {
+    scroll-margin-bottom: 156px !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .panel.mode-palette {
+    top: 96px !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: calc(
+      var(--nurr-support-height, 44px) +
+      var(--nurr-mobile-rail-height, 56px)
+    ) !important;
+  }
+}
+/* ─────────────────────────────────────────────
+   Palette mobile collapse repair
+   The generic mobile drawer uses body.mobile-panel-open.
+   The React arrow uses .panel.collapsed.
+   This makes the arrow win in Palette mode.
+   ───────────────────────────────────────────── */
+
+@media (max-width: 820px), (max-height: 650px) {
+  .panel.mode-palette.collapsed {
+    transform: translateY(calc(100% - 66px)) !important;
+    box-shadow: 0 -20px 60px rgba(0, 0, 0, 0.50) !important;
+  }
+
+  body.mobile-panel-open .panel.mode-palette.collapsed {
+    transform: translateY(calc(100% - 66px)) !important;
+  }
+
+  .panel.mode-palette.collapsed .panel-body {
+    display: none !important;
+  }
+}
+/* ─────────────────────────────────────────────────────────────────────────────
+   palette-swatches-harmonize.css — small visual patch for Palette mode
+   Add after palette-mode.css. It keeps the existing palette layout, but makes
+   swatches / sliders / preset-like elements feel closer to the gradient facelift.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.mode-palette .section-label .value,
+.panel.mode-palette .section-label .value {
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink-2);
+  letter-spacing: 0.06em;
+}
+
+.mode-palette .slider,
+.panel.mode-palette .slider {
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(20, 20, 42, 0.14);
+  margin: 14px 0 6px;
+  cursor: pointer;
+}
+
+.mode-palette .slider::-webkit-slider-thumb,
+.panel.mode-palette .slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--panel);
+  border: 2px solid var(--ink-2);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.22);
+  cursor: pointer;
+  transition:
+    transform      0.15s var(--ease-out),
+    background     0.15s var(--ease-out),
+    border-color   0.15s var(--ease-out),
+    box-shadow     0.15s var(--ease-out);
+}
+
+.mode-palette .slider::-moz-range-thumb,
+.panel.mode-palette .slider::-moz-range-thumb {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--panel);
+  border: 2px solid var(--ink-2);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.22);
+  cursor: pointer;
+  transition:
+    transform      0.15s var(--ease-out),
+    background     0.15s var(--ease-out),
+    border-color   0.15s var(--ease-out),
+    box-shadow     0.15s var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mode-palette .slider:hover::-webkit-slider-thumb,
+  .panel.mode-palette .slider:hover::-webkit-slider-thumb {
+    transform: scale(1.12);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+  }
+
+  .mode-palette .slider:hover::-moz-range-thumb,
+  .panel.mode-palette .slider:hover::-moz-range-thumb {
+    transform: scale(1.12);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+  }
+}
+
+.mode-palette .slider:active::-webkit-slider-thumb,
+.mode-palette .slider:focus::-webkit-slider-thumb,
+.panel.mode-palette .slider:active::-webkit-slider-thumb,
+.panel.mode-palette .slider:focus::-webkit-slider-thumb {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 5px var(--accent-soft),
+    0 1px 4px rgba(0, 0, 0, 0.22);
+  transform: scale(1.18);
+}
+
+.mode-palette .slider:active::-moz-range-thumb,
+.mode-palette .slider:focus::-moz-range-thumb,
+.panel.mode-palette .slider:active::-moz-range-thumb,
+.panel.mode-palette .slider:focus::-moz-range-thumb {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 5px var(--accent-soft),
+    0 1px 4px rgba(0, 0, 0, 0.22);
+  transform: scale(1.18);
+}
+
+.mode-palette .slider:focus,
+.panel.mode-palette .slider:focus {
+  outline: none;
+}
+
+.mode-palette .slider:focus-visible,
+.panel.mode-palette .slider:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: 2px;
+}
+
+/* Main palette swatches — softer, tactile, same accent logic */
+.panel.mode-palette .nurr-palette-inline-swatches {
+  gap: 14px !important;
+}
+
+.panel.mode-palette .nurr-palette-swatch {
+  border: 0 !important;
+  border-radius: 14px !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.16),
+    inset 0 -2px 8px rgba(0, 0, 0, 0.10),
+    0 1px 4px rgba(0, 0, 0, 0.12) !important;
+  transition:
+    transform 0.15s var(--ease-out),
+    box-shadow 0.15s var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .panel.mode-palette .nurr-palette-swatch:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.18),
+      inset 0 -2px 8px rgba(0, 0, 0, 0.10),
+      0 4px 12px rgba(0, 0, 0, 0.14) !important;
+  }
+}
+
+.panel.mode-palette .nurr-palette-swatch:active {
+  transform: scale(0.96);
+}
+
+/* Mosaic becomes closer to the new softer card system */
+.panel.mode-palette .nurr-palette-mosaic {
+  border-radius: 10px !important;
+  border: 0 !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.10),
+    0 4px 18px rgba(0, 0, 0, 0.10) !important;
+}
+
+/* Gradient preview echoes gradient mode card tactility */
+.panel.mode-palette .nurr-palette-gradient-preview {
+  border-radius: 16px !important;
+  border: 0 !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.12),
+    inset 0 -18px 48px rgba(0, 0, 0, 0.06),
+    0 4px 14px rgba(0, 0, 0, 0.10) !important;
+}
+
+/* Related cards: same lifted hover as preset cards */
+.panel.mode-palette .nurr-palette-related-card {
+  border-radius: 8px !important;
+  border: 1.5px solid transparent !important;
+  background: rgba(255, 255, 255, 0.14) !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08) !important;
+  transition:
+    transform    0.15s var(--ease-out),
+    border-color 0.15s,
+    box-shadow   0.15s;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .panel.mode-palette .nurr-palette-related-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--ink-dim) !important;
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.10),
+      0 4px 12px rgba(0, 0, 0, 0.14) !important;
+  }
+}
+
+.panel.mode-palette .nurr-palette-related-card:active {
+  transform: scale(0.96);
+}
+
+/* Export menu buttons follow the same pill language */
+.panel.mode-palette .nurr-palette-export-menu button {
+  border: 1.5px solid transparent !important;
+  background: rgba(255, 255, 255, 0.18) !important;
+  transition:
+    transform    0.15s var(--ease-out),
+    border-color 0.15s,
+    background   0.15s,
+    box-shadow   0.15s;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .panel.mode-palette .nurr-palette-export-menu button:hover {
+    transform: translateY(-1px);
+    border-color: var(--ink-dim) !important;
+    background: var(--pm-pink, var(--accent-soft)) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12) !important;
+  }
+}
+
+.panel.mode-palette .nurr-palette-export-menu button:active {
+  transform: scale(0.97);
+}
