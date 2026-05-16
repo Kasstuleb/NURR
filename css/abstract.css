@@ -1,0 +1,297 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   abstract.css — scoped polish for the abstract mode panel
+   Matches the newer Gradient / Geometric control language.
+   Safe: all rules are prefixed with .mode-abstract.
+   Add to index.html after base.css/mobile.css and after gradient/geometric css.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.mode-abstract .panel-body .section {
+  margin-top: 22px;
+}
+
+.mode-abstract .panel-body .section:first-child {
+  margin-top: 0;
+}
+
+.mode-abstract .section-label .value {
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink-2);
+  letter-spacing: 0.06em;
+}
+
+/* Sliders — same tactile system as Gradient / Geometric. */
+.mode-abstract .slider {
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(20, 20, 42, 0.14);
+  margin: 14px 0 6px;
+  cursor: pointer;
+}
+
+.mode-abstract .slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--panel);
+  border: 2px solid var(--ink-2);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.22);
+  cursor: pointer;
+  transition:
+    transform      0.15s var(--ease-out),
+    background     0.15s var(--ease-out),
+    border-color   0.15s var(--ease-out),
+    box-shadow     0.15s var(--ease-out);
+}
+
+.mode-abstract .slider::-moz-range-thumb {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--panel);
+  border: 2px solid var(--ink-2);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.22);
+  cursor: pointer;
+  transition:
+    transform      0.15s var(--ease-out),
+    background     0.15s var(--ease-out),
+    border-color   0.15s var(--ease-out),
+    box-shadow     0.15s var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mode-abstract .slider:hover::-webkit-slider-thumb {
+    transform: scale(1.12);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+  }
+
+  .mode-abstract .slider:hover::-moz-range-thumb {
+    transform: scale(1.12);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+  }
+}
+
+.mode-abstract .slider:active::-webkit-slider-thumb,
+.mode-abstract .slider:focus::-webkit-slider-thumb {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 5px var(--accent-soft),
+    0 1px 4px rgba(0, 0, 0, 0.22);
+  transform: scale(1.18);
+}
+
+.mode-abstract .slider:active::-moz-range-thumb,
+.mode-abstract .slider:focus::-moz-range-thumb {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 5px var(--accent-soft),
+    0 1px 4px rgba(0, 0, 0, 0.22);
+  transform: scale(1.18);
+}
+
+.mode-abstract .slider:focus {
+  outline: none;
+}
+
+.mode-abstract .slider:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: 2px;
+}
+
+/* Standard swatches — used by the shared NurrPaletteEditor. */
+.mode-abstract .swatches,
+.mode-abstract .swatch-row,
+.mode-abstract .color-row {
+  gap: 10px;
+}
+
+.mode-abstract .swatch {
+  border: 0 !important;
+  border-radius: 13px;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.15),
+    inset 0 -2px 8px rgba(0, 0, 0, 0.08),
+    0 2px 8px rgba(0, 0, 0, 0.08);
+  transition:
+    transform 0.15s var(--ease-out),
+    box-shadow 0.15s var(--ease-out),
+    outline-color 0.15s var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mode-abstract .swatch:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.18),
+      inset 0 -2px 8px rgba(0, 0, 0, 0.08),
+      0 5px 14px rgba(0, 0, 0, 0.16);
+  }
+}
+
+.mode-abstract .swatch:active {
+  transform: scale(0.96);
+}
+
+.mode-abstract .swatch.active {
+  outline: 2.5px solid var(--accent) !important;
+  outline-offset: 3px;
+  box-shadow:
+    0 0 0 2px var(--accent-soft),
+    0 4px 12px rgba(0, 0, 0, 0.12),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+}
+
+/* Palette preset cards — same as Gradient cards. */
+.mode-abstract .presets-section {
+  margin-top: 24px;
+}
+
+.mode-abstract .palette-grid {
+  gap: 7px;
+}
+
+.mode-abstract .palette-card {
+  height: 42px;
+  border-radius: 5px;
+  overflow: hidden;
+  border: 1.5px solid transparent;
+  padding: 0;
+  transition:
+    transform    0.15s var(--ease-out),
+    border-color 0.15s,
+    box-shadow   0.15s;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mode-abstract .palette-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--ink-dim);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.14);
+  }
+}
+
+.mode-abstract .palette-card:active {
+  transform: scale(0.96);
+}
+
+.mode-abstract .palette-card.active {
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 2px var(--accent-soft),
+    0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.mode-abstract .palette-card span {
+  display: block;
+  flex: 1;
+  height: 100%;
+}
+
+/* Layout / style cards, if Abstract uses them now or later. */
+.mode-abstract .layout-grid {
+  gap: 8px;
+}
+
+.mode-abstract .layout-card {
+  border-radius: 8px;
+  border: 1.5px solid transparent;
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(20, 20, 42, 0.08);
+  overflow: hidden;
+  transition:
+    transform    0.15s var(--ease-out),
+    border-color 0.15s,
+    box-shadow   0.15s,
+    background   0.15s;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mode-abstract .layout-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--ink-dim);
+    box-shadow:
+      inset 0 0 0 1px rgba(20, 20, 42, 0.08),
+      0 4px 12px rgba(0, 0, 0, 0.14);
+  }
+}
+
+.mode-abstract .layout-card:active {
+  transform: scale(0.96);
+}
+
+.mode-abstract .layout-card.active {
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.18);
+  box-shadow:
+    0 0 0 2px var(--accent-soft),
+    0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.mode-abstract .layout-card svg,
+.mode-abstract .layout-card canvas,
+.mode-abstract .layout-card img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Toggle / button groups often used by Abstract controls. */
+.mode-abstract .toggle-row,
+.mode-abstract .button-row,
+.mode-abstract .pill-row {
+  gap: 8px;
+}
+
+.mode-abstract .toggle,
+.mode-abstract .pill,
+.mode-abstract .mini-btn {
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  color: var(--ink-2);
+  transition:
+    transform 0.15s var(--ease-out),
+    background 0.15s var(--ease-out),
+    border-color 0.15s var(--ease-out),
+    box-shadow 0.15s var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mode-abstract .toggle:hover,
+  .mode-abstract .pill:hover,
+  .mode-abstract .mini-btn:hover {
+    transform: translateY(-1px);
+    border-color: var(--ink-dim);
+  }
+}
+
+.mode-abstract .toggle.active,
+.mode-abstract .pill.active,
+.mode-abstract .mini-btn.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+/* Help card — same quieter card treatment. */
+.mode-abstract .help.compact-help {
+  background: rgba(20, 20, 42, 0.05);
+  border: 1px solid var(--rule);
+  border-top: 1px solid var(--rule);
+  border-radius: 8px;
+  padding: 11px 13px;
+  margin-top: 22px;
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--ink-dim);
+}
+
+.mode-abstract .help.compact-help kbd {
+  font-size: 9px;
+  padding: 1px 4px;
+}
