@@ -422,10 +422,8 @@ function GradientControls({ tweaks, setTweaks }) {
   );
 }
 
-window.GradientMode   = GradientMode;
-window.GradientControls = GradientControls;
 window.GRADIENT_DEFAULTS = {
-  colors:['#08015F','#FC6C3D','#F4C04D','#D9FF1F'],
+  colors:['#08015F','#FC6C3D'],
   grain:0.22,
   flow:1.0,
   spread:0.62,
