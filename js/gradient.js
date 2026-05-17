@@ -17,12 +17,26 @@ function createGradientSingleTriangle(gl, program) {
   const buf = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, buf);
   // One oversized triangle avoids the diagonal seam that can appear between
-  // two fullscreen triangles after Safari/WebGL has been idle.
+  // two fullscreen triangles. The triangle is large enough to cover the full
+  // NDC square in all orientations.
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 3,-1, -1,3]), gl.STATIC_DRAW);
   const loc = gl.getAttribLocation(program, 'a_pos');
   gl.enableVertexAttribArray(loc);
   gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
   return buf;
+}
+
+function initGradientGL(canvas) {
+  const gl = canvas.getContext('webgl', { preserveDrawingBuffer:true, antialias:false });
+  if (!gl) return null;
+  const prog = WP.compileProgram(gl, GRADIENT_VS, GRADIENT_FS);
+  gl.useProgram(prog);
+  gl.disable(gl.BLEND);
+  gl.disable(gl.DEPTH_TEST);
+  gl.disable(gl.CULL_FACE);
+  gl.disable(gl.SCISSOR_TEST);
+  createGradientSingleTriangle(gl, prog);
+  return { gl, prog };
 }
 
 const GRADIENT_FS = `
@@ -198,19 +212,47 @@ function GradientMode({ tweaks, registerSnapshot, mouseRef }) {
     frozenMouse: null
   });
 
+  // ── GL initialisation ────────────────────────────────────────────────────
   gmUE(() => {
     const canvas = canvasRef.current;
-    const gl = canvas.getContext('webgl', { preserveDrawingBuffer:true, antialias:false });
-    if (!gl) return;
-    glRef.current = gl;
-    const prog = WP.compileProgram(gl, GRADIENT_VS, GRADIENT_FS);
-    progRef.current = prog;
-    gl.useProgram(prog);
-    gl.disable(gl.BLEND);
-    gl.disable(gl.DEPTH_TEST);
-    gl.disable(gl.CULL_FACE);
-    gl.disable(gl.SCISSOR_TEST);
-    createGradientSingleTriangle(gl, prog);
+    const result = initGradientGL(canvas);
+    if (!result) return;
+    glRef.current = result.gl;
+    progRef.current = result.prog;
+
+    // ── WebGL context loss / restore ─────────────────────────────────────
+    // Browsers can terminate a WebGL context after extended idle (especially
+    // on mobile / low-power mode). Without handling this the canvas shows a
+    // blank frame with a hard diagonal boundary on restore.
+    const onContextLost = (e) => {
+      e.preventDefault(); // required so the browser will restore the context
+    };
+    const onContextRestored = () => {
+      const res = initGradientGL(canvas);
+      if (!res) return;
+      glRef.current = res.gl;
+      progRef.current = res.prog;
+    };
+    canvas.addEventListener('webglcontextlost', onContextLost, false);
+    canvas.addEventListener('webglcontextrestored', onContextRestored, false);
+
+    // ── Visibility change ─────────────────────────────────────────────────
+    // When the page returns from hidden, force an immediate draw so the first
+    // visible frame is always complete — preventing the partial-triangle seam
+    // that can appear when the compositor resumes before rAF fires.
+    const onVisibility = () => {
+      if (!document.hidden) {
+        const c = canvasRef.current;
+        if (c) drawAt(c.width, c.height);
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      canvas.removeEventListener('webglcontextlost', onContextLost, false);
+      canvas.removeEventListener('webglcontextrestored', onContextRestored, false);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, []);
 
   gmUE(() => {
@@ -236,11 +278,8 @@ function GradientMode({ tweaks, registerSnapshot, mouseRef }) {
       const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
       const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
 
-      // Keep the existing click ripple / pulse as feedback.
       stateRef.current.pulse = 1.0;
 
-      // Click artwork once = freeze at that exact visual point.
-      // Click artwork again = unfreeze and return to live mouse behavior.
       if (stateRef.current.frozen) {
         stateRef.current.frozen = false;
         stateRef.current.frozenMouse = null;
@@ -263,13 +302,19 @@ function GradientMode({ tweaks, registerSnapshot, mouseRef }) {
   const drawAt = (targetW, targetH) => {
     const gl = glRef.current; const prog = progRef.current;
     if (!gl || !prog) return;
+    // Guard against a lost context: isContextLost() returns true after loss.
+    if (gl.isContextLost()) return;
+
     gl.viewport(0, 0, targetW, targetH);
     gl.disable(gl.BLEND);
     gl.disable(gl.DEPTH_TEST);
     gl.disable(gl.CULL_FACE);
     gl.disable(gl.SCISSOR_TEST);
-    gl.clearColor(0, 0, 0, 1);
-    gl.clear(gl.COLOR_BUFFER_BIT);
+
+    // No gl.clear() needed — the oversized single triangle covers every pixel
+    // in the viewport. Clearing would only add a risk of a one-frame flash to
+    // black if compositing races the draw call after an idle period.
+
     const m = stateRef.current.frozen && stateRef.current.frozenMouse
       ? stateRef.current.frozenMouse
       : (mouseRef.current || { x:0.5, y:0.5, chaosX:0.5, chaosY:0.5 });
@@ -291,11 +336,17 @@ function GradientMode({ tweaks, registerSnapshot, mouseRef }) {
       gl.uniform3f(gl.getUniformLocation(prog,`u_color${i}`), r, g, b);
     }
     gl.drawArrays(gl.TRIANGLES, 0, 3);
+    // gl.flush() pushes commands to the GPU immediately, preventing any
+    // partial-draw artefact when the browser compositor reads the buffer.
+    gl.flush();
   };
 
   WP.useAnimationLoop((t, dt) => {
     const canvas = canvasRef.current; if (!canvas) return;
-    stateRef.current.pulse *= Math.exp(-dt*1.4);
+    // Clamp dt to avoid a huge pulse decay on the first frame after the tab
+    // was hidden for a long time (rAF pauses when the tab is not visible).
+    const safeDt = Math.min(dt, 0.1);
+    stateRef.current.pulse *= Math.exp(-safeDt*1.4);
     drawAt(canvas.width, canvas.height);
   });
 
@@ -315,7 +366,6 @@ function GradientMode({ tweaks, registerSnapshot, mouseRef }) {
 function GradientControls({ tweaks, setTweaks }) {
   const setColors = (next) => setTweaks({ colors: next });
   const PaletteEditor = window.NurrPaletteEditor;
-  const GradientPaletteEngine = window.NURR_GRADIENT_PALETTE_ENGINE;
 
   const cleanPresetColors = (palette) => {
     const source = Array.isArray(palette) ? palette : [];
@@ -339,19 +389,6 @@ function GradientControls({ tweaks, setTweaks }) {
     });
   };
 
-  const generateMatchedPalette = () => {
-    const count = Math.max(3, Math.min(4, tweaks.colors.length || 4));
-    if (GradientPaletteEngine && GradientPaletteEngine.randomMatchedPalette) {
-      const colors = cleanPresetColors(GradientPaletteEngine.randomMatchedPalette(count));
-      if (colors.length >= 2) {
-        setTweaks({ colors, spread: Math.max(tweaks.spread ?? 0.62, 0.62) });
-        return;
-      }
-    }
-    const fallback = WP.PALETTE_PRESETS[Math.floor(Math.random() * WP.PALETTE_PRESETS.length)];
-    applyPreset(fallback);
-  };
-
   const activePresetIdx = WP.PALETTE_PRESETS.findIndex(p =>
     p.slice(0, tweaks.colors.length).every((c,i) => c.toLowerCase() === (tweaks.colors[i]||'').toLowerCase())
   );
@@ -365,7 +402,6 @@ function GradientControls({ tweaks, setTweaks }) {
           <span className="name">Presets</span>
           <span className="value">{WP.PALETTE_PRESETS.length}</span>
         </div>
-        <button className="btn primary btn-italic" type="button" onClick={generateMatchedPalette}>Generate matched palette ↻</button>
         <div className="palette-grid">
           {WP.PALETTE_PRESETS.map((p,i) => (
             <button key={i} className={'palette-card'+(i===activePresetIdx?' active':'')}

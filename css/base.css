@@ -98,8 +98,8 @@ body.is-picking-color, body.is-picking-color * { cursor: none !important; }
   z-index: 5; pointer-events: none; text-align: left;
 }
 .corner-mark .big {
-  font-family: 'Instrument Serif', serif; font-style: italic;
-  font-size: 26px; line-height: 1; font-weight: 400;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; font-style: normal;
+  font-size: 26px; line-height: 1; font-weight: 300;
   color: var(--canvas-active);
 }
 .corner-mark .small {
@@ -171,7 +171,7 @@ body.is-picking-color, body.is-picking-color * { cursor: none !important; }
 .panel-header {
   display: flex; align-items: flex-start; justify-content: space-between;
   padding: 22px 22px 18px;
-  min-height: 82px;
+  min-height: 96px;
   border-bottom: 1px solid var(--rule);
   cursor: grab;
   /* No background override — inherits --nurr-panel */
@@ -186,10 +186,10 @@ body.is-picking-color, body.is-picking-color * { cursor: none !important; }
   margin-bottom: 7px;
 }
 .panel-title {
-  font-family: 'Instrument Serif', serif;
-  font-style: italic;
-  font-size: 22px; line-height: 1.02;
-  font-weight: 400; letter-spacing: 0.005em;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-style: normal;
+  font-size: 17px; line-height: 1.18;
+  font-weight: 300; letter-spacing: -0.01em;
   color: var(--nurr-blue);
   max-width: 196px;
 }
@@ -352,7 +352,8 @@ body.is-picking-color, body.is-picking-color * { cursor: none !important; }
   background: var(--ink-2); color: var(--panel); border-color: var(--ink-2);
 }
 .btn-italic {
-  font-family: 'Instrument Serif', serif; font-style: italic;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; font-style: normal;
+  font-weight: 300;
   text-transform: none; letter-spacing: 0; font-size: 16px;
 }
 .compact-row { margin-top: 10px; }
@@ -587,7 +588,7 @@ body.is-picking-color, body.is-picking-color * { cursor: none !important; }
   transform: translateX(-50%) translateY(10px);
   background: rgba(20, 20, 42, 0.96); color: rgba(240, 238, 255, 0.96);
   padding: 12px 24px; border-radius: 999px;
-  font-family: 'Instrument Serif', serif; font-style: italic; font-size: 17px;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; font-style: normal; font-size: 14px;
   box-shadow: 0 16px 48px rgba(0,0,0,0.5); z-index: 20; pointer-events: none;
   opacity: 0;
   transition: opacity 0.28s var(--ease-out), transform 0.28s var(--ease-out);
@@ -608,9 +609,9 @@ body.is-picking-color, body.is-picking-color * { cursor: none !important; }
   border-radius: 18px;
 }
 .placeholder-card h2 {
-  font-family: 'Instrument Serif', serif; font-style: italic;
-  font-size: 30px; font-weight: 400; color: var(--ink-2);
-  margin-bottom: 10px; line-height: 1.05;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; font-style: normal;
+  font-size: 26px; font-weight: 300; color: var(--ink-2);
+  margin-bottom: 10px; line-height: 1.1;
 }
 .placeholder-card p {
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;

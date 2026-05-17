@@ -1,5 +1,6 @@
-// gradient-curated-palettes.js — curated NURR gradient palettes + hidden matched generator
-// Add after helpers.js and before/after gradient.js. Safe: only extends WP.PALETTE_PRESETS.
+// gradient-curated-palettes.js — curated NURR gradient palettes
+// Palettes capped at 4 colors so swatches are honest.
+// Near-duplicate families/palettes removed for cleaner UX.
 
 (function(){
   'use strict';
@@ -9,331 +10,84 @@
     "id": "chaos-vibrant-03",
     "label": "Chaos vibrant 03",
     "palettes": [
-      [
-        "#FD5DCF",
-        "#A51261",
-        "#F3F3F1",
-        "#2E484A",
-        "#ABB5EB"
-      ],
-      [
-        "#FCD12C",
-        "#0381ED",
-        "#FF0C32",
-        "#FF9FF4",
-        "#AF78D1"
-      ],
-      [
-        "#D5D4CF",
-        "#009642",
-        "#CFFA33",
-        "#FE7B01",
-        "#F3F3F1"
-      ],
-      [
-        "#009642",
-        "#F84622",
-        "#FE7B01",
-        "#E916FF",
-        "#072FC0"
-      ],
-      [
-        "#EAEAEA",
-        "#FD5DCF",
-        "#CCC3BA",
-        "#C0CCFC",
-        "#EBFF6C"
-      ]
+      ["#FD5DCF", "#A51261", "#F3F3F1", "#2E484A"],
+      ["#FCD12C", "#0381ED", "#FF0C32", "#FF9FF4"],
+      ["#D5D4CF", "#009642", "#CFFA33", "#FE7B01"],
+      ["#009642", "#F84622", "#FE7B01", "#E916FF"],
+      ["#EAEAEA", "#FD5DCF", "#CCC3BA", "#C0CCFC"]
     ]
   },
   {
     "id": "deep-burn",
     "label": "Deep burn",
     "palettes": [
-      [
-        "#691D29",
-        "#190A13",
-        "#F53522",
-        "#B91F31"
-      ],
-      [
-        "#F3AE39",
-        "#C0011A",
-        "#FCF6B8",
-        "#E75909",
-        "#0A5598"
-      ],
-      [
-        "#55100D",
-        "#D9D9D9",
-        "#DD0200",
-        "#1B0706",
-        "#F54703"
-      ],
-      [
-        "#DD6312",
-        "#7B7673",
-        "#FAF6EA",
-        "#B82816",
-        "#060807"
-      ],
-      [
-        "#F73B2A",
-        "#24050B",
-        "#B71026",
-        "#F7448D",
-        "#240A0B"
-      ]
+      ["#691D29", "#190A13", "#F53522", "#B91F31"],
+      ["#F3AE39", "#C0011A", "#FCF6B8", "#E75909"],
+      ["#55100D", "#D9D9D9", "#DD0200", "#F54703"],
+      ["#DD6312", "#7B7673", "#FAF6EA", "#B82816"],
+      ["#F73B2A", "#24050B", "#B71026", "#F7448D"]
     ]
   },
   {
     "id": "eco-electric-01",
     "label": "Eco Electric 01",
     "palettes": [
-      [
-        "#E3FF9A",
-        "#C2C4B5",
-        "#F6F1E7",
-        "#9DF200"
-      ],
-      [
-        "#D0CECA",
-        "#D3ED18",
-        "#FBC3E6",
-        "#ABB5EB"
-      ],
-      [
-        "#C7CC10",
-        "#4B52EB",
-        "#5E4D3C",
-        "#D1ED40",
-        "#0C2CC3"
-      ],
-      [
-        "#E3FF9A",
-        "#C7CC10",
-        "#D3ED18",
-        "#F6F1E7",
-        "#C2C4B4",
-        "#818166",
-        "#0C2CC3"
-      ],
-      [
-        "#598FFD",
-        "#C7CC10",
-        "#5E4D3C",
-        "#0C2CC3",
-        "#8987EC"
-      ],
-      [
-        "#87A029",
-        "#D3ED18",
-        "#D2DDBF",
-        "#EBFF6C",
-        "#8C4C1C",
-        "#A9A0F9"
-      ]
+      ["#E3FF9A", "#C2C4B5", "#F6F1E7", "#9DF200"],
+      ["#D0CECA", "#D3ED18", "#FBC3E6", "#ABB5EB"],
+      ["#C7CC10", "#4B52EB", "#5E4D3C", "#D1ED40"],
+      ["#598FFD", "#C7CC10", "#5E4D3C", "#0C2CC3"]
     ]
   },
   {
     "id": "night-07",
     "label": "Night 07",
     "palettes": [
-      [
-        "#1E1F24",
-        "#052C45",
-        "#C7C7C5",
-        "#FF1727"
-      ],
-      [
-        "#4F1535",
-        "#1E1F24",
-        "#F84622",
-        "#FF5CCF",
-        "#233940"
-      ],
-      [
-        "#4F1535",
-        "#12291F",
-        "#D0FF01",
-        "#FB1000"
-      ],
-      [
-        "#221337",
-        "#D0CECA",
-        "#D3ED18",
-        "#818166"
-      ],
-      [
-        "#1E011F",
-        "#190013",
-        "#87B2FF",
-        "#E12BA9",
-        "#D80B7A"
-      ]
+      ["#1E1F24", "#052C45", "#C7C7C5", "#FF1727"],
+      ["#4F1535", "#1E1F24", "#F84622", "#FF5CCF"],
+      ["#4F1535", "#12291F", "#D0FF01", "#FB1000"],
+      ["#221337", "#D0CECA", "#D3ED18", "#818166"],
+      ["#1E011F", "#190013", "#87B2FF", "#E12BA9"]
     ]
   },
   {
     "id": "saphire-quartz-06",
     "label": "Saphire Quartz 06",
     "palettes": [
-      [
-        "#081599",
-        "#080317",
-        "#8BCAFF",
-        "#87B2FF",
-        "#1E7AF1"
-      ],
-      [
-        "#C8C693",
-        "#7C679F",
-        "#3F2646",
-        "#34369B",
-        "#24211A"
-      ],
-      [
-        "#1829FD",
-        "#20094F",
-        "#400E45",
-        "#250DD5",
-        "#150218"
-      ],
-      [
-        "#450580",
-        "#A28CFB",
-        "#16021F",
-        "#806EFE",
-        "#1B1FFC"
-      ]
+      ["#081599", "#080317", "#8BCAFF", "#87B2FF"],
+      ["#C8C693", "#7C679F", "#3F2646", "#34369B"],
+      ["#1829FD", "#20094F", "#400E45", "#250DD5"],
+      ["#450580", "#A28CFB", "#16021F", "#806EFE"]
     ]
   },
   {
     "id": "vibrant-eclectic-02",
     "label": "Vibrant eclectic 02",
     "palettes": [
-      [
-        "#FD5035",
-        "#1D020E",
-        "#FC87C2",
-        "#2E484A"
-      ],
-      [
-        "#0B5F3D",
-        "#ED2705",
-        "#E80542",
-        "#CB300A",
-        "#081C1B"
-      ],
-      [
-        "#FD5035",
-        "#1D020E",
-        "#FC87C2",
-        "#507176",
-        "#2E484A"
-      ],
-      [
-        "#BC352A",
-        "#514306",
-        "#260F27",
-        "#FD2D78",
-        "#F43B10"
-      ],
-      [
-        "#221337",
-        "#D0CECA",
-        "#0258BB",
-        "#006EE8",
-        "#2C0115",
-        "#79BEB2",
-        "#FDE7B6"
-      ],
-      [
-        "#FB381D",
-        "#9F89F1",
-        "#053D7C",
-        "#2E0008",
-        "#D6B6EC",
-        "#DED0D0",
-        "#5B7374"
-      ],
-      [
-        "#D60C1E",
-        "#DB4630",
-        "#F2BC49",
-        "#A51261",
-        "#ABB5EB",
-        "#DB8307"
-      ],
-      [
-        "#03639E",
-        "#E79C71",
-        "#FBC3E6",
-        "#F2BC49",
-        "#233940",
-        "#DACAC9",
-        "#0B0A25"
-      ]
+      ["#FD5035", "#1D020E", "#FC87C2", "#2E484A"],
+      ["#0B5F3D", "#ED2705", "#E80542", "#CB300A"],
+      ["#BC352A", "#514306", "#260F27", "#FD2D78"],
+      ["#FB381D", "#9F89F1", "#053D7C", "#2E0008"],
+      ["#D60C1E", "#DB4630", "#F2BC49", "#A51261"],
+      ["#03639E", "#E79C71", "#FBC3E6", "#F2BC49"]
     ]
   },
   {
     "id": "earthly-modern-04",
-    "label": "earthly modern 04",
+    "label": "Earthly modern 04",
     "palettes": [
-      [
-        "#EAEAEA",
-        "#4E4B38",
-        "#F04E31",
-        "#CCC3BA",
-        "#1A1500"
-      ],
-      [
-        "#050505",
-        "#C6C0A0",
-        "#F2BC49",
-        "#D1ED40",
-        "#8C8C8C"
-      ],
-      [
-        "#E0D8C3",
-        "#DF2D21",
-        "#1E1F24",
-        "#F2BC49",
-        "#8BA5A4"
-      ],
-      [
-        "#222021",
-        "#598FFD",
-        "#EBF698",
-        "#FF7043",
-        "#AC9D58"
-      ],
-      [
-        "#2460A8",
-        "#711E2A",
-        "#BE690E",
-        "#24231E",
-        "#D9C004"
-      ]
+      ["#EAEAEA", "#4E4B38", "#F04E31", "#CCC3BA"],
+      ["#050505", "#C6C0A0", "#F2BC49", "#D1ED40"],
+      ["#E0D8C3", "#DF2D21", "#1E1F24", "#F2BC49"],
+      ["#222021", "#598FFD", "#EBF698", "#FF7043"],
+      ["#2460A8", "#711E2A", "#BE690E", "#D9C004"]
     ]
   },
   {
     "id": "mineral-05",
-    "label": "mineral 05",
+    "label": "Mineral 05",
     "palettes": [
-      [
-        "#010101",
-        "#60798B",
-        "#B5B198",
-        "#DCD9C8",
-        "#364759"
-      ],
-      [
-        "#050505",
-        "#C6C0A0",
-        "#FAF6EA",
-        "#8C8C8C",
-        "#D9C8C1"
-      ]
+      ["#010101", "#60798B", "#B5B198", "#DCD9C8"],
+      ["#050505", "#C6C0A0", "#FAF6EA", "#8C8C8C"]
     ]
   }
 ];
@@ -385,8 +139,9 @@
   const hiddenPool = [];
   FAMILIES.forEach(f => {
     f.palettes.forEach(p => {
-      const clean = uniquePalette(p).slice(0, 6);
-      if (clean.length >= 3) {
+      // Cap at exactly 4 colours so the swatch is always honest about what the gradient will use.
+      const clean = uniquePalette(p).slice(0, 4);
+      if (clean.length >= 2) {
         visiblePresets.push(clean);
         hiddenPool.push({ family:f.id, label:f.label, colors:clean });
       }
@@ -406,22 +161,6 @@
     });
   }
 
-  function randomMatchedPalette(count){
-    count = clamp(Math.round(count || 4), 2, 4);
-    const family = pick(FAMILIES);
-    const a = pick(family.palettes);
-    const b = pick(family.palettes);
-    const out = [];
-    for (let i=0; i<count; i++) {
-      const ca = a[i % a.length];
-      const cb = b[(i + 1 + Math.floor(Math.random()*Math.max(1,b.length-1))) % b.length];
-      const mixed = mix(ca, cb, .22 + Math.random()*.56);
-      out.push(mutate(mixed, .65));
-    }
-    out[0] = mutate(pick(a), .35);
-    return uniquePalette(out).slice(0,count);
-  }
-
   function randomFromFamily(familyId, count){
     const family = FAMILIES.find(f => f.id === familyId) || pick(FAMILIES);
     const source = pick(family.palettes);
@@ -435,7 +174,6 @@
     visiblePresets,
     hiddenPool,
     installPresets,
-    randomMatchedPalette,
     randomFromFamily
   };
 }());

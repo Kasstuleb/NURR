@@ -51,8 +51,6 @@ function App() {
   const [paletteTweaks,   setPaletteTweaks]   = useState(window.PALETTE_DEFAULTS);
 
   // ── Nature / photo state ──
-  // Start empty — no phantom './nature/01.jpg' path.
-  // Placeholder shows until real images appear (via discovery or drag-drop).
   const [natureImages, setNatureImages] = useState([]);
   const [currentImg,   setCurrentImg]   = useState(null);
 
@@ -62,7 +60,6 @@ function App() {
         setNatureImages(imgs);
         setCurrentImg(imgs[0]);
       }
-      // else: stays empty → placeholder stays visible
     });
   }, []);
 
@@ -212,6 +209,43 @@ function App() {
     { id: 'palette',   label: 'Palette',   num: 'v.'   },
   ];
 
+  // ── Generate new — mode-aware randomisation ──────────────────────────────
+  // Fires when the generate-new icon button in the panel header is clicked.
+  const generateNew = () => {
+    if (mode === 'gradient') {
+      const presets = (window.WP && window.WP.PALETTE_PRESETS) || [];
+      if (presets.length > 0) {
+        const p = presets[Math.floor(Math.random() * presets.length)];
+        patchGradient({ colors: p.slice(0, 4) });
+      }
+    } else if (mode === 'geometric') {
+      patchGeometric({
+        compositionIdx: (geometricTweaks.compositionIdx + 1) % (window.GEOMETRIC_COMPOSITIONS_LEN || 1)
+      });
+    } else if (mode === 'nature') {
+      if (natureImages.length > 1) {
+        const cur = natureImages.indexOf(currentImg);
+        const next = natureImages[(cur + 1) % natureImages.length];
+        pushHistory();
+        setCurrentImg(next);
+      }
+    } else if (mode === 'abstract') {
+      patchAbstract({ seed: Math.random() });
+    } else if (mode === 'palette') {
+      const engine = window.NURR_PALETTE_ENGINE;
+      const seeds  = window.NURR_PALETTE_SEEDS || [];
+      if (engine && seeds.length > 0) {
+        const randFamily = seeds[Math.floor(Math.random() * seeds.length)].id;
+        const newPalette = engine.generatePalette({ ...paletteTweaks, family: randFamily });
+        patchPalette({
+          family: randFamily,
+          palette: newPalette,
+          gradientColors: engine.gradientFromPalette(newPalette)
+        });
+      }
+    }
+  };
+
   return (
     <>
       {/* ── Stage canvases ── */}
@@ -224,7 +258,6 @@ function App() {
       {mode === 'nature' && (
         <>
           <NatureMode tweaks={natureTweaks} registerSnapshot={registerSnapshot} mouseRef={mouseRef} currentImg={currentImg} />
-          {/* Show placeholder whenever no image is loaded yet */}
           {!currentImg && <NaturePlaceholder onFiles={onFiles} />}
         </>
       )}
@@ -247,7 +280,7 @@ function App() {
             </button>
           ))}
         </div>
-        <div className="rail-foot">— wallpaper studio —</div>
+        <div className="rail-foot">— palette-led background systems —</div>
       </div>
 
       {/* ── Corner mark ── */}
@@ -260,13 +293,21 @@ function App() {
       <div ref={panelRef} className={'panel mode-' + mode + (collapsed ? ' collapsed' : '')} style={panelStyle}>
         <div className="panel-header" onMouseDown={onHeaderDown}>
           <div>
-            <div className="panel-eyebrow">WALLPAPER STUDIO</div>
-            <div className="panel-title">Wallpaper<br/>wizard</div>
+            <div className="panel-eyebrow">NURR</div>
+            <div className="panel-title">Palette-led<br/>background systems</div>
           </div>
           <div className="header-actions">
             <button className="icon-btn" onClick={undo} disabled={!history.length} title="Undo (⌘Z)">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 1 1 0 12h-2"/>
+              </svg>
+            </button>
+            {/* Generate new — picks a fresh result for the current mode */}
+            <button className="icon-btn" onClick={generateNew} title="Generate new">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M23 4v6h-6"/>
+                <path d="M1 20v-6h6"/>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
               </svg>
             </button>
             <button className="icon-btn" onClick={captureCurrent} title="Snapshot to collection">
