@@ -6,15 +6,15 @@
 <title>NURR — Wallpaper Studio</title>
 
 <link rel="stylesheet" href="https://use.typekit.net/uib5hvg.css" />
-<link rel="stylesheet" href="css/base.css?v=footer-frame-final-2" />
-<link rel="stylesheet" href="css/mobile.css?v=footer-frame-final-2" />
-<link rel="stylesheet" href="css/geometric.css">
-<link rel="stylesheet" href="css/gradient.css">
-<link rel="stylesheet" href="css/color-picker-working.css?v=low-lag-picker-1" />
-<link rel="stylesheet" href="css/abstract.css">
-<link rel="stylesheet" href="css/palette-mode.css?v=palette-footer-fix-1" />
-<link rel="stylesheet" href="css/palette-swatches-harmonize.css">
+<link rel="stylesheet" href="css/base.css?v=1" />
+<link rel="stylesheet" href="css/mobile.css?v=1" />
+<link rel="stylesheet" href="css/color-picker-working.css?v=1" />
 
+<link rel="stylesheet" href="css/gradient.css?v=1" />
+<link rel="stylesheet" href="css/geometric.css?v=1" />
+<link rel="stylesheet" href="css/abstract.css?v=1" />
+<link rel="stylesheet" href="css/palette-mode.css?v=1" />
+<link rel="stylesheet" href="css/palette-swatches-harmonize.css?v=1" />
 </head>
 
 <body>
@@ -26,72 +26,72 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
   <script src="js/helpers.js?v=1"></script>
-  <script type="text/babel" src="js/palette.js?v=low-lag-picker-1"></script>
-  <script type="text/babel" src="js/gradient.js?v=gradient-freeze-2"></script>
+  <script type="text/babel" src="js/palette.js?v=1"></script>
+
+  <script src="js/gradient-curated-palettes.js?v=1"></script>
+  <script type="text/babel" src="js/gradient.js?v=2"></script>
+
   <script type="text/babel" src="js/geometric.js?v=1"></script>
   <script type="text/babel" src="js/nature.js?v=1"></script>
-  <script type="text/babel" src="js/abstract.js?v=abstract-mouse-grain-1"></script>
-  <script type="text/babel" src="js/palette-lab-mode.js?v=palette-adjust-2"></script>
-  <script type="text/babel" src="js/app.js?v=palette-mix-1"></script>
-  <script src="js/gradient-curated-palettes.js?v=1"></script>
-  <script type="text/babel" src="js/gradient.js?v=1"></script>
+  <script type="text/babel" src="js/abstract.js?v=1"></script>
+  <script type="text/babel" src="js/palette-lab-mode.js?v=1"></script>
+  <script type="text/babel" src="js/app.js?v=1"></script>
   <script src="js/mobile.js?v=1"></script>
 
   <div class="nurr-support-strip">
-  <span>NURR is independent.</span>
-  <a
-    href="https://ko-fi.com/kasstuleb"
-    target="_blank"
-    rel="noopener noreferrer"
-    id="nurrSupportOpen"
-  >
-    Support me
-  </a>
-</div>
-
-<div class="nurr-kofi-modal" id="nurrKofiModal" aria-hidden="true">
-  <button type="button" class="nurr-kofi-backdrop" id="nurrKofiClose" aria-label="Close support window"></button>
-
-  <div class="nurr-kofi-window">
-    <button type="button" class="nurr-kofi-x" id="nurrKofiCloseBtn" aria-label="Close">×</button>
-
-    <iframe
-      src="https://ko-fi.com/kasstuleb/?hidefeed=true&widget=true&embed=true&preview=true"
-      title="Support NURR on Ko-fi"
-      loading="lazy">
-    </iframe>
+    <span>NURR is independent.</span>
+    <a
+      href="https://ko-fi.com/kasstuleb"
+      target="_blank"
+      rel="noopener noreferrer"
+      id="nurrSupportOpen"
+    >
+      Support me
+    </a>
   </div>
-</div>
 
-<script>
-  window.addEventListener('load', function () {
-    const openBtn = document.getElementById('nurrSupportOpen');
-    const modal = document.getElementById('nurrKofiModal');
-    const closeBg = document.getElementById('nurrKofiClose');
-    const closeBtn = document.getElementById('nurrKofiCloseBtn');
+  <div class="nurr-kofi-modal" id="nurrKofiModal" aria-hidden="true">
+    <button type="button" class="nurr-kofi-backdrop" id="nurrKofiClose" aria-label="Close support window"></button>
 
-    function openModal(event) {
-      if (!modal) return;
-      event.preventDefault();
-      modal.classList.add('is-open');
-      modal.setAttribute('aria-hidden', 'false');
-    }
+    <div class="nurr-kofi-window">
+      <button type="button" class="nurr-kofi-x" id="nurrKofiCloseBtn" aria-label="Close">×</button>
 
-    function closeModal() {
-      if (!modal) return;
-      modal.classList.remove('is-open');
-      modal.setAttribute('aria-hidden', 'true');
-    }
+      <iframe
+        src="https://ko-fi.com/kasstuleb/?hidefeed=true&widget=true&embed=true&preview=true"
+        title="Support NURR on Ko-fi"
+        loading="lazy">
+      </iframe>
+    </div>
+  </div>
 
-    if (openBtn) openBtn.onclick = openModal;
-    if (closeBg) closeBg.onclick = closeModal;
-    if (closeBtn) closeBtn.onclick = closeModal;
+  <script>
+    window.addEventListener('load', function () {
+      const openBtn = document.getElementById('nurrSupportOpen');
+      const modal = document.getElementById('nurrKofiModal');
+      const closeBg = document.getElementById('nurrKofiClose');
+      const closeBtn = document.getElementById('nurrKofiCloseBtn');
 
-    window.addEventListener('keydown', function (event) {
-      if (event.key === 'Escape') closeModal();
+      function openModal(event) {
+        if (!modal) return;
+        event.preventDefault();
+        modal.classList.add('is-open');
+        modal.setAttribute('aria-hidden', 'false');
+      }
+
+      function closeModal() {
+        if (!modal) return;
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden', 'true');
+      }
+
+      if (openBtn) openBtn.onclick = openModal;
+      if (closeBg) closeBg.onclick = closeModal;
+      if (closeBtn) closeBtn.onclick = closeModal;
+
+      window.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') closeModal();
+      });
     });
-  });
-</script>
-
+  </script>
 </body>
 </html>

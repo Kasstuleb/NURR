@@ -1,4 +1,5 @@
 // gradient.js — Mode 1: grainy gradient field with WebGL.
+// NURR patch: curated palette support + color spread + full preset color loading.
 // Exposes: window.GradientMode, window.GradientControls, window.GRADIENT_DEFAULTS
 
 const { useEffect: gmUE, useRef: gmUR, useState: gmUS } = React;
@@ -171,7 +172,7 @@ function GradientMode({ tweaks, registerSnapshot, mouseRef }) {
     gl.uniform1f(gl.getUniformLocation(prog,'u_clickPulse'), stateRef.current.pulse);
     gl.uniform1f(gl.getUniformLocation(prog,'u_grain'), tweaks.grain);
     gl.uniform1f(gl.getUniformLocation(prog,'u_flow'), tweaks.flow);
-    gl.uniform1f(gl.getUniformLocation(prog,'u_spread'), tweaks.spread ?? 0.56);
+    gl.uniform1f(gl.getUniformLocation(prog,'u_spread'), tweaks.spread ?? 0.62);
     gl.uniform1i(gl.getUniformLocation(prog,'u_count'), tweaks.colors.length);
     for (let i=0; i<4; i++) {
       const hex = tweaks.colors[i] || tweaks.colors[tweaks.colors.length-1] || '#000000';
@@ -203,6 +204,40 @@ function GradientMode({ tweaks, registerSnapshot, mouseRef }) {
 function GradientControls({ tweaks, setTweaks }) {
   const setColors = (next) => setTweaks({ colors: next });
   const PaletteEditor = window.NurrPaletteEditor;
+  const GradientPaletteEngine = window.NURR_GRADIENT_PALETTE_ENGINE;
+
+  const cleanPresetColors = (palette) => {
+    const source = Array.isArray(palette) ? palette : [];
+    const unique = [];
+    source.forEach((color) => {
+      const hex = String(color || '').trim().toUpperCase();
+      if (/^#[0-9A-F]{6}$/.test(hex) && unique.indexOf(hex) === -1) unique.push(hex);
+    });
+    return unique.slice(0, 4);
+  };
+
+  const applyPreset = (palette) => {
+    const colors = cleanPresetColors(palette);
+    if (colors.length < 2) return;
+    setTweaks({
+      colors,
+      spread: Math.max(tweaks.spread ?? 0.62, colors.length >= 3 ? 0.62 : 0.48)
+    });
+  };
+
+  const generateMatchedPalette = () => {
+    const count = Math.max(3, Math.min(4, tweaks.colors.length || 4));
+    if (GradientPaletteEngine && GradientPaletteEngine.randomMatchedPalette) {
+      const colors = cleanPresetColors(GradientPaletteEngine.randomMatchedPalette(count));
+      if (colors.length >= 2) {
+        setTweaks({ colors, spread: Math.max(tweaks.spread ?? 0.62, 0.62) });
+        return;
+      }
+    }
+    const fallback = WP.PALETTE_PRESETS[Math.floor(Math.random() * WP.PALETTE_PRESETS.length)];
+    applyPreset(fallback);
+  };
+
   const activePresetIdx = WP.PALETTE_PRESETS.findIndex(p =>
     p.slice(0, tweaks.colors.length).every((c,i) => c.toLowerCase() === (tweaks.colors[i]||'').toLowerCase())
   );
@@ -216,10 +251,11 @@ function GradientControls({ tweaks, setTweaks }) {
           <span className="name">Presets</span>
           <span className="value">{WP.PALETTE_PRESETS.length}</span>
         </div>
+        <button className="btn primary btn-italic" type="button" onClick={generateMatchedPalette}>Generate matched palette ↻</button>
         <div className="palette-grid">
           {WP.PALETTE_PRESETS.map((p,i) => (
             <button key={i} className={'palette-card'+(i===activePresetIdx?' active':'')}
-              onClick={() => setTweaks({colors:p.slice(0,Math.max(2,tweaks.colors.length))})}
+              onClick={() => applyPreset(p)}
               title={p.join(' · ')}>
               {p.map((c,j) => <span key={j} style={{background:c}} />)}
             </button>
@@ -241,10 +277,10 @@ function GradientControls({ tweaks, setTweaks }) {
       <div className="section">
         <div className="section-label">
           <span className="name">Color spread</span>
-          <span className="value">{Math.round((tweaks.spread ?? 0.56) * 100)}</span>
+          <span className="value">{Math.round((tweaks.spread ?? 0.62) * 100)}</span>
         </div>
         <input className="slider" type="range" min="0" max="1" step="0.01"
-          value={tweaks.spread ?? 0.56} onChange={(e)=>setTweaks({spread:parseFloat(e.target.value)})} />
+          value={tweaks.spread ?? 0.62} onChange={(e)=>setTweaks({spread:parseFloat(e.target.value)})} />
       </div>
 
       <div className="help compact-help">
@@ -256,4 +292,4 @@ function GradientControls({ tweaks, setTweaks }) {
 
 window.GradientMode   = GradientMode;
 window.GradientControls = GradientControls;
-window.GRADIENT_DEFAULTS = { colors:['#08015F','#FC6C3D'], grain:0.22, flow:1.0, spread:0.56 };
+window.GRADIENT_DEFAULTS = { colors:['#08015F','#FC6C3D','#F4C04D','#D9FF1F'], grain:0.22, flow:1.0, spread:0.62 };
