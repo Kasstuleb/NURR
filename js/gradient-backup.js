@@ -1,29 +1,8 @@
 // gradient.js — Mode 1: grainy gradient field with WebGL.
-// NURR patch: curated palette support + color spread + palette adjustment sliders + single-triangle WebGL render.
+// NURR patch: curated palette support + color spread + full preset color loading.
 // Exposes: window.GradientMode, window.GradientControls, window.GRADIENT_DEFAULTS
 
 const { useEffect: gmUE, useRef: gmUR, useState: gmUS } = React;
-
-const GRADIENT_VS = `
-attribute vec2 a_pos;
-varying vec2 v_uv;
-void main(){
-  v_uv = a_pos * 0.5 + 0.5;
-  gl_Position = vec4(a_pos, 0.0, 1.0);
-}
-`;
-
-function createGradientSingleTriangle(gl, program) {
-  const buf = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-  // One oversized triangle avoids the diagonal seam that can appear between
-  // two fullscreen triangles after Safari/WebGL has been idle.
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 3,-1, -1,3]), gl.STATIC_DRAW);
-  const loc = gl.getAttribLocation(program, 'a_pos');
-  gl.enableVertexAttribArray(loc);
-  gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-  return buf;
-}
 
 const GRADIENT_FS = `
 precision highp float;
@@ -108,85 +87,6 @@ void main(){
 }
 `;
 
-
-function clampGradient(v, a, b) { return Math.max(a, Math.min(b, v)); }
-function normalizeGradientHex(value, fallback) {
-  let h = String(value || '').trim();
-  if (!h) return fallback || '#000000';
-  if (h[0] !== '#') h = '#' + h;
-  if (/^#[0-9a-fA-F]{3}$/.test(h)) h = '#' + h.slice(1).split('').map(c => c + c).join('');
-  return /^#[0-9a-fA-F]{6}$/.test(h) ? h.toUpperCase() : (fallback || '#000000');
-}
-function gradientHexToRgb255(hex) {
-  const h = normalizeGradientHex(hex).slice(1);
-  return { r: parseInt(h.slice(0,2),16), g: parseInt(h.slice(2,4),16), b: parseInt(h.slice(4,6),16) };
-}
-function gradientRgbToHex(r,g,b) {
-  return '#' + [r,g,b].map(v => clampGradient(Math.round(v),0,255).toString(16).padStart(2,'0')).join('').toUpperCase();
-}
-function gradientRgbToHsl(rgb) {
-  let r=rgb.r/255, g=rgb.g/255, b=rgb.b/255;
-  let max=Math.max(r,g,b), min=Math.min(r,g,b), h=0, s=0, l=(max+min)/2;
-  if(max!==min){
-    let d=max-min;
-    s=l>.5 ? d/(2-max-min) : d/(max+min);
-    if(max===r) h=(g-b)/d+(g<b?6:0);
-    else if(max===g) h=(b-r)/d+2;
-    else h=(r-g)/d+4;
-    h*=60;
-  }
-  return {h,s,l};
-}
-function gradientHslToRgb(h,s,l) {
-  h=((h%360)+360)%360/360;
-  let r,g,b;
-  if(s===0){ r=g=b=l; }
-  else {
-    const hue2rgb = (p,q,t) => {
-      if(t<0)t+=1; if(t>1)t-=1;
-      if(t<1/6)return p+(q-p)*6*t;
-      if(t<1/2)return q;
-      if(t<2/3)return p+(q-p)*(2/3-t)*6;
-      return p;
-    };
-    const q = l < .5 ? l*(1+s) : l+s-l*s;
-    const p = 2*l-q;
-    r=hue2rgb(p,q,h+1/3); g=hue2rgb(p,q,h); b=hue2rgb(p,q,h-1/3);
-  }
-  return {r:r*255,g:g*255,b:b*255};
-}
-function gradientHslToHex(h,s,l) {
-  const c = gradientHslToRgb(h,s,l);
-  return gradientRgbToHex(c.r,c.g,c.b);
-}
-function adjustGradientHex(hex, tweaks) {
-  const pigment = clampGradient(Number(tweaks.pigment ?? 0.5), 0, 1);
-  const saturation = clampGradient(Number(tweaks.saturation ?? 0.5), 0, 1);
-  const temperature = clampGradient(Number(tweaks.temperature ?? 0), -1, 1);
-  const hsl = gradientRgbToHsl(gradientHexToRgb255(hex));
-
-  // Temperature is intentionally gentle: enough to bias the palette, not enough to destroy it.
-  hsl.h += temperature * 22;
-
-  // Saturation is a direct chroma control, centered at 0.5 = original.
-  const satFactor = saturation < 0.5
-    ? 0.35 + saturation * 1.3      // 0.35..1.0
-    : 1.0 + (saturation - 0.5) * 1.35; // 1.0..1.675
-  hsl.s = clampGradient(hsl.s * satFactor, 0, 1);
-
-  // Pigment adds/removes visual body: saturation + lightness contrast around middle grey.
-  const pigmentSat = pigment < 0.5
-    ? 0.55 + pigment * 0.9          // 0.55..1.0
-    : 1.0 + (pigment - 0.5) * 0.75; // 1.0..1.375
-  const pigmentContrast = pigment < 0.5
-    ? 0.82 + pigment * 0.36         // 0.82..1.0
-    : 1.0 + (pigment - 0.5) * 0.42; // 1.0..1.21
-  hsl.s = clampGradient(hsl.s * pigmentSat, 0, 1);
-  hsl.l = clampGradient(0.5 + (hsl.l - 0.5) * pigmentContrast, 0.035, 0.965);
-
-  return gradientHslToHex(hsl.h, hsl.s, hsl.l);
-}
-
 function GradientMode({ tweaks, registerSnapshot, mouseRef }) {
   const canvasRef = gmUR(null);
   const glRef = gmUR(null);
@@ -203,14 +103,10 @@ function GradientMode({ tweaks, registerSnapshot, mouseRef }) {
     const gl = canvas.getContext('webgl', { preserveDrawingBuffer:true, antialias:false });
     if (!gl) return;
     glRef.current = gl;
-    const prog = WP.compileProgram(gl, GRADIENT_VS, GRADIENT_FS);
+    const prog = WP.compileProgram(gl, WP.VS_FULLSCREEN, GRADIENT_FS);
     progRef.current = prog;
     gl.useProgram(prog);
-    gl.disable(gl.BLEND);
-    gl.disable(gl.DEPTH_TEST);
-    gl.disable(gl.CULL_FACE);
-    gl.disable(gl.SCISSOR_TEST);
-    createGradientSingleTriangle(gl, prog);
+    WP.createQuadGeometry(gl, prog);
   }, []);
 
   gmUE(() => {
@@ -264,15 +160,9 @@ function GradientMode({ tweaks, registerSnapshot, mouseRef }) {
     const gl = glRef.current; const prog = progRef.current;
     if (!gl || !prog) return;
     gl.viewport(0, 0, targetW, targetH);
-    gl.disable(gl.BLEND);
-    gl.disable(gl.DEPTH_TEST);
-    gl.disable(gl.CULL_FACE);
-    gl.disable(gl.SCISSOR_TEST);
-    gl.clearColor(0, 0, 0, 1);
-    gl.clear(gl.COLOR_BUFFER_BIT);
     const m = stateRef.current.frozen && stateRef.current.frozenMouse
       ? stateRef.current.frozenMouse
-      : (mouseRef.current || { x:0.5, y:0.5, chaosX:0.5, chaosY:0.5 });
+      : mouseRef.current;
     const t = performance.now() / 1000;
     gl.useProgram(prog);
     gl.uniform1f(gl.getUniformLocation(prog,'u_time'), t);
@@ -285,12 +175,11 @@ function GradientMode({ tweaks, registerSnapshot, mouseRef }) {
     gl.uniform1f(gl.getUniformLocation(prog,'u_spread'), tweaks.spread ?? 0.62);
     gl.uniform1i(gl.getUniformLocation(prog,'u_count'), tweaks.colors.length);
     for (let i=0; i<4; i++) {
-      const rawHex = tweaks.colors[i] || tweaks.colors[tweaks.colors.length-1] || '#000000';
-      const hex = adjustGradientHex(rawHex, tweaks);
+      const hex = tweaks.colors[i] || tweaks.colors[tweaks.colors.length-1] || '#000000';
       const [r,g,b] = WP.hexToRGB(hex);
       gl.uniform3f(gl.getUniformLocation(prog,`u_color${i}`), r, g, b);
     }
-    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
   };
 
   WP.useAnimationLoop((t, dt) => {
@@ -332,10 +221,7 @@ function GradientControls({ tweaks, setTweaks }) {
     if (colors.length < 2) return;
     setTweaks({
       colors,
-      spread: Math.max(tweaks.spread ?? 0.62, colors.length >= 3 ? 0.62 : 0.48),
-      pigment: tweaks.pigment ?? 0.5,
-      saturation: tweaks.saturation ?? 0.5,
-      temperature: tweaks.temperature ?? 0
+      spread: Math.max(tweaks.spread ?? 0.62, colors.length >= 3 ? 0.62 : 0.48)
     });
   };
 
@@ -393,26 +279,8 @@ function GradientControls({ tweaks, setTweaks }) {
           <span className="name">Color spread</span>
           <span className="value">{Math.round((tweaks.spread ?? 0.62) * 100)}</span>
         </div>
-        <input className="slider" type="range" min="0.18" max="1" step="0.01"
+        <input className="slider" type="range" min="0" max="1" step="0.01"
           value={tweaks.spread ?? 0.62} onChange={(e)=>setTweaks({spread:parseFloat(e.target.value)})} />
-      </div>
-
-      <div className="section">
-        <div className="section-label"><span className="name">Pigment</span><span className="value">{Math.round((tweaks.pigment ?? 0.5) * 100)}</span></div>
-        <input className="slider" type="range" min="0" max="1" step="0.01"
-          value={tweaks.pigment ?? 0.5} onChange={(e)=>setTweaks({pigment:parseFloat(e.target.value)})} />
-      </div>
-
-      <div className="section">
-        <div className="section-label"><span className="name">Saturation</span><span className="value">{Math.round((tweaks.saturation ?? 0.5) * 100)}</span></div>
-        <input className="slider" type="range" min="0" max="1" step="0.01"
-          value={tweaks.saturation ?? 0.5} onChange={(e)=>setTweaks({saturation:parseFloat(e.target.value)})} />
-      </div>
-
-      <div className="section">
-        <div className="section-label"><span className="name">Color temp</span><span className="value">{Math.round((tweaks.temperature ?? 0) * 100)}</span></div>
-        <input className="slider" type="range" min="-1" max="1" step="0.01"
-          value={tweaks.temperature ?? 0} onChange={(e)=>setTweaks({temperature:parseFloat(e.target.value)})} />
       </div>
 
       <div className="help compact-help">
@@ -424,12 +292,4 @@ function GradientControls({ tweaks, setTweaks }) {
 
 window.GradientMode   = GradientMode;
 window.GradientControls = GradientControls;
-window.GRADIENT_DEFAULTS = {
-  colors:['#08015F','#FC6C3D','#F4C04D','#D9FF1F'],
-  grain:0.22,
-  flow:1.0,
-  spread:0.62,
-  pigment:0.5,
-  saturation:0.5,
-  temperature:0
-};
+window.GRADIENT_DEFAULTS = { colors:['#08015F','#FC6C3D','#F4C04D','#D9FF1F'], grain:0.22, flow:1.0, spread:0.62 };

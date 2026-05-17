@@ -202,3 +202,23 @@
   font-size: 9px;
   padding: 1px 4px;
 }
+
+/* ─── Curated palette button spacing ─────────────────────────────────────────
+   Keeps the matched-palette button from visually crashing into the preset grid.
+   Scoped to Gradient mode only.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.mode-gradient .presets-section > .btn.primary {
+  width: 100%;
+  margin: 10px 0 16px;
+}
+
+.mode-gradient .presets-section > .btn.primary + .palette-grid {
+  margin-top: 0;
+}
+
+@media (max-width: 820px) {
+  .mode-gradient .presets-section > .btn.primary {
+    margin: 12px 0 18px;
+  }
+}
