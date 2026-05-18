@@ -51,6 +51,8 @@ function App() {
   const [paletteTweaks,   setPaletteTweaks]   = useState(window.PALETTE_DEFAULTS);
 
   // ── Nature / photo state ──
+  // Start empty — no phantom './nature/01.jpg' path.
+  // Placeholder shows until real images appear (via discovery or drag-drop).
   const [natureImages, setNatureImages] = useState([]);
   const [currentImg,   setCurrentImg]   = useState(null);
 
@@ -60,6 +62,7 @@ function App() {
         setNatureImages(imgs);
         setCurrentImg(imgs[0]);
       }
+      // else: stays empty → placeholder stays visible
     });
   }, []);
 
@@ -142,16 +145,9 @@ function App() {
     }
   };
 
-  // ── Geometric: click-to-cycle compositions ──
-  useEffect(() => {
-    if (mode !== 'geometric') return;
-    const onDown = (e) => {
-      if (e.target.closest('.panel,.icon-btn,.rail,.layout-card,.palette-card,.nature-thumb,.swatch,.color-wheel-card,.eyedropper-follow,.formation-card,button,input,.drop-zone')) return;
-      setGeometricTweaks(s => ({ ...s, compositionIdx: (s.compositionIdx + 1) % window.GEOMETRIC_COMPOSITIONS_LEN }));
-    };
-    window.addEventListener('mousedown', onDown);
-    return () => window.removeEventListener('mousedown', onDown);
-  }, [mode]);
+  // Geometric canvas clicks are handled inside geometric.js.
+  // Click now freezes/unfreezes the composition before saving.
+  // Composition changes should happen from the panel cards or generate-new action.
 
   // ── Keyboard shortcuts ──
   useEffect(() => {
@@ -200,6 +196,78 @@ function App() {
 
   const panelStyle = panelPos ? { left: panelPos.x, top: panelPos.y, right: 'auto' } : {};
 
+
+  const pickPalette = (count = 4) => {
+    const presets = (window.WP && Array.isArray(WP.PALETTE_PRESETS)) ? WP.PALETTE_PRESETS : [];
+    const source = presets.length ? presets[Math.floor(Math.random() * presets.length)] : ['#08015F', '#FC6C3D', '#F4C4D7'];
+    const unique = [];
+    source.forEach(c => {
+      const hex = String(c || '').trim().toUpperCase();
+      if (/^#[0-9A-F]{6}$/.test(hex) && unique.indexOf(hex) === -1) unique.push(hex);
+    });
+    return unique.slice(0, count);
+  };
+
+  const generateNew = () => {
+    pushHistory();
+    if (mode === 'gradient') {
+      const colors = pickPalette(4);
+      setGradientTweaks(s => ({
+        ...s,
+        colors: colors.length >= 2 ? colors : s.colors,
+        spread: colors.length >= 3 ? Math.max(s.spread ?? 0.62, 0.62) : 0.48
+      }));
+      return;
+    }
+    if (mode === 'geometric') {
+      setGeometricTweaks(s => ({
+        ...s,
+        compositionIdx: Math.floor(Math.random() * window.GEOMETRIC_COMPOSITIONS_LEN),
+        colors: pickPalette(3).slice(0, 3),
+        grain: Math.min(0.32, Math.max(0.04, (s.grain ?? 0.1) + (Math.random() - 0.5) * 0.08))
+      }));
+      return;
+    }
+    if (mode === 'nature') {
+      const effects = ['warp', 'blur', 'split', 'melt', 'nodes'];
+      setNatureTweaks(s => ({
+        ...s,
+        effect: effects[Math.floor(Math.random() * effects.length)],
+        warp: 0.28 + Math.random() * 0.52,
+        blur: 0.22 + Math.random() * 0.58,
+        split: 0.24 + Math.random() * 0.62,
+        hue: (Math.random() - 0.5) * 0.22,
+        sat: 0.78 + Math.random() * 0.72,
+        contrast: 0.78 + Math.random() * 0.62,
+        grain: Math.random() * 0.18,
+        vignette: 0.08 + Math.random() * 0.38
+      }));
+      if (natureImages.length) setCurrentImg(natureImages[Math.floor(Math.random() * natureImages.length)]);
+      return;
+    }
+    if (mode === 'abstract') {
+      setAbstractTweaks(s => ({
+        ...s,
+        colors: pickPalette(4),
+        seed: Math.random(),
+        variant: Math.floor(Math.random() * 8),
+        gradientSource: Math.random() > 0.5 ? 'blob' : 'smooth'
+      }));
+      return;
+    }
+    if (mode === 'palette') {
+      const engine = window.NURR_PALETTE_ENGINE;
+      if (engine && engine.generatePalette && engine.gradientFromPalette) {
+        setPaletteTweaks(s => {
+          const next = { ...s, temperature: (Math.random() - 0.5) * 0.7, intensity: 0.35 + Math.random() * 0.5, contrast: 0.35 + Math.random() * 0.5 };
+          next.palette = engine.generatePalette(next);
+          next.gradientColors = engine.gradientFromPalette(next.palette);
+          return next;
+        });
+      }
+    }
+  };
+
   // ── Mode list ──
   const modes = [
     { id: 'gradient',  label: 'Gradient',  num: 'i.'   },
@@ -208,43 +276,6 @@ function App() {
     { id: 'abstract',  label: 'Abstract',  num: 'iv.'  },
     { id: 'palette',   label: 'Palette',   num: 'v.'   },
   ];
-
-  // ── Generate new — mode-aware randomisation ──────────────────────────────
-  // Fires when the generate-new icon button in the panel header is clicked.
-  const generateNew = () => {
-    if (mode === 'gradient') {
-      const presets = (window.WP && window.WP.PALETTE_PRESETS) || [];
-      if (presets.length > 0) {
-        const p = presets[Math.floor(Math.random() * presets.length)];
-        patchGradient({ colors: p.slice(0, 4) });
-      }
-    } else if (mode === 'geometric') {
-      patchGeometric({
-        compositionIdx: (geometricTweaks.compositionIdx + 1) % (window.GEOMETRIC_COMPOSITIONS_LEN || 1)
-      });
-    } else if (mode === 'nature') {
-      if (natureImages.length > 1) {
-        const cur = natureImages.indexOf(currentImg);
-        const next = natureImages[(cur + 1) % natureImages.length];
-        pushHistory();
-        setCurrentImg(next);
-      }
-    } else if (mode === 'abstract') {
-      patchAbstract({ seed: Math.random() });
-    } else if (mode === 'palette') {
-      const engine = window.NURR_PALETTE_ENGINE;
-      const seeds  = window.NURR_PALETTE_SEEDS || [];
-      if (engine && seeds.length > 0) {
-        const randFamily = seeds[Math.floor(Math.random() * seeds.length)].id;
-        const newPalette = engine.generatePalette({ ...paletteTweaks, family: randFamily });
-        patchPalette({
-          family: randFamily,
-          palette: newPalette,
-          gradientColors: engine.gradientFromPalette(newPalette)
-        });
-      }
-    }
-  };
 
   return (
     <>
@@ -258,6 +289,7 @@ function App() {
       {mode === 'nature' && (
         <>
           <NatureMode tweaks={natureTweaks} registerSnapshot={registerSnapshot} mouseRef={mouseRef} currentImg={currentImg} />
+          {/* Show placeholder whenever no image is loaded yet */}
           {!currentImg && <NaturePlaceholder onFiles={onFiles} />}
         </>
       )}
@@ -280,7 +312,7 @@ function App() {
             </button>
           ))}
         </div>
-        <div className="rail-foot">— palette-led background systems —</div>
+        <div className="rail-foot">Palette-led background systems</div>
       </div>
 
       {/* ── Corner mark ── */}
@@ -297,17 +329,15 @@ function App() {
             <div className="panel-title">Palette-led<br/>background systems</div>
           </div>
           <div className="header-actions">
+            <button className="icon-btn" onClick={generateNew} title="Generate new">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 12a9 9 0 1 1-2.64-6.36"/>
+                <path d="M21 3v6h-6"/>
+              </svg>
+            </button>
             <button className="icon-btn" onClick={undo} disabled={!history.length} title="Undo (⌘Z)">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 1 1 0 12h-2"/>
-              </svg>
-            </button>
-            {/* Generate new — picks a fresh result for the current mode */}
-            <button className="icon-btn" onClick={generateNew} title="Generate new">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M23 4v6h-6"/>
-                <path d="M1 20v-6h6"/>
-                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
               </svg>
             </button>
             <button className="icon-btn" onClick={captureCurrent} title="Snapshot to collection">

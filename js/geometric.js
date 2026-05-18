@@ -126,15 +126,49 @@ function drawBlob(ctx, x, y, r, seed, amp, rot) {
 function GeometricMode({ tweaks, registerSnapshot, mouseRef }) {
   const canvasRef = geomUR(null);
   WP.useStageSize(canvasRef);
-  const stateRef = geomUR({ pulse:0, prevIdx:0, transition:0 });
+  const stateRef = geomUR({ pulse:0, prevIdx:0, transition:0, frozen:false, frozenMouse:null, frozenTime:null });
 
   geomUE(() => {
     const onDown = (e) => {
       if (e.target.closest('.panel,.icon-btn,.rail,.layout-card,.palette-card,.nature-thumb,.swatch,.color-wheel-card,.eyedropper-follow,button,input,.drop-zone')) return;
+
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const insideCanvas =
+        e.clientX >= rect.left &&
+        e.clientX <= rect.right &&
+        e.clientY >= rect.top &&
+        e.clientY <= rect.bottom;
+
+      if (!insideCanvas) return;
+
+      const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+      const live = mouseRef.current || { x, y, chaosX:x, chaosY:y };
+
       stateRef.current.pulse = 1.0;
+
+      // Click artwork once = lock the geometric composition exactly where it is.
+      // Click artwork again = unlock and return to live cursor movement.
+      if (stateRef.current.frozen) {
+        stateRef.current.frozen = false;
+        stateRef.current.frozenMouse = null;
+        stateRef.current.frozenTime = null;
+      } else {
+        stateRef.current.frozen = true;
+        stateRef.current.frozenMouse = {
+          x,
+          y,
+          chaosX: live.chaosX ?? x,
+          chaosY: live.chaosY ?? y
+        };
+        stateRef.current.frozenTime = performance.now() / 1000;
+      }
     };
-    window.addEventListener('mousedown', onDown);
-    return () => window.removeEventListener('mousedown', onDown);
+    window.addEventListener('mousedown', onDown, true);
+    return () => window.removeEventListener('mousedown', onDown, true);
   }, []);
 
   const drawAt = (W, H) => {
@@ -148,11 +182,15 @@ function GeometricMode({ tweaks, registerSnapshot, mouseRef }) {
 
     const unit = Math.max(W, H);
     const offX = (W - unit) / 2, offY = (H - unit) / 2;
-    const m = mouseRef.current;
+    const m = stateRef.current.frozen && stateRef.current.frozenMouse
+      ? stateRef.current.frozenMouse
+      : (mouseRef.current || { x:0.5, y:0.5, chaosX:0.5, chaosY:0.5 });
     const mvx = (m.chaosX - 0.5) * tweaks.mousePull * 2.0;
     const mvy = (m.chaosY - 0.5) * tweaks.mousePull * 2.0;
-    const t = performance.now() / 1000;
-    const pulse = stateRef.current.pulse;
+    const t = stateRef.current.frozen && stateRef.current.frozenTime
+      ? stateRef.current.frozenTime
+      : performance.now() / 1000;
+    const pulse = stateRef.current.frozen ? 0 : stateRef.current.pulse;
 
     for (let i=0; i<comp.shapes.length; i++) {
       const s = comp.shapes[i];
@@ -280,7 +318,7 @@ function GeometricControls({ tweaks, setTweaks }) {
       ))}
 
       <div className="help compact-help">
-        Click the canvas to cycle compositions. Mouse pulls shapes live.
+        Click the artwork to freeze/unfreeze the geometric composition before saving.
       </div>
     </>
   );
