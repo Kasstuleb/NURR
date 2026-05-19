@@ -46,6 +46,7 @@ function App() {
   // Per-mode tweaks
   const [gradientTweaks,  setGradientTweaks]  = useState(window.GRADIENT_DEFAULTS);
   const [geometricTweaks, setGeometricTweaks] = useState(window.GEOMETRIC_DEFAULTS);
+  const [glass3dTweaks,   setGlass3dTweaks]   = useState(window.GLASS3D_DEFAULTS);
   const [natureTweaks,    setNatureTweaks]    = useState(window.NATURE_DEFAULTS);
   const [abstractTweaks,  setAbstractTweaks]  = useState(window.ABSTRACT_DEFAULTS);
   const [paletteTweaks,   setPaletteTweaks]   = useState(window.PALETTE_DEFAULTS);
@@ -76,7 +77,7 @@ function App() {
   const [history, setHistory] = useState([]);
   const suppressHistory = useRef(false);
 
-  const currentState = () => ({ mode, gradientTweaks, geometricTweaks, natureTweaks, abstractTweaks, paletteTweaks, currentImg });
+  const currentState = () => ({ mode, gradientTweaks, geometricTweaks, glass3dTweaks, natureTweaks, abstractTweaks, paletteTweaks, currentImg });
   const pushHistory = () => {
     if (suppressHistory.current) return;
     setHistory(h => [...h.slice(-9), currentState()]);
@@ -85,6 +86,7 @@ function App() {
   const changeMode = (next) => { if (next !== mode) { pushHistory(); setMode(next); } };
   const patchGradient  = (p) => { pushHistory(); setGradientTweaks(s  => ({ ...s, ...p })); };
   const patchGeometric = (p) => { pushHistory(); setGeometricTweaks(s => ({ ...s, ...p })); };
+  const patchGlass3D   = (p) => { pushHistory(); setGlass3dTweaks(s   => ({ ...s, ...p })); };
   const patchNature    = (p) => { pushHistory(); setNatureTweaks(s    => ({ ...s, ...p })); };
   const patchAbstract  = (p) => { pushHistory(); setAbstractTweaks(s  => ({ ...s, ...p })); };
   const patchPalette   = (p) => { pushHistory(); setPaletteTweaks(s   => ({ ...s, ...p })); };
@@ -97,6 +99,7 @@ function App() {
       setMode(prev.mode);
       setGradientTweaks(prev.gradientTweaks);
       setGeometricTweaks(prev.geometricTweaks);
+      if (prev.glass3dTweaks) setGlass3dTweaks(prev.glass3dTweaks);
       setNatureTweaks(prev.natureTweaks);
       setAbstractTweaks(prev.abstractTweaks);
       if (prev.paletteTweaks) setPaletteTweaks(prev.paletteTweaks);
@@ -156,9 +159,10 @@ function App() {
       if (e.key === 's' || e.key === 'S') doSnapshot();
       if (e.key === '1') changeMode('gradient');
       if (e.key === '2') changeMode('geometric');
-      if (e.key === '3') changeMode('nature');
-      if (e.key === '4') changeMode('abstract');
-      if (e.key === '5') changeMode('palette');
+      if (e.key === '3') changeMode('glass3d');
+      if (e.key === '4') changeMode('nature');
+      if (e.key === '5') changeMode('abstract');
+      if (e.key === '6') changeMode('palette');
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
       if (e.key === 'h' || e.key === 'H') setCollapsed(c => !c);
     };
@@ -228,6 +232,41 @@ function App() {
       }));
       return;
     }
+    if (mode === 'glass3d') {
+      // 3D module v8: regenerate within the new one-object/material-aware system only.
+      const objects = ['sphere','cube','soap','pebble','tablet','capsule','torus'];
+      const materialTones = {
+        glass: ['clear','smoke'],
+        opal: ['milk','dusk'],
+        water: ['aqua','deep'],
+        metal: ['silver','gold','titanium','blackChrome'],
+        holo: ['pearl','night'],
+        crystal: ['ice','violet']
+      };
+      const materials = Object.keys(materialTones);
+      const material = materials[Math.floor(Math.random() * materials.length)];
+      const tones = materialTones[material];
+      setGlass3dTweaks(s => ({
+        ...s,
+        object: objects[Math.floor(Math.random() * objects.length)],
+        material,
+        tone: tones[Math.floor(Math.random() * tones.length)],
+        customTone: false,
+        bgMode: 'gradient',
+        bgSeed: Math.random(),
+        scale: 0.82 + Math.random() * 0.50,
+        translucency: material === 'metal' ? 0 : 0.48 + Math.random() * 0.42,
+        depth: 0.72 + Math.random() * 0.85,
+        edge: material === 'crystal' ? 0.62 + Math.random() * 0.35 : Math.random() * 0.72,
+        surface: Math.random() * 0.34,
+        light: 0.58 + Math.random() * 0.36,
+        motion: 0.10 + Math.random() * 0.28,
+        rotation: Math.random(),
+        grain: Math.min(0.18, Math.max(0.025, (s.grain ?? 0.055) + (Math.random() - 0.5) * 0.05)),
+        seed: Math.random()
+      }));
+      return;
+    }
     if (mode === 'nature') {
       const effects = ['warp', 'blur', 'split', 'melt', 'nodes'];
       setNatureTweaks(s => ({
@@ -272,9 +311,10 @@ function App() {
   const modes = [
     { id: 'gradient',  label: 'Gradient',  num: 'i.'   },
     { id: 'geometric', label: 'Geometric', num: 'ii.'  },
-    { id: 'nature',    label: 'Photo',     num: 'iii.' },
-    { id: 'abstract',  label: 'Abstract',  num: 'iv.'  },
-    { id: 'palette',   label: 'Palette',   num: 'v.'   },
+    { id: 'glass3d',   label: '3D Objects', num: 'iii.' },
+    { id: 'nature',    label: 'Photo',     num: 'iv.'  },
+    { id: 'abstract',  label: 'Abstract',  num: 'v.'   },
+    { id: 'palette',   label: 'Palette',   num: 'vi.'  },
   ];
 
   return (
@@ -285,6 +325,9 @@ function App() {
       )}
       {mode === 'geometric' && (
         <GeometricMode tweaks={geometricTweaks} registerSnapshot={registerSnapshot} mouseRef={mouseRef} />
+      )}
+      {mode === 'glass3d' && (
+        <Glass3DMode tweaks={glass3dTweaks} registerSnapshot={registerSnapshot} mouseRef={mouseRef} />
       )}
       {mode === 'nature' && (
         <>
@@ -359,6 +402,7 @@ function App() {
           <div className="panel-body">
             {mode === 'gradient'  && <GradientControls  tweaks={gradientTweaks}  setTweaks={patchGradient}  />}
             {mode === 'geometric' && <GeometricControls tweaks={geometricTweaks} setTweaks={patchGeometric} />}
+            {mode === 'glass3d'   && <Glass3DControls tweaks={glass3dTweaks} setTweaks={patchGlass3D} />}
             {mode === 'nature'    && (
               <NatureControls tweaks={natureTweaks} setTweaks={patchNature}
                 natureImages={natureImages} currentImg={currentImg}

@@ -122,6 +122,228 @@ function drawBlob(ctx, x, y, r, seed, amp, rot) {
   ctx.closePath(); ctx.fill();
 }
 
+
+
+// ─── Faceted glass material helpers ───────────────────────────────────────────
+function hexToRgbGeom(hex) {
+  const h = String(hex || '#ffffff').replace('#','').trim();
+  const v = h.length === 3 ? h.split('').map(c=>c+c).join('') : h.padEnd(6,'f').slice(0,6);
+  const n = parseInt(v,16);
+  return { r:(n>>16)&255, g:(n>>8)&255, b:n&255 };
+}
+function rgbaGeom(hex, a) {
+  const c = hexToRgbGeom(hex);
+  return `rgba(${c.r},${c.g},${c.b},${a})`;
+}
+function geomBbox(g) {
+  if (g.kind === 'rect') {
+    const c=Math.abs(Math.cos(g.rot||0)), s=Math.abs(Math.sin(g.rot||0));
+    const ex=c*g.w/2+s*g.h/2, ey=s*g.w/2+c*g.h/2;
+    return {x:g.px-ex,y:g.py-ey,w:ex*2,h:ey*2,cx:g.px,cy:g.py,r:Math.max(ex,ey)};
+  }
+  const rr = g.r * (g.kind === 'blob' ? 1.24 : 1.04);
+  return {x:g.px-rr,y:g.py-rr,w:rr*2,h:rr*2,cx:g.px,cy:g.py,r:rr};
+}
+function buildGlassMaskPath(ctx, g, seed=0) {
+  // Glass mode keeps the composition position/motion, but the hard silhouettes are
+  // softened into volumetric sculptural masks. This prevents glass rectangles.
+  const N = 84;
+  const bbox = geomBbox(g);
+  let rx = bbox.w/2, ry = bbox.h/2;
+  if (g.kind === 'rect') {
+    rx *= 0.78; ry *= 0.82;
+  }
+  ctx.beginPath();
+  for (let i=0; i<=N; i++) {
+    const a = (i/N) * Math.PI * 2;
+    const ca = Math.cos(a), sa = Math.sin(a);
+    let superness = g.kind === 'rect' ? 0.60 : 0.82;
+    let x = Math.sign(ca) * Math.pow(Math.abs(ca), superness) * rx;
+    let y = Math.sign(sa) * Math.pow(Math.abs(sa), superness) * ry;
+    const wob = 1 + Math.sin(a*3.0 + seed*1.7) * 0.035 + Math.cos(a*5.0 - seed*0.9) * 0.024;
+    x *= wob; y *= wob;
+    const rot = g.kind === 'rect' ? (g.rot || 0) : Math.sin(seed)*0.06;
+    const cr = Math.cos(rot), sr = Math.sin(rot);
+    const X = g.px + x*cr - y*sr;
+    const Y = g.py + x*sr + y*cr;
+    if (i===0) ctx.moveTo(X,Y); else ctx.lineTo(X,Y);
+  }
+  ctx.closePath();
+}
+function strokeGlassMask(ctx, g, seed, dx, dy, width, color) {
+  ctx.save();
+  ctx.translate(dx,dy);
+  buildGlassMaskPath(ctx,g,seed);
+  ctx.lineJoin='round'; ctx.lineCap='round'; ctx.lineWidth=width; ctx.strokeStyle=color; ctx.stroke();
+  ctx.restore();
+}
+function drawFacetedGlassShape(ctx, W, H, g, tint, seed, intensity=1) {
+  const box = geomBbox(g);
+  const cx = box.cx, cy = box.cy, R = Math.max(24, box.r);
+  const drawMask = () => buildGlassMaskPath(ctx, g, seed);
+
+  // Directional lighting model, closer to a polished 3D render / waterdrop:
+  // base volume first, then broad Screen/Burn overlays, then restrained iridescent rim.
+  // No internal stripe strokes. All highlights are soft gradient patches.
+
+  // 1) Soft cast shadow under the object.
+  ctx.save();
+  drawMask();
+  ctx.shadowColor = `rgba(10,12,20,${0.22 * intensity})`;
+  ctx.shadowBlur = R * 0.26;
+  ctx.shadowOffsetX = R * 0.055;
+  ctx.shadowOffsetY = R * 0.13;
+  ctx.fillStyle = 'rgba(0,0,0,0.001)';
+  ctx.fill();
+  ctx.restore();
+
+  // 2) Main clipped volume.
+  ctx.save();
+  drawMask();
+  ctx.clip();
+
+  // Transparent 3D body: neutral, smooth, with a darker thick rim.
+  const body = ctx.createRadialGradient(
+    cx - R * 0.24, cy - R * 0.30, R * 0.03,
+    cx + R * 0.10, cy + R * 0.12, R * 1.18
+  );
+  body.addColorStop(0.00, `rgba(255,255,255,${0.76 * intensity})`);
+  body.addColorStop(0.18, `rgba(255,255,255,${0.44 * intensity})`);
+  body.addColorStop(0.42, `rgba(230,235,246,${0.19 * intensity})`);
+  body.addColorStop(0.68, `rgba(150,160,184,${0.14 * intensity})`);
+  body.addColorStop(0.84, `rgba(48,56,78,${0.22 * intensity})`);
+  body.addColorStop(1.00, `rgba(250,252,255,${0.38 * intensity})`);
+  ctx.fillStyle = body;
+  ctx.fillRect(box.x - R * 0.22, box.y - R * 0.22, box.w + R * 0.44, box.h + R * 0.44);
+
+  // Subtle water/resin film. This is the only body iridescence; it should read as material,
+  // not as rainbow graphics.
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  ctx.filter = `blur(${Math.max(12, R * 0.075)}px)`;
+  const pearl = ctx.createLinearGradient(cx - R * 0.72, cy - R * 0.62, cx + R * 0.72, cy + R * 0.66);
+  pearl.addColorStop(0.00, `rgba(90,220,255,${0.045 * intensity})`);
+  pearl.addColorStop(0.28, `rgba(255,255,255,${0.040 * intensity})`);
+  pearl.addColorStop(0.52, `rgba(255,190,235,${0.050 * intensity})`);
+  pearl.addColorStop(0.76, `rgba(255,235,150,${0.035 * intensity})`);
+  pearl.addColorStop(1.00, `rgba(120,170,255,${0.040 * intensity})`);
+  ctx.fillStyle = pearl;
+  ctx.fillRect(box.x - R * 0.32, box.y - R * 0.32, box.w + R * 0.64, box.h + R * 0.64);
+  ctx.restore();
+
+  // Burn / depth: lower-right volume, blurred and broad. No lines.
+  ctx.save();
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.filter = `blur(${Math.max(14, R * 0.085)}px)`;
+  const burn = ctx.createRadialGradient(
+    cx + R * 0.34, cy + R * 0.40, R * 0.02,
+    cx + R * 0.10, cy + R * 0.08, R * 0.88
+  );
+  burn.addColorStop(0.00, `rgba(25,30,48,${0.24 * intensity})`);
+  burn.addColorStop(0.42, `rgba(55,64,88,${0.09 * intensity})`);
+  burn.addColorStop(1.00, 'rgba(255,255,255,0)');
+  ctx.fillStyle = burn;
+  ctx.fillRect(box.x - R * 0.35, box.y - R * 0.35, box.w + R * 0.70, box.h + R * 0.70);
+  ctx.restore();
+
+  // Screen / light: top-left volume, large and soft.
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  ctx.filter = `blur(${Math.max(10, R * 0.062)}px)`;
+  const screen = ctx.createRadialGradient(
+    cx - R * 0.30, cy - R * 0.34, R * 0.01,
+    cx - R * 0.10, cy - R * 0.16, R * 0.66
+  );
+  screen.addColorStop(0.00, `rgba(255,255,255,${0.66 * intensity})`);
+  screen.addColorStop(0.32, `rgba(255,255,255,${0.24 * intensity})`);
+  screen.addColorStop(0.75, `rgba(255,255,255,${0.060 * intensity})`);
+  screen.addColorStop(1.00, 'rgba(255,255,255,0)');
+  ctx.fillStyle = screen;
+  ctx.fillRect(box.x - R * 0.30, box.y - R * 0.30, box.w + R * 0.60, box.h + R * 0.60);
+  ctx.restore();
+
+  // Secondary glass reflection: an offset soft oval, not a stripe.
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  ctx.filter = `blur(${Math.max(9, R * 0.052)}px)`;
+  const oval = ctx.createRadialGradient(
+    cx + R * 0.18, cy - R * 0.06, R * 0.02,
+    cx + R * 0.18, cy - R * 0.06, R * 0.48
+  );
+  oval.addColorStop(0.00, `rgba(255,255,255,${0.24 * intensity})`);
+  oval.addColorStop(0.42, `rgba(255,255,255,${0.075 * intensity})`);
+  oval.addColorStop(1.00, 'rgba(255,255,255,0)');
+  ctx.fillStyle = oval;
+  ctx.fillRect(box.x - R * 0.20, box.y - R * 0.20, box.w + R * 0.40, box.h + R * 0.40);
+  ctx.restore();
+
+  // Inner thickness: soft rim darkening clipped inside the mask.
+  ctx.save();
+  ctx.globalCompositeOperation = 'multiply';
+  const rim = ctx.createRadialGradient(cx, cy, R * 0.54, cx, cy, R * 1.08);
+  rim.addColorStop(0.00, 'rgba(255,255,255,0)');
+  rim.addColorStop(0.66, 'rgba(185,195,218,0.030)');
+  rim.addColorStop(0.84, `rgba(56,65,92,${0.16 * intensity})`);
+  rim.addColorStop(1.00, `rgba(20,25,40,${0.28 * intensity})`);
+  ctx.fillStyle = rim;
+  ctx.fillRect(box.x - R * 0.18, box.y - R * 0.18, box.w + R * 0.36, box.h + R * 0.36);
+  ctx.restore();
+
+  ctx.restore();
+
+  // 3) Rim system outside/inside: metallic/iridescent but restrained.
+  // These are edge artifacts only, not surface stripes.
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  const e = Math.max(0.7, R * 0.0038) * intensity;
+  strokeGlassMask(ctx, g, seed, -e * 1.25, -e * 0.8, R * 0.0045, `rgba(90,235,255,${0.15 * intensity})`);
+  strokeGlassMask(ctx, g, seed,  e * 1.10,  e * 0.85, R * 0.0045, `rgba(255,100,215,${0.12 * intensity})`);
+  strokeGlassMask(ctx, g, seed, -e * 0.35,  e * 0.95, R * 0.0035, `rgba(255,235,135,${0.10 * intensity})`);
+  strokeGlassMask(ctx, g, seed, 0, 0, R * 0.0060, `rgba(255,255,255,${0.22 * intensity})`);
+  ctx.restore();
+
+  // Inner bevel as soft offset strokes. Low opacity so it reads as thickness, not outline.
+  ctx.save();
+  drawMask();
+  ctx.clip();
+  strokeGlassMask(ctx, g, seed, -R * 0.010, -R * 0.013, R * 0.026, `rgba(255,255,255,${0.17 * intensity})`);
+  strokeGlassMask(ctx, g, seed,  R * 0.014,  R * 0.017, R * 0.030, `rgba(28,34,52,${0.10 * intensity})`);
+  ctx.restore();
+
+  // 4) Specular glints: isolated soft highlights only. No connecting stripe.
+  ctx.save();
+  drawMask();
+  ctx.clip();
+  ctx.globalCompositeOperation = 'screen';
+
+  const glints = [
+    { x: cx - R * 0.26, y: cy - R * 0.24, r: R * 0.075, a: 0.52 },
+    { x: cx - R * 0.10, y: cy - R * 0.34, r: R * 0.040, a: 0.30 },
+    { x: cx + R * 0.22, y: cy + R * 0.18, r: R * 0.055, a: 0.18 },
+  ];
+  for (const p of glints) {
+    const gg = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r);
+    gg.addColorStop(0.00, `rgba(255,255,255,${p.a * intensity})`);
+    gg.addColorStop(0.45, `rgba(255,255,255,${p.a * 0.22 * intensity})`);
+    gg.addColorStop(1.00, 'rgba(255,255,255,0)');
+    ctx.fillStyle = gg;
+    ctx.fillRect(p.x - p.r, p.y - p.r, p.r * 2, p.r * 2);
+  }
+
+  // One tiny polished-corner spark, very short and blurred.
+  ctx.save();
+  ctx.filter = `blur(${Math.max(0.8, R * 0.0035)}px)`;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(cx - R * 0.34, cy - R * 0.33);
+  ctx.quadraticCurveTo(cx - R * 0.27, cy - R * 0.38, cx - R * 0.18, cy - R * 0.36);
+  ctx.lineWidth = R * 0.0065;
+  ctx.strokeStyle = `rgba(255,255,255,${0.28 * intensity})`;
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.restore();
+}
 // ─── GeometricMode ────────────────────────────────────────────────────────────
 function GeometricMode({ tweaks, registerSnapshot, mouseRef }) {
   const canvasRef = geomUR(null);
@@ -192,6 +414,17 @@ function GeometricMode({ tweaks, registerSnapshot, mouseRef }) {
       : performance.now() / 1000;
     const pulse = stateRef.current.frozen ? 0 : stateRef.current.pulse;
 
+    // Glass look is deliberately additive and fail-safe: Graphic mode keeps the
+    // original renderer, Glass mode swaps only the visual material/silhouette.
+    const useGlass = tweaks.look === 'glass' || tweaks.glass === true;
+    if (useGlass) {
+      // Subtle studio-light background so the object has something to refract.
+      const studio = ctx.createRadialGradient(W*0.18,H*0.12,0,W*0.18,H*0.12,Math.max(W,H)*0.95);
+      studio.addColorStop(0,'rgba(255,255,255,0.26)');
+      studio.addColorStop(1,'rgba(255,255,255,0)');
+      ctx.fillStyle = studio; ctx.fillRect(0,0,W,H);
+    }
+
     for (let i=0; i<comp.shapes.length; i++) {
       const s = comp.shapes[i];
       ctx.fillStyle = palette[s.colorIdx] || '#000';
@@ -211,16 +444,45 @@ function GeometricMode({ tweaks, registerSnapshot, mouseRef }) {
       const driftY=Math.cos(t*(0.25+i*0.05)+i*1.3)*0.008;
       const px=(sx+pullX+wx+driftX)*unit+offX;
       const py=(sy+pullY+wy+driftY)*unit+offY;
+      const scale = tweaks.vectorScale ?? 1;
+
+      if (useGlass) {
+        try {
+          let geom = null;
+          const glassScale = (tweaks.glassScale ?? 0.72);
+          if (s.kind==='rect') {
+            geom = {
+              kind:'rect', px, py,
+              w:s.w*unit*scale*glassScale,
+              h:s.h*unit*scale*glassScale,
+              rot:(s.rot||0)+fall*mvx*0.4+wave*0.3
+            };
+          } else if (s.kind==='circle') {
+            geom = { kind:'circle', px, py, r:s.r*unit*scale*(1+wave*0.15+fall*0.06)*glassScale };
+          } else if (s.kind==='blob') {
+            geom = {
+              kind:'blob', px, py,
+              r:s.r*unit*scale*(1+wave*0.1)*glassScale,
+              amp:(s.blobAmp||0.18)+fall*0.06+Math.sin(t*0.6+i)*0.02,
+              seed:(s.seed||0)+t*0.3+fall*1.5
+            };
+          }
+          if (geom) drawFacetedGlassShape(ctx, W, H, geom, palette[s.colorIdx] || '#ffffff', i*1.73 + t*0.08, tweaks.glassIntensity ?? 1);
+          continue;
+        } catch (err) {
+          console.warn('[geometric] glass render failed for shape; falling back to graphic shape', err);
+        }
+      }
 
       if (s.kind==='rect') {
-        const w=s.w*unit*(tweaks.vectorScale??1), h=s.h*unit*(tweaks.vectorScale??1);
+        const w=s.w*unit*scale, h=s.h*unit*scale;
         const rot=(s.rot||0)+fall*mvx*0.4+wave*0.3;
         ctx.save(); ctx.translate(px,py); ctx.rotate(rot); ctx.fillRect(-w/2,-h/2,w,h); ctx.restore();
       } else if (s.kind==='circle') {
-        const r=s.r*unit*(tweaks.vectorScale??1)*(1+wave*0.15+fall*0.06);
+        const r=s.r*unit*scale*(1+wave*0.15+fall*0.06);
         ctx.beginPath(); ctx.arc(px,py,r,0,Math.PI*2); ctx.fill();
       } else if (s.kind==='blob') {
-        const r=s.r*unit*(tweaks.vectorScale??1)*(1+wave*0.1);
+        const r=s.r*unit*scale*(1+wave*0.1);
         const amp=(s.blobAmp||0.18)+fall*0.06+Math.sin(t*0.6+i)*0.02;
         const seed=(s.seed||0)+t*0.3+fall*1.5;
         ctx.save(); ctx.translate(px,py); drawBlob(ctx,0,0,r,seed,amp,0); ctx.restore();

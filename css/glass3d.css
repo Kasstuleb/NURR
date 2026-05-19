@@ -1,0 +1,403 @@
+/* glass3d.css — NURR 3D Objects module v9 styles. */
+/* Shape icons · material chips · colour system · background swatches */
+
+/* ═══════════════════════════════════════════════════
+   Shape icon grid
+   ═══════════════════════════════════════════════════ */
+
+.glass3d-icon-grid.shape-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 5px;
+  margin-top: 6px;
+}
+
+.glass3d-icon-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 4px 7px;
+  border: 1.5px solid rgba(20, 20, 42, 0.08);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.30);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.10s;
+  font-size: 9px;
+  letter-spacing: 0.02em;
+  color: rgba(20, 20, 42, 0.60);
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.glass3d-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.52);
+  border-color: rgba(20, 20, 42, 0.18);
+  transform: translateY(-1px);
+}
+
+.glass3d-icon-btn.active {
+  background: rgba(255, 255, 255, 0.75);
+  border-color: var(--nurr-blue, #5566ff);
+  color: rgba(20, 20, 42, 0.85);
+}
+
+/* Shape icon visuals */
+.glass3d-shape-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+}
+
+.glass3d-shape-icon i {
+  display: block;
+  background: linear-gradient(135deg, rgba(255,255,255,0.92) 0%, rgba(200,220,255,0.60) 55%, rgba(160,195,240,0.40) 100%);
+  box-shadow:
+    inset 0 1.5px 2.5px rgba(255,255,255,0.90),
+    inset -1px -1px 2px rgba(120,150,200,0.28),
+    0 1px 4px rgba(80,100,160,0.18);
+}
+
+.shape-sphere  i { width: 24px; height: 24px; border-radius: 50%; }
+.shape-cube    i { width: 22px; height: 22px; border-radius: 3px; transform: rotate(12deg); }
+.shape-soap    i { width: 26px; height: 18px; border-radius: 50%; }
+.shape-pebble  i { width: 23px; height: 20px; border-radius: 52% 48% 42% 58% / 50% 46% 54% 50%; }
+.shape-tablet  i {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%, rgba(200,220,255,0.55) 0%, transparent 42%, rgba(200,220,255,0.55) 42%, rgba(200,220,255,0.55) 58%, transparent 58%),
+              linear-gradient(135deg, rgba(255,255,255,0.92) 0%, rgba(200,220,255,0.50) 100%);
+}
+.shape-capsule i { width: 14px; height: 24px; border-radius: 50px; transform: rotate(20deg); }
+.shape-torus   i {
+  width: 24px; height: 24px; border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%, rgba(240,245,255,0.0) 0%, rgba(240,245,255,0.0) 35%, rgba(200,220,255,0.70) 36%, rgba(200,220,255,0.70) 64%, rgba(240,245,255,0.0) 65%);
+  box-shadow: none;
+  border: 1.5px solid rgba(200,220,255,0.70);
+}
+
+/* ═══════════════════════════════════════════════════
+   Material chip grid
+   ═══════════════════════════════════════════════════ */
+
+.glass3d-icon-grid.material-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 5px;
+  margin-top: 6px;
+}
+
+.glass3d-material-btn {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  min-height: 40px;
+  border: 1.5px solid rgba(20, 20, 42, 0.08);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.30);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.10s;
+  font-size: 9.5px;
+  letter-spacing: 0.02em;
+  color: rgba(20, 20, 42, 0.60);
+  font-weight: 500;
+  text-transform: uppercase;
+  text-align: left;
+}
+
+.glass3d-material-btn:hover {
+  background: rgba(255, 255, 255, 0.52);
+  border-color: rgba(20, 20, 42, 0.18);
+  transform: translateY(-1px);
+}
+
+.glass3d-material-btn.active {
+  background: rgba(255, 255, 255, 0.75);
+  border-color: var(--nurr-blue, #5566ff);
+  color: rgba(20, 20, 42, 0.85);
+}
+
+/* Material chip spheres */
+.glass3d-material-chip {
+  display: block;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  box-shadow: 0 1px 5px rgba(0,0,0,0.12), inset 0 1.5px 2px rgba(255,255,255,0.80);
+}
+
+.material-glass {
+  background: radial-gradient(circle at 30% 28%, #fff 0%, #d0e8ff 40%, rgba(200,228,255,0.30) 100%);
+}
+.material-opal {
+  background: radial-gradient(circle at 28% 22%, #fff 0%, #f5c8e8 32%, #c8f0e0 66%, #e0c8f5 100%);
+}
+.material-water {
+  background: radial-gradient(circle at 25% 20%, #efffff 0%, #7dd8e8 48%, #0b6574 100%);
+}
+.material-metal {
+  background: linear-gradient(135deg, #fafafa 0%, #a0a8b0 35%, #282830 52%, #a8a4a0 68%, #e8e4dc 100%);
+}
+.material-holo {
+  background: conic-gradient(from 20deg at 50% 50%, #ff60a0, #ffc830, #60f080, #40c8f0, #9060ff, #ff60a0);
+}
+.material-crystal {
+  background: radial-gradient(circle at 32% 25%, #fff 0%, #e8f6ff 30%, #c8a8ff 55%, #fff 100%);
+}
+
+/* ═══════════════════════════════════════════════════
+   Colour system
+   ═══════════════════════════════════════════════════ */
+
+/* Preset pill row */
+.glass3d-preset-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 5px;
+  margin-top: 6px;
+}
+
+.glass3d-preset-pill {
+  height: 26px;
+  border-radius: 8px;
+  border: 1.5px solid rgba(20, 20, 42, 0.10);
+  cursor: pointer;
+  transition: border-color 0.12s, transform 0.10s, box-shadow 0.12s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.glass3d-preset-pill:hover {
+  border-color: rgba(20, 20, 42, 0.28);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+}
+
+.glass3d-preset-pill.active {
+  border-color: rgba(20, 20, 42, 0.75);
+  box-shadow: 0 0 0 1.5px rgba(20, 20, 42, 0.18);
+}
+
+/* Main + Accent picker pair */
+.glass3d-picker-pair {
+  display: flex;
+  gap: 5px;
+  margin-top: 7px;
+}
+
+.glass3d-picker-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 10px;
+  border: 1.5px solid rgba(20, 20, 42, 0.09);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.42);
+  cursor: pointer;
+  position: relative;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.glass3d-picker-btn:hover {
+  background: rgba(255, 255, 255, 0.62);
+  border-color: rgba(20, 20, 42, 0.18);
+}
+
+.glass3d-picker-swatch {
+  display: block;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1px solid rgba(0,0,0,0.10);
+  flex-shrink: 0;
+}
+
+.glass3d-picker-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+  color: rgba(20, 20, 42, 0.55);
+}
+
+.glass3d-picker-btn input[type="color"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: none;
+}
+
+/* Hue shift row */
+.glass3d-hue-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 7px;
+}
+
+.glass3d-hue-swatch {
+  display: block;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1.5px dashed rgba(20, 20, 42, 0.22);
+  background: rgba(255,255,255,0.30);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.12s, background 0.12s;
+}
+
+.glass3d-hue-swatch.has-hue {
+  border-style: solid;
+  border-color: rgba(20, 20, 42, 0.55);
+}
+
+.glass3d-hue-swatch input[type="color"] {
+  position: absolute;
+  inset: -4px;
+  opacity: 0;
+  cursor: pointer;
+  width: calc(100% + 8px);
+  height: calc(100% + 8px);
+  padding: 0;
+  border: none;
+}
+
+.glass3d-hue-label {
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 500;
+  color: rgba(20, 20, 42, 0.50);
+  flex: 1;
+}
+
+.glass3d-hue-clear {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid rgba(20, 20, 42, 0.18);
+  background: rgba(255, 255, 255, 0.50);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  color: rgba(20, 20, 42, 0.50);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.12s, color 0.12s;
+  padding: 0;
+}
+
+.glass3d-hue-clear:hover {
+  background: rgba(255, 255, 255, 0.80);
+  color: rgba(20, 20, 42, 0.80);
+}
+
+/* Hex input (shared for bg + hue) */
+.glass3d-hex-input {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 6px 10px;
+  border: 1.5px solid rgba(20, 20, 42, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.50);
+  font-size: 11px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  color: rgba(20, 20, 42, 0.70);
+  outline: none;
+  box-sizing: border-box;
+}
+
+.glass3d-hex-input:focus {
+  border-color: rgba(20, 20, 42, 0.30);
+  background: rgba(255, 255, 255, 0.70);
+}
+
+/* ═══════════════════════════════════════════════════
+   Background swatches
+   ═══════════════════════════════════════════════════ */
+
+.glass3d-bg-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.glass3d-bg-swatch {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid rgba(20, 20, 42, 0.10);
+  cursor: pointer;
+  transition: border-color 0.12s, transform 0.10s, box-shadow 0.12s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.10);
+  flex-shrink: 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.glass3d-bg-swatch:hover {
+  border-color: rgba(20, 20, 42, 0.30);
+  transform: scale(1.08);
+}
+
+.glass3d-bg-swatch.active {
+  border-color: var(--nurr-blue, #5566ff);
+  box-shadow: 0 0 0 2px rgba(85, 102, 255, 0.22);
+}
+
+.glass3d-bg-swatch.bg-gradient {
+  background: conic-gradient(from 0deg at 50% 50%,
+    #f8e8d0, #d8e8f8, #e8d8f8, #d8f0e8, #f8e0e8, #f8e8d0
+  );
+}
+
+.glass3d-bg-swatch.bg-custom {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(20, 20, 42, 0.50);
+}
+
+.glass3d-bg-swatch input[type="color"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: none;
+}
+
+/* ═══════════════════════════════════════════════════
+   Section spacing refinement
+   ═══════════════════════════════════════════════════ */
+
+.glass3d-section {
+  margin-bottom: 2px;
+}
+
+.glass3d-section .section-label {
+  margin-bottom: 0;
+}
+
+/* B&W gradient swatch */
+.glass3d-bg-swatch.bg-bw {
+  background: linear-gradient(135deg, #f0f0f0 0%, #888 50%, #111 100%);
+}

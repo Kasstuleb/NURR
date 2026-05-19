@@ -241,3 +241,138 @@
   font-size: 9px;
   padding: 1px 4px;
 }
+
+/* Material toggle */
+.mode-geometric .material-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.mode-geometric .material-toggle button {
+  min-height: 34px;
+  border: 1px solid rgba(20, 20, 42, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.26);
+  color: var(--ink);
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition:
+    transform 0.15s var(--ease-out),
+    border-color 0.15s,
+    background 0.15s,
+    box-shadow 0.15s;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mode-geometric .material-toggle button:hover {
+    transform: translateY(-1px);
+    border-color: var(--ink-dim);
+    background: rgba(255, 255, 255, 0.42);
+  }
+}
+
+.mode-geometric .material-toggle button.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.22) inset;
+}
+
+/* 3D Glass module helpers */
+.mode-glass3d .panel-title::after { content: ' / 3D'; }
+.glass3d-bg-grid .palette-card { min-height: 28px; }
+.glass3d-bg-grid .palette-card span { width: 100%; }
+
+/* 3D Objects v6 cleanup controls */
+.mode-glass3d .wide-btn {
+  width: 100%;
+  border: 0;
+  border-radius: 999px;
+  padding: 9px 12px;
+  font: inherit;
+  font-size: 12px;
+  background: rgba(255,255,255,.62);
+  color: rgba(0,0,0,.78);
+  cursor: pointer;
+}
+.mode-glass3d .wide-btn:hover { background: rgba(255,255,255,.82); }
+
+/* 3D Objects v8 — separate module controls */
+.mode-glass3d .glass3d-icon-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.mode-glass3d .glass3d-icon-btn,
+.mode-glass3d .glass3d-material-btn {
+  min-height: 58px;
+  border: 1px solid rgba(20,20,42,.14);
+  border-radius: 16px;
+  background: rgba(255,255,255,.32);
+  color: rgba(16,16,32,.72);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 9px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: transform .14s var(--ease-out), border-color .14s, background .14s, color .14s;
+}
+.mode-glass3d .material-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.mode-glass3d .glass3d-material-btn { min-height: 48px; flex-direction: row; justify-content: flex-start; padding: 8px 10px; }
+.mode-glass3d .glass3d-icon-btn:hover,
+.mode-glass3d .glass3d-material-btn:hover {
+  transform: translateY(-1px);
+  border-color: rgba(20,20,42,.34);
+  background: rgba(255,255,255,.55);
+}
+.mode-glass3d .glass3d-icon-btn.active,
+.mode-glass3d .glass3d-material-btn.active {
+  border-color: var(--nurr-blue);
+  background: rgba(255,255,255,.72);
+  color: var(--nurr-blue);
+}
+.mode-glass3d .glass3d-shape-icon {
+  width: 28px; height: 28px; display: grid; place-items: center;
+  perspective: 80px;
+}
+.mode-glass3d .glass3d-shape-icon i { display:block; width: 20px; height: 20px; border: 1.5px solid currentColor; background: rgba(255,255,255,.22); box-shadow: inset -5px -6px 10px rgba(0,0,0,.08), inset 4px 4px 8px rgba(255,255,255,.7); }
+.mode-glass3d .shape-sphere i { border-radius: 50%; }
+.mode-glass3d .shape-cube i { border-radius: 4px; transform: rotateX(58deg) rotateZ(45deg); }
+.mode-glass3d .shape-soap i { width: 25px; height: 15px; border-radius: 10px; transform: rotate(-8deg); }
+.mode-glass3d .shape-pebble i { width: 24px; height: 17px; border-radius: 52% 48% 58% 42%; transform: rotate(-14deg); }
+.mode-glass3d .shape-tablet i { width: 22px; height: 22px; border-radius: 50%; box-shadow: inset 0 0 0 4px rgba(255,255,255,.22), inset -5px -6px 10px rgba(0,0,0,.08); }
+.mode-glass3d .shape-capsule i { width: 27px; height: 13px; border-radius: 999px; transform: rotate(-12deg); }
+.mode-glass3d .shape-torus i { width: 24px; height: 24px; border-radius: 50%; background: radial-gradient(circle, transparent 0 31%, rgba(255,255,255,.28) 33% 100%); }
+.mode-glass3d .glass3d-material-chip { width: 22px; height: 22px; border-radius: 50%; border: 1px solid rgba(20,20,42,.12); flex: 0 0 auto; }
+.mode-glass3d .material-glass { background: radial-gradient(circle at 30% 25%, #fff, #dbefff 45%, rgba(255,255,255,.25)); }
+.mode-glass3d .material-opal { background: radial-gradient(circle at 25% 20%, #fff, #f0dceb 38%, #d7fff1 76%); }
+.mode-glass3d .material-water { background: radial-gradient(circle at 25% 20%, #efffff, #8fddea 48%, #0b6574); }
+.mode-glass3d .material-metal { background: linear-gradient(135deg, #fafafa, #8f969a 42%, #1b1d21 55%, #e5e2d8); }
+.mode-glass3d .material-holo { background: conic-gradient(from 30deg, #ff6fd8, #ffe46b, #6df7ff, #8e78ff, #ff6fd8); }
+.mode-glass3d .material-crystal { background: linear-gradient(135deg, #fff, #dff8ff 28%, #bca9ff 55%, #fff); }
+.mode-glass3d .glass3d-swatches { gap: 11px; }
+.mode-glass3d .glass3d-tone { border-radius: 50%; }
+.mode-glass3d .glass3d-hue-add { overflow: hidden; }
+.mode-glass3d .glass3d-bg-row { display:flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.mode-glass3d .glass3d-bg-swatch {
+  width: 34px; height: 34px; border-radius: 50%; border: 1.5px solid rgba(20,20,42,.14); cursor:pointer; position:relative; padding:0;
+  transition: transform .14s var(--ease-out), border-color .14s;
+}
+.mode-glass3d .glass3d-bg-swatch:hover { transform: translateY(-2px) scale(1.06); }
+.mode-glass3d .glass3d-bg-swatch.active { outline: 2.5px solid var(--nurr-blue); outline-offset: 3px; }
+.mode-glass3d .bg-gradient { background: radial-gradient(circle at 28% 22%, #fff, #d7d7d7 43%, #111 100%); }
+.mode-glass3d .bg-custom { display:grid; place-items:center; color: rgba(20,20,42,.55); font-size:20px; border-style:dashed; overflow:hidden; }
+.mode-glass3d .bg-custom input,
+.mode-glass3d .glass3d-hue-add input { position:absolute; inset:0; opacity:0; cursor:pointer; }
+.mode-glass3d .glass3d-hex-input {
+  width: 100%; margin-top: 10px; border: 1px solid rgba(20,20,42,.14); border-radius: 999px;
+  background: rgba(255,255,255,.42); padding: 8px 11px;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 11px; color: var(--ink-2);
+}

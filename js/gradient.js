@@ -55,11 +55,122 @@ uniform vec3  u_color0;
 uniform vec3  u_color1;
 uniform vec3  u_color2;
 uniform vec3  u_color3;
+uniform int   u_textureMode;
+uniform float u_textureAmount;
+uniform float u_textureScale;
+uniform float u_textureSoftness;
+uniform float u_textureDistortion;
+uniform float u_textureSeed;
 
 float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float noise(vec2 p){
+  vec2 i=floor(p); vec2 f=fract(p);
+  f=f*f*(3.0-2.0*f);
+  float a=hash(i+vec2(u_textureSeed));
+  float b=hash(i+vec2(1.0,0.0)+vec2(u_textureSeed));
+  float c=hash(i+vec2(0.0,1.0)+vec2(u_textureSeed));
+  float d=hash(i+vec2(1.0,1.0)+vec2(u_textureSeed));
+  return mix(mix(a,b,f.x), mix(c,d,f.x), f.y);
+}
+float fbm(vec2 p){
+  float v=0.0; float a=0.5;
+  for(int i=0;i<5;i++){ v += noise(p)*a; p*=2.04; a*=0.52; }
+  return v;
+}
+vec3 hardLight(vec3 base, vec3 blend){
+  return mix(2.0 * base * blend, 1.0 - 2.0 * (1.0 - base) * (1.0 - blend), step(0.5, blend));
+}
+
+vec3 applyTextureSurface(vec3 col, vec2 uv, vec2 p, float time){
+  int mode = u_textureMode;
+  float amount = clamp(u_textureAmount, 0.0, 1.0);
+  if(mode == 0 || amount <= 0.001) return col;
+
+  float sc = mix(180.0, 38.0, clamp(u_textureScale,0.0,1.0));
+  float soft = clamp(u_textureSoftness, 0.0, 1.0);
+  float distort = clamp(u_textureDistortion, 0.0, 1.0);
+
+  // Texture movement is intentionally very slow. The surface should sit on the image,
+  // not flicker like video noise.
+  vec2 q = uv + vec2(
+    fbm(uv*3.0 + vec2(time*0.004 + u_textureSeed)),
+    fbm(uv*3.0 + vec2(-time*0.003 + u_textureSeed*1.7))
+  ) * 0.018 * distort;
+
+  float fine = hash(uv * u_resolution + vec2(u_textureSeed*997.0)) - 0.5;
+  float cloud = fbm(q * sc * 0.055 + vec2(time*0.004, -time*0.003));
+  float fiber = fbm(vec2(q.x*sc*0.10, q.y*sc*0.018) + vec2(u_textureSeed*4.0));
+  float wrinkleA = fbm(vec2(q.x*sc*0.020, q.y*sc*0.090) + vec2(8.0, u_textureSeed));
+  float wrinkleB = fbm(vec2(q.x*sc*0.115, q.y*sc*0.026) + vec2(u_textureSeed*2.0, 3.0));
+  float vign = smoothstep(0.86, 0.12, length(uv-0.5));
+
+  if(mode == 1){
+    // Fine grain: stable, small, non-pixelated surface tooth.
+    float paper = (fiber-0.5)*0.085 + (cloud-0.5)*0.040 + fine*0.025;
+    col = mix(col, col * (1.0 + paper), amount*0.72);
+  } else if(mode == 2){
+    // Half temp: generated from the Multiply reference, but procedural.
+    // Fine printed mesh + faint dirt; applied as a multiply layer.
+    vec2 screenUV = q * vec2(u_resolution.x/u_resolution.y, 1.0);
+    float angle = 0.785398;
+    mat2 rot = mat2(cos(angle), -sin(angle), sin(angle), cos(angle));
+    vec2 ruv = rot * (screenUV * mix(170.0, 260.0, soft));
+    vec2 cell = fract(ruv) - 0.5;
+    float dotShape = 1.0 - smoothstep(0.10, 0.34, length(cell));
+    float mesh = dotShape * (0.66 + 0.34 * hash(floor(ruv) + vec2(u_textureSeed*19.0)));
+    float stains = smoothstep(0.70, 0.98, cloud) * 0.18 + smoothstep(0.86, 1.0, fiber) * 0.11;
+    float plate = clamp(mesh*0.23 + stains + fine*0.035, 0.0, 0.45);
+    col *= (1.0 - plate * amount);
+  } else if(mode == 3){
+    // Foil: generated from the hard-light/lighten reference, not pasted as an image.
+    // Crumpled directional highlights, blended between lighten and hard-light logic.
+    float ridges = abs(wrinkleA - wrinkleB);
+    float sharp = smoothstep(0.055, 0.22, ridges);
+    float broad = cloud * 0.55 + fiber * 0.45;
+    float crease = pow(clamp(sharp + broad*0.45, 0.0, 1.0), 1.35);
+    vec3 foilTone = vec3(0.56 + crease*0.54);
+    vec3 lightenPass = max(col, foilTone);
+    vec3 hardPass = hardLight(col, foilTone);
+    col = mix(col, mix(lightenPass, hardPass, 0.55), amount * 0.65);
+    col += vec3(fine * 0.045 * amount);
+  } else if(mode == 4){
+    // Chromatic haze: airy RGB diffusion rather than a decorative glow.
+    float haze = fbm(q*6.0 + vec2(time*0.006, 0.0));
+    vec3 prism = vec3(
+      sin((q.x+haze)*8.0 + 0.0),
+      sin((q.x+haze)*8.0 + 2.1),
+      sin((q.x+haze)*8.0 + 4.2)
+    ) * 0.5 + 0.5;
+    col = mix(col, col + (prism-0.5)*0.16 + vec3(haze-0.5)*0.08, amount*0.72);
+    col += fine * amount * 0.022;
+  } else if(mode == 5){
+    // Pixelate: calmer and less coarse; no moving dirt layer.
+    float levels = mix(255.0, 84.0, amount);
+    col = floor(col * levels + 0.5) / levels;
+  } else if(mode == 6){
+    // Paper: generated from the Multiply 2 paper reference, used as multiply texture.
+    float folded = smoothstep(0.48, 0.82, abs(wrinkleA - 0.5) + abs(wrinkleB - 0.5));
+    float pulp = (fiber-0.5)*0.16 + (cloud-0.5)*0.09 + fine*0.055;
+    float emboss = (folded*0.20 + pulp);
+    col *= (1.0 - clamp(emboss, -0.10, 0.32) * amount * 0.82);
+    col += vec3(max(-emboss, 0.0) * amount * 0.10);
+  }
+
+  // Softness blends the effect back into the base; low softness = rougher surface.
+  float keep = mix(0.72, 0.92, soft);
+  col = mix(col, smoothstep(0.0, 1.0, col), (1.0-keep)*0.22);
+  col *= 1.0 - (1.0-vign)*amount*0.018;
+  return clamp(col, 0.0, 1.0);
+}
 
 void main(){
   vec2 uv = v_uv;
+  if(u_textureMode == 5 && u_textureAmount > 0.001){
+    float pxGrid = mix(280.0, 86.0, clamp(u_textureAmount, 0.0, 1.0));
+    pxGrid = mix(pxGrid, pxGrid * 0.82, clamp(u_textureScale, 0.0, 1.0));
+    vec2 pixelSize = vec2(pxGrid * (u_resolution.x / max(u_resolution.y, 1.0)), pxGrid);
+    uv = (floor(uv * pixelSize) + 0.5) / pixelSize;
+  }
   vec2 aspect = vec2(u_resolution.x / u_resolution.y, 1.0);
   vec2 p = (uv - 0.5) * aspect;
   vec2 m = (u_mouse - 0.5) * aspect * 1.8;
@@ -114,6 +225,8 @@ void main(){
 
   float g = hash(uv * u_resolution + u_time*60.0) - 0.5;
   col += g * u_grain * 0.36;
+
+  col = applyTextureSurface(col, uv, p, u_time);
 
   float vg = smoothstep(1.25, 0.25, length(uv - 0.5));
   col *= mix(0.82, 1.0, vg);
@@ -328,6 +441,13 @@ function GradientMode({ tweaks, registerSnapshot, mouseRef }) {
     gl.uniform1f(gl.getUniformLocation(prog,'u_grain'), tweaks.grain);
     gl.uniform1f(gl.getUniformLocation(prog,'u_flow'), tweaks.flow);
     gl.uniform1f(gl.getUniformLocation(prog,'u_spread'), tweaks.spread ?? 0.62);
+    const tex = window.NurrTextureEngine ? window.NurrTextureEngine.toUniforms(tweaks) : { mode:0, amount:0, scale:0.45, softness:0.5, distortion:0, seed:0.413 };
+    gl.uniform1i(gl.getUniformLocation(prog,'u_textureMode'), tex.mode);
+    gl.uniform1f(gl.getUniformLocation(prog,'u_textureAmount'), tex.amount);
+    gl.uniform1f(gl.getUniformLocation(prog,'u_textureScale'), tex.scale);
+    gl.uniform1f(gl.getUniformLocation(prog,'u_textureSoftness'), tex.softness);
+    gl.uniform1f(gl.getUniformLocation(prog,'u_textureDistortion'), tex.distortion);
+    gl.uniform1f(gl.getUniformLocation(prog,'u_textureSeed'), tex.seed);
     gl.uniform1i(gl.getUniformLocation(prog,'u_count'), tweaks.colors.length);
     for (let i=0; i<4; i++) {
       const rawHex = tweaks.colors[i] || tweaks.colors[tweaks.colors.length-1] || '#000000';
@@ -339,6 +459,7 @@ function GradientMode({ tweaks, registerSnapshot, mouseRef }) {
     // gl.flush() pushes commands to the GPU immediately, preventing any
     // partial-draw artefact when the browser compositor reads the buffer.
     gl.flush();
+    if (gl.finish) gl.finish();
   };
 
   WP.useAnimationLoop((t, dt) => {
@@ -413,6 +534,40 @@ function GradientControls({ tweaks, setTweaks }) {
         </div>
       </div>
 
+
+      <div className="section surface-section">
+        <div className="section-label">
+          <span className="name">Surface</span>
+          <span className="value">{(window.NurrTextureEngine?.byId(tweaks.texturePreset)?.name || 'Clean')}</span>
+        </div>
+        <div className="surface-grid">
+          {(window.NurrTextureEngine?.list() || []).map((preset) => (
+            <button
+              key={preset.id}
+              type="button"
+              className={'surface-card' + ((tweaks.texturePreset || 'clean') === preset.id ? ' active' : '')}
+              onClick={() => setTweaks(window.NurrTextureEngine.applyPresetToTweaks(preset, tweaks))}
+              title={preset.access === 'free' ? preset.name : `${preset.name} · ${preset.access}`}
+            >
+              <span className={'surface-sample surface-' + preset.id}></span>
+              <span className="surface-name">{preset.name}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {(tweaks.texturePreset || 'clean') !== 'clean' && (
+        <div className="section">
+          <div className="section-label">
+            <span className="name">{(tweaks.texturePreset || 'clean') === 'print-noise' ? 'Pixel size' : 'Surface amount'}</span>
+            <span className="value">{Math.round((tweaks.textureAmount ?? 0) * 100)}</span>
+          </div>
+          <input className="slider" type="range" min="0" max="1" step="0.01"
+            value={tweaks.textureAmount ?? 0}
+            onChange={(e)=>setTweaks({textureAmount:parseFloat(e.target.value)})} />
+        </div>
+      )}
+
       <div className="section">
         <div className="section-label"><span className="name">Grain</span><span className="value">{Math.round(tweaks.grain*100)}</span></div>
         <input className="slider" type="range" min="0" max="1" step="0.01"
@@ -465,5 +620,8 @@ window.GRADIENT_DEFAULTS = {
   spread:0.62,
   pigment:0.5,
   saturation:0.5,
-  temperature:0
+  temperature:0,
+  texturePreset:'clean',
+  textureAmount:0,
+  textureSeed:0.413
 };
