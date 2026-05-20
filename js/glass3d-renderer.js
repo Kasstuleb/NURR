@@ -761,23 +761,24 @@
     const geo  = getGeometry(type, sc, opts.surface!=null?opts.surface:.18, opts.edge!=null?opts.edge:.22, opts.seed, opts.depth!=null?opts.depth:1.05);
     const mesh = new _THREE.Mesh(geo, makeMaterial(opts));
 
-    const rotSpeed = clamp(opts.rotation!=null?opts.rotation:.12, 0, 1) * 0.85;
-    const autoY    = time * rotSpeed;
+    const degToRad = (deg) => deg * Math.PI / 180;
+    const manualTurn = degToRad(clamp(opts.viewTurn != null ? opts.viewTurn : 24, -180, 180));
+    const manualTilt = degToRad(clamp(opts.viewTilt != null ? opts.viewTilt : -16, -70, 70));
+    const autoY    = 0;
     const floatAmt = opts.frozen ? 0.4 : 1.0;
     const floatY   = Math.sin(time * .72 + (opts.seed||0) * 10) * .062 * motion * floatAmt;
 
     const worldRangeX = aspect * 2.8, worldRangeY = 2.0;
     mesh.position.set(ox * worldRangeX, -oy * worldRangeY + floatY, 0);
 
-    const POSES = { sphere:[.06,.18], cube:[-.34,.55], soap:[-.48,.34], pebble:[-.20,.40], tablet:[-.53,.32], capsule:[-.23,.38], torus:[-.62,.22] };
-    const [px, py] = POSES[type] || [-.28, .42];
-
     const mInfl = opts.frozen ? 0.0 : motion;
-    mesh.rotation.x = px + rmy * .52 * mInfl + Math.sin(time*.32)*.036*motion;
-    mesh.rotation.y = py + rmx * .60 * mInfl + autoY + Math.cos(time*.27)*.042*motion;
-    mesh.rotation.z = (type==='capsule'?.28:0) + rmx*rmy*.22*mInfl + Math.sin(time*.40)*.018*motion;
-    if (type === 'torus')   mesh.rotation.z = autoY*.65 + Math.sin(time*.40)*.032*motion;
-    if (type === 'capsule') mesh.rotation.z = .28 + autoY*.40 + Math.sin(time*.40)*.022*motion;
+    const breathingTilt = Math.sin(time*.32)*.026*motion;
+    const breathingTurn = Math.cos(time*.27)*.030*motion;
+    mesh.rotation.x = manualTilt + rmy * .22 * mInfl + breathingTilt;
+    mesh.rotation.y = manualTurn + rmx * .25 * mInfl + breathingTurn;
+    mesh.rotation.z = (type==='capsule'?.28:0) + rmx*rmy*.10*mInfl + Math.sin(time*.40)*.012*motion;
+    if (type === 'torus')   mesh.rotation.z = Math.sin(time*.40)*.018*motion;
+    if (type === 'capsule') mesh.rotation.z = .28 + Math.sin(time*.40)*.016*motion;
 
     scene.add(mesh);
 

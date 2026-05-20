@@ -5,13 +5,13 @@
   'use strict';
 
   const SHAPE_DEFAULTS = {
-    sphere:  { scale: 1.05, translucency: 0.72, depth: 1.05, edge: 0.22, surface: 0.18, light: 0.76, motion: 0.28, rotation: 0.12, grain: 0.055 },
-    cube:    { scale: 1.00, translucency: 0.65, depth: 1.20, edge: 0.00, surface: 0.10, light: 0.00, motion: 0.22, rotation: 0.18, grain: 0.055 },
-    soap:    { scale: 1.08, translucency: 0.80, depth: 0.65, edge: 0.16, surface: 0.32, light: 0.70, motion: 0.32, rotation: 0.10, grain: 0.060 },
-    pebble:  { scale: 1.12, translucency: 0.68, depth: 0.90, edge: 0.32, surface: 0.38, light: 0.74, motion: 0.26, rotation: 0.12, grain: 0.055 },
-    tablet:  { scale: 1.00, translucency: 0.70, depth: 0.50, edge: 0.12, surface: 0.08, light: 0.80, motion: 0.18, rotation: 0.14, grain: 0.050 },
-    capsule: { scale: 1.05, translucency: 0.75, depth: 1.05, edge: 0.18, surface: 0.14, light: 0.76, motion: 0.28, rotation: 0.20, grain: 0.055 },
-    torus:   { scale: 1.00, translucency: 0.78, depth: 0.85, edge: 0.28, surface: 0.22, light: 0.78, motion: 0.35, rotation: 0.24, grain: 0.060 },
+    sphere:  { scale: 1.05, translucency: 0.72, depth: 1.05, edge: 0.22, surface: 0.18, light: 0.76, motion: 0.28, viewTurn: 18,  viewTilt: -8,  grain: 0.055 },
+    cube:    { scale: 1.00, translucency: 0.65, depth: 1.20, edge: 0.00, surface: 0.10, light: 0.00, motion: 0.22, viewTurn: 32,  viewTilt: -20, grain: 0.055 },
+    soap:    { scale: 1.08, translucency: 0.80, depth: 0.65, edge: 0.16, surface: 0.32, light: 0.70, motion: 0.32, viewTurn: 30,  viewTilt: -24, grain: 0.060 },
+    pebble:  { scale: 1.12, translucency: 0.68, depth: 0.90, edge: 0.32, surface: 0.38, light: 0.74, motion: 0.26, viewTurn: 24,  viewTilt: -16, grain: 0.055 },
+    tablet:  { scale: 1.00, translucency: 0.70, depth: 0.50, edge: 0.12, surface: 0.08, light: 0.80, motion: 0.18, viewTurn: 20,  viewTilt: -28, grain: 0.050 },
+    capsule: { scale: 1.05, translucency: 0.75, depth: 1.05, edge: 0.18, surface: 0.14, light: 0.76, motion: 0.28, viewTurn: 26,  viewTilt: -12, grain: 0.055 },
+    torus:   { scale: 1.00, translucency: 0.78, depth: 0.85, edge: 0.28, surface: 0.22, light: 0.78, motion: 0.35, viewTurn: 16,  viewTilt: -34, grain: 0.060 },
   };
 
   const MATERIAL_PRESETS = {
@@ -60,7 +60,7 @@
     bgMode: 'gradient', bgColor: '#f4f3ef', bgSeed: 0.42,
     // Cube shape defaults: edge=0 (sharp), highlights at 0
     scale: 1.00, translucency: 0.65, depth: 1.20, edge: 0.00,
-    surface: 0.10, light: 0.00, motion: 0.22, rotation: 0.18, grain: 0.055,
+    surface: 0.10, light: 0.00, motion: 0.22, viewTurn: 32, viewTilt: -20, grain: 0.055,
   };
 
   const validHex = (v) => /^#[0-9a-f]{6}$/i.test(v);
@@ -267,9 +267,10 @@
       ['edge',         'Edge',         0,    1   ],
       ['surface',      'Surface',      0,    1   ],
       ['light',        'Highlights',   0,    1   ],
-      ['motion',       'Motion',       0,    1   ],
-      ['rotation',     'Rotation',     0,    1   ],
-      ['grain',        'Grain',        0,    1   ],
+      ['motion',       'Motion',       0,    1,    'percent' ],
+      ['viewTurn',     'Turn Y',      -180,  180,  'degrees' ],
+      ['viewTilt',     'Tilt X',       -70,   70,  'degrees' ],
+      ['grain',        'Grain',        0,    1,    'percent' ],
     ];
 
     const material    = tweaks.material    || 'glass';
@@ -430,16 +431,17 @@
       ),
 
       // ── Sliders
-      sliderDefs.map(([k, label, min, max]) => {
-        const value = tweaks[k] != null ? tweaks[k] : 0;
+      sliderDefs.map(([k, label, min, max, unit]) => {
+        const value = tweaks[k] != null ? tweaks[k] : (unit === 'degrees' ? 0 : 0);
+        const displayValue = unit === 'degrees' ? Math.round(value) + '°' : Math.round(value * 100);
         return e('div', { className: 'section', key: k },
           e('div', { className: 'section-label' },
             e('span', { className: 'name' }, label),
-            e('span', { className: 'value' }, Math.round(value * 100))
+            e('span', { className: 'value' }, displayValue)
           ),
           e('input', {
             className: 'slider', type: 'range',
-            min, max, step: '0.01', value,
+            min, max, step: unit === 'degrees' ? '1' : '0.01', value,
             onChange: (ev) => setTweaks({ [k]: parseFloat(ev.target.value) }),
           })
         );

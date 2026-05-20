@@ -540,7 +540,8 @@ function App() {
         surface: Math.random() * 0.34,
         light: 0.58 + Math.random() * 0.36,
         motion: 0.10 + Math.random() * 0.28,
-        rotation: Math.random(),
+        viewTurn: -55 + Math.random() * 110,
+        viewTilt: -45 + Math.random() * 70,
         grain: Math.min(0.18, Math.max(0.025, (s.grain ?? 0.055) + (Math.random() - 0.5) * 0.05)),
         seed: Math.random()
       }));
