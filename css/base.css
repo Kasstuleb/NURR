@@ -2242,3 +2242,57 @@ body > .eyedropper-follow.is-hidden {
   opacity: 0 !important;
   pointer-events: none !important;
 }
+
+/* ─── Final repair: show all snapshots in scalable drawer ─────────────── */
+.collection-drawer:not(.is-collapsed) {
+  display: flex !important;
+  flex-direction: column !important;
+  box-sizing: border-box !important;
+  padding: 14px !important;
+  overflow: hidden !important;
+}
+
+.collection-drawer:not(.is-collapsed) .collection-head {
+  flex: 0 0 auto !important;
+  margin: 0 0 10px 0 !important;
+}
+
+.collection-drawer:not(.is-collapsed) .collection-grid {
+  flex: 1 1 auto !important;
+  min-height: 78px !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: auto !important;
+  padding: 8px 6px 8px 6px !important;
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)) !important;
+  grid-auto-rows: auto !important;
+  align-content: flex-start !important;
+  gap: 10px !important;
+}
+
+.collection-drawer:not(.is-collapsed) .collection-tile {
+  width: auto !important;
+  min-width: 0 !important;
+  position: relative !important;
+}
+
+.collection-drawer:not(.is-collapsed) .collection-item {
+  width: 100% !important;
+  height: auto !important;
+  display: block !important;
+}
+
+.collection-drawer:not(.is-collapsed) .collection-item img {
+  display: block !important;
+  width: 100% !important;
+  height: auto !important;
+  aspect-ratio: 16 / 9 !important;
+  object-fit: contain !important;
+}
+
+.collection-drawer:not(.is-collapsed) .collection-actions {
+  flex: 0 0 auto !important;
+  margin-top: 10px !important;
+  padding: 0 !important;
+}
