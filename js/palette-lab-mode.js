@@ -266,8 +266,14 @@
       return function(){ window.removeEventListener('resize', draw); };
     }, [JSON.stringify(colors)]);
     useEffect(function(){
-      registerSnapshot(function(){
-        prettyGradientCanvas(colors,3840,2160).toBlob(function(blob){ downloadBlob('nurr-palette-gradient-'+Date.now()+'.png', blob); }, 'image/png');
+      registerSnapshot(function(opts){
+        opts = opts || {};
+        const w = opts.width || 3840;
+        const h = opts.height || 2160;
+        const canvas = prettyGradientCanvas(colors,w,h);
+        const dataUrl = canvas.toDataURL('image/png');
+        if (!opts.returnDataUrl) canvas.toBlob(function(blob){ downloadBlob(opts.filename || ('nurr-palette-gradient-'+w+'x'+h+'-'+Date.now()+'.png'), blob); }, 'image/png');
+        return dataUrl;
       });
     }, [registerSnapshot, JSON.stringify(colors)]);
     return <canvas ref={canvasRef} className="stage nurr-palette-stage" />;

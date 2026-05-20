@@ -516,12 +516,17 @@ function GeometricMode({ tweaks, registerSnapshot, mouseRef }) {
   });
 
   geomUE(() => {
-    registerSnapshot(() => {
-      const canvas=canvasRef.current; if(!canvas) return;
+    registerSnapshot((opts = {}) => {
+      const canvas=canvasRef.current; if(!canvas) return null;
+      const w = opts.width || 3840;
+      const h = opts.height || 2160;
       const ow=canvas.width, oh=canvas.height, osw=canvas.style.width, osh=canvas.style.height;
-      canvas.width=3840; canvas.height=2160; drawAt(3840,2160);
-      WP.downloadCanvas(canvas,`geometric-${Date.now()}.png`);
-      requestAnimationFrame(()=>{ canvas.width=ow; canvas.height=oh; canvas.style.width=osw; canvas.style.height=osh; });
+      canvas.width=w; canvas.height=h; drawAt(w,h);
+      const dataUrl = canvas.toDataURL('image/png');
+      if (!opts.returnDataUrl) WP.downloadCanvas(canvas, opts.filename || `geometric-${w}x${h}-${Date.now()}.png`);
+      if (opts.returnDataUrl) { canvas.width=ow; canvas.height=oh; canvas.style.width=osw; canvas.style.height=osh; }
+      else requestAnimationFrame(()=>{ canvas.width=ow; canvas.height=oh; canvas.style.width=osw; canvas.style.height=osh; });
+      return dataUrl;
     });
   }, [tweaks, registerSnapshot]);
 
@@ -530,7 +535,7 @@ function GeometricMode({ tweaks, registerSnapshot, mouseRef }) {
 
 // ─── GeometricControls ────────────────────────────────────────────────────────
 function GeometricControls({ tweaks, setTweaks }) {
-  const setColors = (next) => setTweaks({ colors: next.slice(0, 3) });
+  const setColors = (next) => setTweaks({ colors: next.slice(0, 6) });
   const PaletteEditor = window.NurrPaletteEditor;
 
   return (
@@ -550,7 +555,7 @@ function GeometricControls({ tweaks, setTweaks }) {
         </div>
       </div>
 
-      <PaletteEditor colors={tweaks.colors} setColors={setColors} countLabel="3 colors" allowAdd={false} minColors={3} maxColors={3} compact={true} />
+      <PaletteEditor colors={tweaks.colors} setColors={setColors} countLabel={`${tweaks.colors.length} colors`} allowAdd={true} minColors={1} maxColors={6} compact={true} />
 
       <div className="section presets-section">
         <div className="section-label">

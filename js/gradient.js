@@ -144,8 +144,8 @@ vec3 applyTextureSurface(vec3 col, vec2 uv, vec2 p, float time){
     col = mix(col, col + (prism-0.5)*0.16 + vec3(haze-0.5)*0.08, amount*0.72);
     col += fine * amount * 0.022;
   } else if(mode == 5){
-    // Pixelate: calmer and less coarse; no moving dirt layer.
-    float levels = mix(255.0, 84.0, amount);
+    // Pixelate: keep the palette soft but simplify color steps as blocks grow.
+    float levels = mix(255.0, 22.0, pow(amount, 1.15));
     col = floor(col * levels + 0.5) / levels;
   } else if(mode == 6){
     // Paper: generated from the Multiply 2 paper reference, used as multiply texture.
@@ -164,12 +164,21 @@ vec3 applyTextureSurface(vec3 col, vec2 uv, vec2 p, float time){
 }
 
 void main(){
-  vec2 uv = v_uv;
+  vec2 uv = gl_FragCoord.xy / max(u_resolution, vec2(1.0));
   if(u_textureMode == 5 && u_textureAmount > 0.001){
-    float pxGrid = mix(280.0, 86.0, clamp(u_textureAmount, 0.0, 1.0));
-    pxGrid = mix(pxGrid, pxGrid * 0.82, clamp(u_textureScale, 0.0, 1.0));
-    vec2 pixelSize = vec2(pxGrid * (u_resolution.x / max(u_resolution.y, 1.0)), pxGrid);
-    uv = (floor(uv * pixelSize) + 0.5) / pixelSize;
+    // Pixel surface: wide range, from fine pixel texture to oversized calm colour blocks.
+    // The sampled grid itself travels slowly, so the blocks breathe rather than blink.
+    float amt = clamp(u_textureAmount, 0.0, 1.0);
+    float scale = clamp(u_textureScale, 0.0, 1.0);
+    float pxGrid = mix(260.0, 3.0, pow(amt, 1.18));
+    pxGrid = mix(pxGrid * 1.35, pxGrid * 0.55, scale);
+    vec2 aspectFix = vec2(u_resolution.x / max(u_resolution.y, 1.0), 1.0);
+    vec2 drift = vec2(
+      sin(u_time * 0.115 + u_textureSeed * 6.0) + sin(u_time * 0.051 + 2.4),
+      cos(u_time * 0.093 + u_textureSeed * 4.0) + sin(u_time * 0.047 + 0.8)
+    ) * mix(0.004, 0.038, amt);
+    vec2 pixelSize = vec2(pxGrid * aspectFix.x, pxGrid);
+    uv = (floor((uv + drift) * pixelSize) + 0.5) / pixelSize - drift;
   }
   vec2 aspect = vec2(u_resolution.x / u_resolution.y, 1.0);
   vec2 p = (uv - 0.5) * aspect;
@@ -191,7 +200,8 @@ void main(){
   wp += normalize(toMouse + 0.0001) * ripple;
 
   float cnt = float(u_count);
-  float aT = u_time * 0.18 * u_flow;
+  float aT = u_time * (0.18 + 0.10 * u_flow);
+  vec2 autoDrift = vec2(sin(u_time*0.061), cos(u_time*0.047)) * 0.18 * u_flow;
 
   /*
     Color spread:
@@ -204,10 +214,10 @@ void main(){
   float sharpness = mix(2.8, 12.0, spread);
   float softness = mix(0.16, 0.045, spread);
 
-  vec2 an0 = m*0.45 + vec2(cos(aT+0.0),   sin(aT+0.0))   * (orbit + 0.16*sin(u_time*0.4));
-  vec2 an1 = m*0.45 + vec2(cos(aT+1.57),  sin(aT+1.57))  * (orbit + 0.16*sin(u_time*0.4+1.0));
-  vec2 an2 = m*0.45 + vec2(cos(aT+3.14),  sin(aT+3.14))  * (orbit + 0.16*sin(u_time*0.4+2.0));
-  vec2 an3 = m*0.45 + vec2(cos(aT+4.71),  sin(aT+4.71))  * (orbit + 0.16*sin(u_time*0.4+3.0));
+  vec2 an0 = (m*0.45 + autoDrift) + vec2(cos(aT+0.0),   sin(aT+0.0))   * (orbit + 0.16*sin(u_time*0.4));
+  vec2 an1 = (m*0.45 + autoDrift) + vec2(cos(aT+1.57),  sin(aT+1.57))  * (orbit + 0.16*sin(u_time*0.4+1.0));
+  vec2 an2 = (m*0.45 + autoDrift) + vec2(cos(aT+3.14),  sin(aT+3.14))  * (orbit + 0.16*sin(u_time*0.4+2.0));
+  vec2 an3 = (m*0.45 + autoDrift) + vec2(cos(aT+4.71),  sin(aT+4.71))  * (orbit + 0.16*sin(u_time*0.4+3.0));
 
   float d0 = distance(wp, an0);
   float d1 = distance(wp, an1);
@@ -223,7 +233,7 @@ void main(){
   float wsum = w0 + w1*k1 + w2*k2 + w3*k3;
   vec3 col = acc / max(wsum, 0.0001);
 
-  float g = hash(uv * u_resolution + u_time*60.0) - 0.5;
+  float g = hash(floor(uv * u_resolution) + vec2(u_textureSeed * 991.0)) - 0.5;
   col += g * u_grain * 0.36;
 
   col = applyTextureSurface(col, uv, p, u_time);
@@ -322,7 +332,8 @@ function GradientMode({ tweaks, registerSnapshot, mouseRef }) {
   const stateRef = gmUR({
     pulse: 0,
     frozen: false,
-    frozenMouse: null
+    frozenMouse: null,
+    frozenTime: null
   });
 
   // ── GL initialisation ────────────────────────────────────────────────────
@@ -396,9 +407,11 @@ function GradientMode({ tweaks, registerSnapshot, mouseRef }) {
       if (stateRef.current.frozen) {
         stateRef.current.frozen = false;
         stateRef.current.frozenMouse = null;
+        stateRef.current.frozenTime = null;
       } else {
         const live = mouseRef.current || { x, y, chaosX: x, chaosY: y };
         stateRef.current.frozen = true;
+        stateRef.current.frozenTime = performance.now() / 1000;
         stateRef.current.frozenMouse = {
           x,
           y,
@@ -431,7 +444,8 @@ function GradientMode({ tweaks, registerSnapshot, mouseRef }) {
     const m = stateRef.current.frozen && stateRef.current.frozenMouse
       ? stateRef.current.frozenMouse
       : (mouseRef.current || { x:0.5, y:0.5, chaosX:0.5, chaosY:0.5 });
-    const t = performance.now() / 1000;
+    const liveTime = performance.now() / 1000;
+    const t = stateRef.current.frozen && stateRef.current.frozenTime != null ? stateRef.current.frozenTime : liveTime;
     gl.useProgram(prog);
     gl.uniform1f(gl.getUniformLocation(prog,'u_time'), t);
     gl.uniform2f(gl.getUniformLocation(prog,'u_resolution'), targetW, targetH);
@@ -459,7 +473,6 @@ function GradientMode({ tweaks, registerSnapshot, mouseRef }) {
     // gl.flush() pushes commands to the GPU immediately, preventing any
     // partial-draw artefact when the browser compositor reads the buffer.
     gl.flush();
-    if (gl.finish) gl.finish();
   };
 
   WP.useAnimationLoop((t, dt) => {
@@ -472,12 +485,17 @@ function GradientMode({ tweaks, registerSnapshot, mouseRef }) {
   });
 
   gmUE(() => {
-    registerSnapshot(() => {
-      const canvas = canvasRef.current; if (!canvas) return;
+    registerSnapshot((opts = {}) => {
+      const canvas = canvasRef.current; if (!canvas) return null;
+      const w = opts.width || 3840;
+      const h = opts.height || 2160;
       const ow=canvas.width, oh=canvas.height, osw=canvas.style.width, osh=canvas.style.height;
-      canvas.width=3840; canvas.height=2160; drawAt(3840,2160);
-      WP.downloadCanvas(canvas, `gradient-${Date.now()}.png`);
-      requestAnimationFrame(() => { canvas.width=ow; canvas.height=oh; canvas.style.width=osw; canvas.style.height=osh; });
+      canvas.width=w; canvas.height=h; drawAt(w,h);
+      const dataUrl = canvas.toDataURL('image/png');
+      if (!opts.returnDataUrl) WP.downloadCanvas(canvas, opts.filename || `gradient-${w}x${h}-${Date.now()}.png`);
+      if (opts.returnDataUrl) { canvas.width=ow; canvas.height=oh; canvas.style.width=osw; canvas.style.height=osh; }
+      else requestAnimationFrame(() => { canvas.width=ow; canvas.height=oh; canvas.style.width=osw; canvas.style.height=osh; });
+      return dataUrl;
     });
   }, [tweaks, registerSnapshot]);
 
@@ -516,7 +534,7 @@ function GradientControls({ tweaks, setTweaks }) {
 
   return (
     <>
-      <PaletteEditor colors={tweaks.colors} setColors={setColors} minColors={2} maxColors={4} allowAdd={true} />
+      <PaletteEditor colors={tweaks.colors} setColors={setColors} minColors={1} maxColors={4} allowAdd={true} />
 
       <div className="section presets-section">
         <div className="section-label">

@@ -394,3 +394,63 @@ body.is-picking-color .icon-btn {
   opacity: 0 !important;
   visibility: hidden !important;
 }
+
+/* ─── Portal picker repair: fixed/clamped by JS variables, never under panel ─── */
+.color-wheel-card.nurr-picker-portal,
+body > .color-wheel-card.nurr-picker-portal {
+  position: fixed !important;
+  left: var(--picker-left, 24px) !important;
+  top: var(--picker-top, 24px) !important;
+  right: auto !important;
+  bottom: auto !important;
+  width: 300px !important;
+  z-index: 2147483000 !important;
+  transform: none !important;
+  overflow: visible !important;
+  pointer-events: auto !important;
+}
+
+.color-wheel-card.nurr-picker-portal .color-wheel-surface {
+  height: 154px !important;
+  background:
+    linear-gradient(to bottom, rgba(255,255,255,1) 0%, rgba(255,255,255,.62) 16%, rgba(255,255,255,0) 36%, rgba(0,0,0,0) 58%, rgba(0,0,0,.98) 100%),
+    linear-gradient(to right, #ff0000 0%, #ff7a00 8%, #fff000 16%, #00ff38 29%, #00ffd5 43%, #008cff 56%, #1500ff 68%, #8a00ff 80%, #ff00be 91%, #ff0000 100%) !important;
+}
+
+body > .eyedropper-follow {
+  z-index: 2147483500 !important;
+}
+
+.color-wheel-card .color-input,
+.color-wheel-card.nurr-picker-portal input[type="text"] {
+  display: block !important;
+  position: static !important;
+  left: auto !important;
+  top: auto !important;
+  width: 100% !important;
+  height: 26px !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+
+/* Repair 3: final picker override */
+.color-wheel-card.nurr-picker-portal,
+body > .color-wheel-card.nurr-picker-portal {
+  position: fixed !important;
+  left: var(--picker-left, 24px) !important;
+  top: var(--picker-top, 24px) !important;
+  right: auto !important;
+  bottom: auto !important;
+  width: 312px !important;
+  z-index: 2147483000 !important;
+  overflow: visible !important;
+  pointer-events: auto !important;
+}
+.color-wheel-card.nurr-picker-portal .color-wheel-surface {
+  height: 168px !important;
+  background:
+    linear-gradient(to bottom, rgba(255,255,255,.96) 0%, rgba(255,255,255,.40) 18%, rgba(255,255,255,0) 38%, rgba(0,0,0,0) 58%, rgba(0,0,0,.96) 100%),
+    linear-gradient(to right, #ff0000 0%, #ff7a00 8%, #fff000 16%, #00ff38 29%, #00ffd5 43%, #008cff 56%, #1500ff 68%, #8a00ff 80%, #ff00be 91%, #ff0000 100%) !important;
+}
+body > .eyedropper-follow { z-index: 2147483500 !important; }

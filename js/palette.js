@@ -14,6 +14,9 @@
 
   function NurrPaletteEditor({ colors, setColors, countLabel, allowAdd=true, minColors=2, maxColors=4, compact=false }) {
     const [picker, setPicker] = pUseState(null);
+    const [pickerPos, setPickerPos] = pUseState({ left: 0, top: 0 });
+    const [draggingIdx, setDraggingIdx] = pUseState(null);
+    const [dragMoved, setDragMoved] = pUseState(false);
     const [livePos, setLivePos] = pUseState({ x:-100, y:-100 });
     const [liveColor, setLiveColor] = pUseState('#08015F');
     const [dropVisible, setDropVisibleState] = pUseState(false);
@@ -29,6 +32,7 @@
     const liveRef = pUseRef({ x:-100, y:-100, color:'#08015F' });
     const inputFocusRef = pUseRef(false);
     const dropVisibleRef = pUseRef(false);
+    const dragIndexRef = pUseRef(null);
 
     colorsRef.current = colors;
 
@@ -62,8 +66,24 @@
     };
 
     const removeColor = (i) => {
-      if (!allowAdd || colors.length <= minColors) return;
-      setColors(colors.filter((_, idx) => idx !== i));
+      const minimum = Math.max(1, Number(minColors || 1));
+      if (!allowAdd || colorsRef.current.length <= minimum) return;
+      const next = colorsRef.current.filter((_, idx) => idx !== i);
+      setPicker(null);
+      pickerRef.current = null;
+      setDropletVisible(false);
+      setColors(next);
+    };
+
+    const reorderColor = (from, to) => {
+      const list = [...colorsRef.current];
+      if (from == null || to == null || from === to || !list[from] || !list[to]) return;
+      const [picked] = list.splice(from, 1);
+      list.splice(to, 0, picked);
+      setPicker(null);
+      pickerRef.current = null;
+      setDropletVisible(false);
+      setColors(list);
     };
 
     const randomize = () => {
@@ -171,7 +191,13 @@
       const rect = target.getBoundingClientRect();
       const x = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
       const y = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
-      return WP.hslToHex(x * 360, Math.min(1, 0.16 + y * 0.84), 0.08 + (1 - y) * 0.86);
+      // Broad picker: horizontal = full hue, vertical = light to dark.
+      // Kept in HSL so the visual white/black overlay and sampled value agree closely.
+      const hue = x * 360;
+      // Broad shade picker: full hue horizontally, bright/pale at top, saturated mids, near-black at bottom.
+      const light = Math.max(0.025, Math.min(0.96, 0.94 - y * 0.90));
+      const sat = Math.max(0.12, Math.min(1, 0.96 - Math.max(0, 0.18 - y) * 1.65));
+      return WP.hslToHex(hue, sat, light);
     };
 
     const sampleCanvasAt = (clientX, clientY, canvas) => {
@@ -334,6 +360,19 @@
     const openPicker = (i, e) => {
       e.preventDefault();
       e.stopPropagation();
+      if (dragMoved) return;
+
+      const trigger = e.currentTarget;
+      const rect = trigger && trigger.getBoundingClientRect ? trigger.getBoundingClientRect() : { left:e.clientX, right:e.clientX, top:e.clientY };
+      const cardW = 318;
+      const cardH = 286;
+      const gap = 14;
+      let left = rect.left - cardW - gap;
+      if (left < 12) left = rect.right + gap;
+      left = Math.max(12, Math.min(window.innerWidth - cardW - 12, left));
+      let top = rect.top - 20;
+      top = Math.max(12, Math.min(window.innerHeight - cardH - 12, top));
+      setPickerPos({ left, top });
 
       if (picker && picker.idx === i) {
         setDropletVisible(false);
@@ -349,11 +388,20 @@
       setHexDraft(null);
       setRgbDraft(null);
       setCmykDraft(null);
-      setDropletVisible(false);
+      setDropletVisible(true);
 
       const next = { idx:i, color };
       pickerRef.current = next;
       setPicker(next);
+    };
+
+    const previewWheelInline = (e) => {
+      if (!pickerRef.current || inputFocusRef.current) return;
+      const color = colorFromWheelPoint(e.clientX, e.clientY, e.currentTarget);
+      liveRef.current = { x:e.clientX, y:e.clientY, color };
+      setLiveColor(color);
+      setLivePos({ x:e.clientX, y:e.clientY });
+      setDropletVisible(true);
     };
 
     const inputRow = (label, value, setter, parser) => (
@@ -406,15 +454,47 @@
 
           <div className="swatches">
             {colors.map((c, i) => (
-              <button
+              <div
                 key={i}
-                type="button"
-                className={'swatch remove-target' + (picker?.idx === i ? ' active' : '')}
-                style={{ background:c }}
-                onClick={(e) => openPicker(i, e)}
-                onContextMenu={(e) => { e.preventDefault(); removeColor(i); }}
-                title="Click to pick · Right-click to remove"
-              />
+                className={'swatch-wrap' + (draggingIdx === i ? ' dragging' : '')}
+                draggable={colors.length > 1}
+                onDragStart={(e) => {
+                  dragIndexRef.current = i;
+                  setDraggingIdx(i);
+                  setDragMoved(true);
+                  document.body.classList.add('nurr-no-select');
+                  try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(i)); } catch (_) {}
+                }}
+                onDragOver={(e) => { e.preventDefault(); try { e.dataTransfer.dropEffect = 'move'; } catch (_) {} }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const from = dragIndexRef.current != null ? dragIndexRef.current : Number(e.dataTransfer.getData('text/plain'));
+                  reorderColor(from, i);
+                }}
+                onDragEnd={() => {
+                  dragIndexRef.current = null;
+                  setDraggingIdx(null);
+                  document.body.classList.remove('nurr-no-select');
+                  setTimeout(() => setDragMoved(false), 0);
+                }}
+              >
+                <button
+                  type="button"
+                  className={'swatch remove-target' + (picker?.idx === i ? ' active' : '')}
+                  style={{ background:c }}
+                  onClick={(e) => openPicker(i, e)}
+                  onContextMenu={(e) => { e.preventDefault(); removeColor(i); }}
+                  title="Click to pick · drag to reorder"
+                />
+                {allowAdd && colors.length > Math.max(1, Number(minColors || 1)) && (
+                  <button
+                    type="button"
+                    className="swatch-remove"
+                    title="Remove color"
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); removeColor(i); }}
+                  >×</button>
+                )}
+              </div>
             ))}
             {allowAdd && colors.length < maxColors && (
               <button type="button" className="swatch add" onClick={addColor} title="Add color">+</button>
@@ -426,12 +506,18 @@
           </div>
         </div>
 
-        {picker && (
+        {picker && ReactDOM.createPortal((
           <>
-            <div className="color-wheel-card">
+            <div
+              className="color-wheel-card nurr-picker-portal"
+              style={{ '--picker-left': pickerPos.left + 'px', '--picker-top': pickerPos.top + 'px' }}
+            >
               <div
                 ref={wheelRef}
                 className="color-wheel-surface"
+                onPointerMove={previewWheelInline}
+                onPointerEnter={previewWheelInline}
+                onPointerLeave={() => setDropletVisible(false)}
                 title="Move over the spectrum or artwork, then click to select"
               />
 
@@ -455,7 +541,7 @@
               </svg>
             </div>
           </>
-        )}
+        ), document.body)}
       </>
     );
   }

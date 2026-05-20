@@ -246,14 +246,18 @@ function NatureMode({ tweaks, registerSnapshot, mouseRef, currentImg }) {
   });
 
   nmUE(() => {
-    registerSnapshot(() => {
+    registerSnapshot((opts = {}) => {
       const canvas = canvasRef.current;
-      if (!canvas || !loaded) return;
+      if (!canvas || !loaded) return null;
+      const w = opts.width || 3840;
+      const h = opts.height || 2160;
       const ow = canvas.width, oh = canvas.height, osw = canvas.style.width, osh = canvas.style.height;
-      canvas.width = 3840; canvas.height = 2160;
-      drawAt(3840, 2160);
-      WP.downloadCanvas(canvas, `photo-${Date.now()}.png`);
+      canvas.width = w; canvas.height = h;
+      drawAt(w, h);
+      const dataUrl = canvas.toDataURL('image/png');
+      if (!opts.returnDataUrl) WP.downloadCanvas(canvas, opts.filename || `photo-${w}x${h}-${Date.now()}.png`);
       requestAnimationFrame(() => { canvas.width = ow; canvas.height = oh; canvas.style.width = osw; canvas.style.height = osh; });
+      return dataUrl;
     });
   }, [tweaks, registerSnapshot, loaded]);
 

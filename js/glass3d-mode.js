@@ -145,18 +145,23 @@
     }, [draw]);
 
     React.useEffect(() => {
-      registerSnapshot(() => {
-        const canvas = canvasRef.current; if (!canvas) return;
+      registerSnapshot((opts = {}) => {
+        const canvas = canvasRef.current; if (!canvas) return null;
+        const w = opts.width || 3840;
+        const h = opts.height || 2160;
         const ow = canvas.width, oh = canvas.height;
         const osw = canvas.style.width, osh = canvas.style.height;
-        draw(3840, 2160, performance.now() * 0.001, true);
-        WP.downloadCanvas(canvas, 'nurr-3d-object-' + Date.now() + '.png');
-        requestAnimationFrame(() => {
+        draw(w, h, performance.now() * 0.001, true);
+        const dataUrl = canvas.toDataURL('image/png');
+        if (!opts.returnDataUrl) WP.downloadCanvas(canvas, opts.filename || ('nurr-3d-object-' + w + 'x' + h + '-' + Date.now() + '.png'));
+        const restore = () => {
           canvas.width = ow; canvas.height = oh;
           canvas.style.width = osw; canvas.style.height = osh;
           const dpr = window.devicePixelRatio || 1;
           draw(ow / dpr, oh / dpr, performance.now() * 0.001);
-        });
+        };
+        if (opts.returnDataUrl) restore(); else requestAnimationFrame(restore);
+        return dataUrl;
       });
     }, [draw, registerSnapshot]);
 

@@ -690,35 +690,43 @@ void main() {
     }, []);
 
     useEffect(function () {
-      registerSnapshot(function () {
+      registerSnapshot(function (opts) {
+        opts = opts || {};
         const canvas = canvasRef.current;
-        if (!canvas) return;
+        if (!canvas) return null;
 
+        const w = opts.width || 3840;
+        const h = opts.height || 2160;
         const ow = canvas.width;
         const oh = canvas.height;
         const osw = canvas.style.width;
         const osh = canvas.style.height;
 
-        canvas.width = 3840;
-        canvas.height = 2160;
+        canvas.width = w;
+        canvas.height = h;
         drawFrame();
+        const dataUrl = canvas.toDataURL('image/png');
 
-        if (window.WP && WP.downloadCanvas) {
-          WP.downloadCanvas(canvas, 'abstract-' + Date.now() + '.png');
-        } else {
-          const a = document.createElement('a');
-          a.download = 'abstract-' + Date.now() + '.png';
-          a.href = canvas.toDataURL('image/png');
-          a.click();
+        if (!opts.returnDataUrl) {
+          if (window.WP && WP.downloadCanvas) {
+            WP.downloadCanvas(canvas, opts.filename || ('abstract-' + w + 'x' + h + '-' + Date.now() + '.png'));
+          } else {
+            const a = document.createElement('a');
+            a.download = opts.filename || ('abstract-' + w + 'x' + h + '-' + Date.now() + '.png');
+            a.href = dataUrl;
+            a.click();
+          }
         }
 
-        requestAnimationFrame(function () {
+        const restore = function () {
           canvas.width = ow;
           canvas.height = oh;
           canvas.style.width = osw;
           canvas.style.height = osh;
           drawFrame();
-        });
+        };
+        if (opts.returnDataUrl) restore(); else requestAnimationFrame(restore);
+        return dataUrl;
       });
     }, [registerSnapshot, tweaks]);
 
@@ -816,7 +824,7 @@ void main() {
           <PaletteEditor
             colors={st.colors}
             setColors={function (next) { setTweaks({ colors: next.slice(0, 8) }); }}
-            minColors={2}
+            minColors={1}
             maxColors={8}
             allowAdd={true}
             compact={true}
