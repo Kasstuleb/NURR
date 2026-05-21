@@ -88,6 +88,7 @@
   const _camMouse = { cx: 0.5, cy: 0.5 };
   const _objPos   = { x: 0.5, y: 0.5 };
   let   _frameCount = 0;  // for grain fade-in
+  let   _lastObjectBounds = null; // normalized screen-space bounds for object hover / grab cursor
 
   const SSAA = 2.0; // 2× supersample → sharp edges everywhere
 
@@ -671,7 +672,7 @@
     let targetX, targetY, objLerp;
     if (opts.targetPosX != null) {
       targetX = opts.targetPosX; targetY = opts.targetPosY;
-      objLerp = opts.fastLerp ? 0.20 : 0.0;
+      objLerp = opts.fastLerp ? 1.0 : 0.0;
     } else {
       targetX = raw.x != null ? raw.x : 0.5; targetY = raw.y != null ? raw.y : 0.5;
       objLerp = 0.040;
@@ -762,25 +763,63 @@
     const mesh = new _THREE.Mesh(geo, makeMaterial(opts));
 
     const degToRad = (deg) => deg * Math.PI / 180;
-    const manualTurn = degToRad(clamp(opts.viewTurn != null ? opts.viewTurn : 24, -180, 180));
-    const manualTilt = degToRad(clamp(opts.viewTilt != null ? opts.viewTilt : -16, -70, 70));
-    const autoY    = 0;
+    const hasManualTurn = opts.turnY != null || opts.tiltX != null;
+    // Rotation speed is separate from view angle: Turn Y/Tilt X set the pose,
+    // Rotation speed adds continuous object spin around the Y axis.
+    const rotSpeed = clamp(opts.rotationSpeed != null ? opts.rotationSpeed : (opts.rotation != null ? opts.rotation : .10), 0, 1);
+    const autoY = Number.isFinite(opts.spinAngle) ? opts.spinAngle : (opts.frozen ? 0 : time * rotSpeed * 4.2);
     const floatAmt = opts.frozen ? 0.4 : 1.0;
     const floatY   = Math.sin(time * .72 + (opts.seed||0) * 10) * .062 * motion * floatAmt;
 
     const worldRangeX = aspect * 2.8, worldRangeY = 2.0;
     mesh.position.set(ox * worldRangeX, -oy * worldRangeY + floatY, 0);
 
+    const POSES = { sphere:[-8,18], cube:[-18,32], soap:[-24,-28], pebble:[-16,24], tablet:[-30,16], capsule:[-14,22], torus:[-18,20] };
+    const [defaultTilt, defaultTurn] = POSES[type] || [-16, 22];
+    const tiltRad = degToRad(opts.tiltX != null ? opts.tiltX : defaultTilt);
+    const turnRad = degToRad(opts.turnY != null ? opts.turnY : defaultTurn);
+
     const mInfl = opts.frozen ? 0.0 : motion;
-    const breathingTilt = Math.sin(time*.32)*.026*motion;
-    const breathingTurn = Math.cos(time*.27)*.030*motion;
-    mesh.rotation.x = manualTilt + rmy * .22 * mInfl + breathingTilt;
-    mesh.rotation.y = manualTurn + rmx * .25 * mInfl + breathingTurn;
-    mesh.rotation.z = (type==='capsule'?.28:0) + rmx*rmy*.10*mInfl + Math.sin(time*.40)*.012*motion;
-    if (type === 'torus')   mesh.rotation.z = Math.sin(time*.40)*.018*motion;
-    if (type === 'capsule') mesh.rotation.z = .28 + Math.sin(time*.40)*.016*motion;
+    const liveTilt = rmy * .30 * mInfl + Math.sin(time*.32)*.024*motion;
+    const liveTurn = rmx * .34 * mInfl + Math.cos(time*.27)*.026*motion;
+
+    mesh.rotation.x = tiltRad + liveTilt;
+    mesh.rotation.y = turnRad + liveTurn + autoY;
+    mesh.rotation.z = (type==='capsule' ? .28 : 0) + rmx*rmy*.12*mInfl + Math.sin(time*.40)*.014*motion;
+    if (type === 'torus')   mesh.rotation.z = autoY*.45 + Math.sin(time*.40)*.026*motion;
+    if (type === 'capsule') mesh.rotation.z = .28 + autoY*.25 + Math.sin(time*.40)*.018*motion;
 
     scene.add(mesh);
+
+    // Store projected object bounds for precise hover/grab cursor hit testing.
+    try {
+      mesh.updateMatrixWorld(true);
+      const box = new _THREE.Box3().setFromObject(mesh);
+      const pts = [
+        new _THREE.Vector3(box.min.x, box.min.y, box.min.z),
+        new _THREE.Vector3(box.min.x, box.min.y, box.max.z),
+        new _THREE.Vector3(box.min.x, box.max.y, box.min.z),
+        new _THREE.Vector3(box.min.x, box.max.y, box.max.z),
+        new _THREE.Vector3(box.max.x, box.min.y, box.min.z),
+        new _THREE.Vector3(box.max.x, box.min.y, box.max.z),
+        new _THREE.Vector3(box.max.x, box.max.y, box.min.z),
+        new _THREE.Vector3(box.max.x, box.max.y, box.max.z),
+      ];
+      let minX = 1, minY = 1, maxX = 0, maxY = 0;
+      pts.forEach((v) => {
+        v.project(camera);
+        const x = (v.x + 1) * 0.5;
+        const y = (1 - v.y) * 0.5;
+        minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+        minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+      });
+      _lastObjectBounds = {
+        minX: clamp(minX, 0, 1), minY: clamp(minY, 0, 1),
+        maxX: clamp(maxX, 0, 1), maxY: clamp(maxY, 0, 1),
+        cx: clamp((minX + maxX) * 0.5, 0, 1),
+        cy: clamp((minY + maxY) * 0.5, 0, 1),
+      };
+    } catch (err) {}
 
     // Inner depth shell for refractive materials
     if (['glass','crystal','holo','opal'].includes(mat) && ['sphere','soap','pebble','torus'].includes(type)) {
@@ -799,7 +838,6 @@
 
     renderer.clear(true, true, true);
     renderer.render(scene, camera);
-    renderer.getContext().finish && renderer.getContext().finish();
 
     const ctx2d = canvas.getContext('2d');
     ctx2d.imageSmoothingEnabled = true; ctx2d.imageSmoothingQuality = 'high';
@@ -822,5 +860,5 @@
     return true;
   }
 
-  window.NurrGlass3DRenderer = { renderToCanvas };
+  window.NurrGlass3DRenderer = { renderToCanvas, getObjectBounds: () => _lastObjectBounds };
 })();

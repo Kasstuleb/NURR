@@ -5,13 +5,13 @@
   'use strict';
 
   const SHAPE_DEFAULTS = {
-    sphere:  { scale: 1.05, translucency: 0.72, depth: 1.05, edge: 0.22, surface: 0.18, light: 0.76, motion: 0.28, viewTurn: 18,  viewTilt: -8,  grain: 0.055 },
-    cube:    { scale: 1.00, translucency: 0.65, depth: 1.20, edge: 0.00, surface: 0.10, light: 0.00, motion: 0.22, viewTurn: 32,  viewTilt: -20, grain: 0.055 },
-    soap:    { scale: 1.08, translucency: 0.80, depth: 0.65, edge: 0.16, surface: 0.32, light: 0.70, motion: 0.32, viewTurn: 30,  viewTilt: -24, grain: 0.060 },
-    pebble:  { scale: 1.12, translucency: 0.68, depth: 0.90, edge: 0.32, surface: 0.38, light: 0.74, motion: 0.26, viewTurn: 24,  viewTilt: -16, grain: 0.055 },
-    tablet:  { scale: 1.00, translucency: 0.70, depth: 0.50, edge: 0.12, surface: 0.08, light: 0.80, motion: 0.18, viewTurn: 20,  viewTilt: -28, grain: 0.050 },
-    capsule: { scale: 1.05, translucency: 0.75, depth: 1.05, edge: 0.18, surface: 0.14, light: 0.76, motion: 0.28, viewTurn: 26,  viewTilt: -12, grain: 0.055 },
-    torus:   { scale: 1.00, translucency: 0.78, depth: 0.85, edge: 0.28, surface: 0.22, light: 0.78, motion: 0.35, viewTurn: 16,  viewTilt: -34, grain: 0.060 },
+    sphere:  { scale: 1.05, translucency: 0.72, depth: 1.05, edge: 0.22, surface: 0.18, light: 0.76, motion: 0.28, rotationSpeed: 0.12, turnY: 18, tiltX: -8, grain: 0.055 },
+    cube:    { scale: 1.00, translucency: 0.65, depth: 1.20, edge: 0.00, surface: 0.10, light: 0.00, motion: 0.22, rotationSpeed: 0.10, turnY: 32, tiltX: -18, grain: 0.055 },
+    soap:    { scale: 1.08, translucency: 0.80, depth: 0.65, edge: 0.16, surface: 0.32, light: 0.70, motion: 0.32, rotationSpeed: 0.08, turnY: -28, tiltX: -24, grain: 0.060 },
+    pebble:  { scale: 1.12, translucency: 0.68, depth: 0.90, edge: 0.32, surface: 0.38, light: 0.74, motion: 0.26, rotationSpeed: 0.10, turnY: 24, tiltX: -16, grain: 0.055 },
+    tablet:  { scale: 1.00, translucency: 0.70, depth: 0.50, edge: 0.12, surface: 0.08, light: 0.80, motion: 0.18, rotationSpeed: 0.06, turnY: 16, tiltX: -30, grain: 0.050 },
+    capsule: { scale: 1.05, translucency: 0.75, depth: 1.05, edge: 0.18, surface: 0.14, light: 0.76, motion: 0.28, rotationSpeed: 0.12, turnY: 22, tiltX: -14, grain: 0.055 },
+    torus:   { scale: 1.00, translucency: 0.78, depth: 0.85, edge: 0.28, surface: 0.22, light: 0.78, motion: 0.35, rotationSpeed: 0.14, turnY: 20, tiltX: -18, grain: 0.060 },
   };
 
   const MATERIAL_PRESETS = {
@@ -60,7 +60,7 @@
     bgMode: 'gradient', bgColor: '#f4f3ef', bgSeed: 0.42,
     // Cube shape defaults: edge=0 (sharp), highlights at 0
     scale: 1.00, translucency: 0.65, depth: 1.20, edge: 0.00,
-    surface: 0.10, light: 0.00, motion: 0.22, viewTurn: 32, viewTilt: -20, grain: 0.055,
+    surface: 0.10, light: 0.00, motion: 0.22, rotationSpeed: 0.10, turnY: 32, tiltX: -18, grain: 0.055,
   };
 
   const validHex = (v) => /^#[0-9a-f]{6}$/i.test(v);
@@ -71,6 +71,7 @@
     const frameRef    = React.useRef(null);
     const tweaksRef   = React.useRef(tweaks);
     const seedRef     = React.useRef(tweaks.seed || Math.random());
+    const spinRef     = React.useRef({ angle: 0, lastTime: null });
     tweaksRef.current = tweaks;
 
     // Interaction state: freeze/drag
@@ -83,6 +84,7 @@
       ptrStartX:   0,
       ptrStartY:   0,
       ptrHasMoved: false,
+      canDrag: false,
     });
 
     const draw = React.useCallback((cssW, cssH, time, noHiDPI) => {
@@ -106,9 +108,20 @@
       const isFrozen   = inter.state === 'frozen';
       const isDragging = inter.state === 'dragging';
 
+      const now = time != null ? time : performance.now() * 0.001;
+      const spin = spinRef.current;
+      if (spin.lastTime == null) spin.lastTime = now;
+      const dt = Math.max(0, Math.min(0.05, now - spin.lastTime));
+      spin.lastTime = now;
+      const spinSpeed = Math.max(0, Math.min(1, t.rotationSpeed != null ? t.rotationSpeed : 0));
+      if (!isFrozen && !isDragging && spinSpeed > 0) {
+        spin.angle += spinSpeed * dt * 4.2;
+      }
+
       const ok = window.NurrGlass3DRenderer && window.NurrGlass3DRenderer.renderToCanvas(canvas, {
         ...t,
-        time: time != null ? time : performance.now() * 0.001,
+        time: now,
+        spinAngle: spin.angle,
         mouse,
         seed: seedRef.current,
         targetPosX: isFrozen || isDragging ? inter.objX : null,
@@ -166,6 +179,66 @@
     }, [draw, registerSnapshot]);
 
     // ── Pointer handlers ──────────────────────────────────────────────────
+    const getObjectHit = React.useCallback((clientX, clientY) => {
+      const canvas = canvasRef.current; if (!canvas) return false;
+      const rect = canvas.getBoundingClientRect();
+      const nx = (clientX - rect.left) / rect.width;
+      const ny = (clientY - rect.top) / rect.height;
+      if (nx < 0 || nx > 1 || ny < 0 || ny > 1) return false;
+
+      const t = tweaksRef.current || {};
+      const type = t.object || 'sphere';
+      const scale = Math.max(0.45, Math.min(1.85, t.scale != null ? t.scale : 1));
+
+      // Use the renderer's projected object bounds, but test them as a soft ellipse.
+      // A rectangle made the cursor feel wrong: it could activate beside the object,
+      // or only catch one edge after Turn/Tilt changed the projection.
+      let bounds = null;
+      try {
+        bounds = window.NurrGlass3DRenderer && window.NurrGlass3DRenderer.getObjectBounds
+          ? window.NurrGlass3DRenderer.getObjectBounds()
+          : null;
+      } catch (err) {
+        bounds = null;
+      }
+
+      if (bounds && Number.isFinite(bounds.minX) && Number.isFinite(bounds.minY) &&
+          Number.isFinite(bounds.maxX) && Number.isFinite(bounds.maxY)) {
+        const isLong = ['soap','capsule','tablet','cube'].includes(type);
+        const isRing = type === 'torus';
+
+        // Screen-space projected object bounds.
+        // This avoids the broken one-edge hover issue without using expensive per-frame raycasting.
+        // It runs only on pointer movement.
+        const mx = 0.010 + scale * 0.006 + (isLong ? 0.006 : 0) + (isRing ? 0.010 : 0);
+        const my = 0.010 + scale * 0.006 + (isLong ? 0.006 : 0) + (isRing ? 0.010 : 0);
+
+        return (
+          nx >= bounds.minX - mx && nx <= bounds.maxX + mx &&
+          ny >= bounds.minY - my && ny <= bounds.maxY + my
+        );
+      }
+
+      // Fallback before the first renderer bounds exist.
+      const inter = interRef.current;
+      const locked = inter.state === 'frozen' || inter.state === 'dragging';
+      const m = mouseRef?.current || { x: 0.5, y: 0.5 };
+      const cx = locked ? inter.objX : (m.x != null ? m.x : 0.5);
+      const cy = locked ? inter.objY : (m.y != null ? m.y : 0.52);
+      const wide = ['cube','soap','capsule','tablet'].includes(type);
+      const ring = type === 'torus';
+      const rx = Math.min(0.42, (wide ? 0.24 : 0.18) * scale + (ring ? 0.045 : 0));
+      const ry = Math.min(0.36, (wide ? 0.19 : 0.18) * scale + (ring ? 0.035 : 0));
+      const dx = (nx - cx) / rx;
+      const dy = (ny - cy) / ry;
+      return (dx * dx + dy * dy) <= 1;
+    }, [mouseRef]);
+
+    const setStageCursor = React.useCallback((cursor) => {
+      const canvas = canvasRef.current;
+      if (canvas) canvas.style.cursor = cursor;
+    }, []);
+
     const onPointerDown = React.useCallback((e) => {
       const inter  = interRef.current;
       const canvas = canvasRef.current; if (!canvas) return;
@@ -178,14 +251,16 @@
       inter.ptrStartX   = e.clientX;
       inter.ptrStartY   = e.clientY;
       inter.ptrHasMoved = false;
+      inter.canDrag = getObjectHit(e.clientX, e.clientY);
       inter.ptrNX = nx; inter.ptrNY = ny;
+      if (inter.canDrag) { e.preventDefault(); setStageCursor('grabbing'); }
 
       // Grab mouse pointer for reliable tracking during drag
       try { canvas.setPointerCapture(e.pointerId); } catch(err) {}
 
       // Reseed surface on every new click
       seedRef.current = Math.random();
-    }, []);
+    }, [getObjectHit, setStageCursor]);
 
     const onPointerMove = React.useCallback((e) => {
       const inter  = interRef.current;
@@ -195,19 +270,26 @@
       const ny = (e.clientY - rect.top)   / rect.height;
       inter.ptrNX = nx; inter.ptrNY = ny;
 
-      if (!inter.ptrDown) return;
+      if (!inter.ptrDown) {
+        setStageCursor(getObjectHit(e.clientX, e.clientY) ? 'grab' : 'default');
+        return;
+      }
       const dx = e.clientX - inter.ptrStartX, dy = e.clientY - inter.ptrStartY;
-      if (!inter.ptrHasMoved && Math.hypot(dx, dy) > 7) {
+      if (inter.canDrag && !inter.ptrHasMoved && Math.hypot(dx, dy) > 1) {
         inter.ptrHasMoved = true;
         inter.state = 'dragging';
       }
+      if (inter.canDrag && inter.ptrHasMoved) {
+        inter.state = 'dragging';
+      }
       if (inter.state === 'dragging') {
+        e.preventDefault();
         inter.objX = Math.max(0, Math.min(1, nx));
         inter.objY = Math.max(0, Math.min(1, ny));
       }
-    }, []);
+    }, [getObjectHit, setStageCursor]);
 
-    const onPointerUp = React.useCallback(() => {
+    const onPointerUp = React.useCallback((e) => {
       const inter   = interRef.current;
       const elapsed = Date.now() - inter.ptrDownTime;
 
@@ -226,11 +308,17 @@
         inter.state = 'frozen';
       }
       inter.ptrDown = false;
-    }, []);
+      inter.canDrag = false;
+      if (e) setStageCursor(getObjectHit(e.clientX, e.clientY) ? 'grab' : 'default');
+    }, [getObjectHit, setStageCursor]);
 
     return React.createElement('canvas', {
       ref:           canvasRef,
       className:     'stage',
+      style:           { cursor: 'default', touchAction: 'none' },
+      onPointerEnter:  (e) => setStageCursor(getObjectHit(e.clientX, e.clientY) ? 'grab' : 'default'),
+      onPointerLeave:  () => setStageCursor('default'),
+      onPointerCancel: () => { interRef.current.ptrDown = false; interRef.current.canDrag = false; setStageCursor('default'); },
       onPointerDown: onPointerDown,
       onPointerMove: onPointerMove,
       onPointerUp:   onPointerUp,
@@ -261,16 +349,17 @@
       ['white','White'],['black','Black'],['custom','Custom'],
     ];
     const sliderDefs = [
-      ['scale',        'Size',         0.45, 1.85],
-      ['translucency', 'Translucency', 0,    1   ],
-      ['depth',        'Thickness',    0.25, 2.40],
-      ['edge',         'Edge',         0,    1   ],
-      ['surface',      'Surface',      0,    1   ],
-      ['light',        'Highlights',   0,    1   ],
-      ['motion',       'Motion',       0,    1,    'percent' ],
-      ['viewTurn',     'Turn Y',      -180,  180,  'degrees' ],
-      ['viewTilt',     'Tilt X',       -70,   70,  'degrees' ],
-      ['grain',        'Grain',        0,    1,    'percent' ],
+      ['scale',        'Size',         0.45, 1.85, 'percent'],
+      ['translucency', 'Translucency', 0,    1,   'percent'],
+      ['depth',        'Thickness',    0.25, 2.40, 'percent'],
+      ['edge',         'Edge',         0,    1,   'percent'],
+      ['surface',      'Surface',      0,    1,   'percent'],
+      ['light',        'Highlights',   0,    1,   'percent'],
+      ['motion',       'Motion',       0,    1,   'percent' ],
+      ['rotationSpeed','Rotation speed',0,   1,   'percent' ],
+      ['turnY',        'Turn Y',      -180, 180, 'deg'     ],
+      ['tiltX',        'Tilt X',       -70,  70, 'deg'     ],
+      ['grain',        'Grain',        0,    1,   'percent' ],
     ];
 
     const material    = tweaks.material    || 'glass';
@@ -431,17 +520,18 @@
       ),
 
       // ── Sliders
-      sliderDefs.map(([k, label, min, max, unit]) => {
-        const value = tweaks[k] != null ? tweaks[k] : (unit === 'degrees' ? 0 : 0);
-        const displayValue = unit === 'degrees' ? Math.round(value) + '°' : Math.round(value * 100);
-        return e('div', { className: 'section', key: k },
+      sliderDefs.map(([k, label, min, max, kind]) => {
+        const fallback = k === 'turnY' ? 0 : (k === 'tiltX' ? 0 : (k === 'rotationSpeed' ? 0.10 : 0));
+        const value = tweaks[k] != null ? tweaks[k] : fallback;
+        const display = kind === 'deg' ? (Math.round(value) + '°') : Math.round(value * 100);
+        return e('div', { className: 'section glass3d-slider-section', key: k },
           e('div', { className: 'section-label' },
             e('span', { className: 'name' }, label),
-            e('span', { className: 'value' }, displayValue)
+            e('span', { className: 'value' }, display)
           ),
           e('input', {
             className: 'slider', type: 'range',
-            min, max, step: unit === 'degrees' ? '1' : '0.01', value,
+            min, max, step: kind === 'deg' ? '1' : '0.01', value,
             onChange: (ev) => setTweaks({ [k]: parseFloat(ev.target.value) }),
           })
         );
