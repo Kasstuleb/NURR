@@ -1,4 +1,4 @@
-// glass3d-renderer.js — NURR 3D Objects renderer v11.
+// glass3d-renderer.js — NURR 3D Objects renderer v12 quality patch.
 // SSAA 2x · Gaussian grain fade-in · animated grain · NURR palette gradients
 // Diamond crystal · chromic metal · smoky opal · sphere-cube geometry
 // Dithered backgrounds · accent colour impact · 3D-axis mouse reactivity
@@ -90,46 +90,72 @@
   let   _frameCount = 0;  // for grain fade-in
   let   _lastObjectBounds = null; // normalized screen-space bounds for object hover / grab cursor
 
-  const SSAA = 2.0; // 2× supersample → sharp edges everywhere
+  const SSAA = 1.65; // high-quality supersample, capped for smoother live performance
 
   function ensureRenderer(W, H) {
     if (!_THREE) return null;
     if (!_renderer) {
       const oc = document.createElement('canvas');
       _renderer = new _THREE.WebGLRenderer({
-        canvas: oc, antialias: true, alpha: false,
-        preserveDrawingBuffer: true, powerPreference: 'high-performance',
+        canvas: oc,
+        antialias: true,
+        alpha: false,
+        preserveDrawingBuffer: true,
+        powerPreference: 'high-performance',
+        precision: 'highp',
       });
       _renderer.outputColorSpace    = _THREE.SRGBColorSpace;
       _renderer.toneMapping         = _THREE.ACESFilmicToneMapping;
       _renderer.toneMappingExposure = 1.06;
     }
-    _renderer.setPixelRatio(1);
+    _renderer.setPixelRatio(1); // explicit: render size is already supersampled in pixels
     _renderer.setSize(W, H, false);
     return _renderer;
   }
 
   function getBump() {
     if (_bump.texture) return _bump.texture;
-    const c = document.createElement('canvas'); c.width = c.height = 512;
-    const ctx = c.getContext('2d'), img = ctx.createImageData(512, 512);
+
+    // Smooth high-resolution micro-surface map.
+    // Older 512px noise could show as visible pixel stepping on glossy 3D objects.
+    const S = 1024;
+    const c = document.createElement('canvas'); c.width = c.height = S;
+    const ctx = c.getContext('2d');
+    const img = ctx.createImageData(S, S);
     const rnd = hashSeed(0.731);
-    for (let y = 0; y < 512; y++) for (let x = 0; x < 512; x++) {
-      const i = (y*512+x)*4;
-      const w = Math.sin(x*.058)*7 + Math.cos(y*.050)*7 + Math.sin((x+y)*.022)*9;
-      const v = clamp(128+w+(rnd()-.5)*5, 0, 255);
+
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+      const i = (y*S+x)*4;
+      const w =
+        Math.sin(x*.021 + y*.006) * 5.0 +
+        Math.cos(y*.019 - x*.004) * 4.0 +
+        Math.sin((x+y)*.010) * 3.0;
+      const v = clamp(128 + w + (rnd()-.5)*1.35, 0, 255);
       img.data[i]=img.data[i+1]=img.data[i+2]=v; img.data[i+3]=255;
     }
     ctx.putImageData(img, 0, 0);
+
+    // Soften the generated noise before it becomes a bump map.
+    ctx.save();
+    ctx.globalAlpha = 0.55;
+    ctx.filter = 'blur(1.4px)';
+    ctx.drawImage(c, 0, 0);
+    ctx.restore();
+
     const tex = new _THREE.CanvasTexture(c);
-    tex.wrapS = tex.wrapT = _THREE.RepeatWrapping; tex.repeat.set(2.5, 2.5);
+    tex.wrapS = tex.wrapT = _THREE.RepeatWrapping;
+    tex.repeat.set(1.65, 1.65);
+    tex.generateMipmaps = true;
+    tex.minFilter = _THREE.LinearMipmapLinearFilter;
+    tex.magFilter = _THREE.LinearFilter;
+    tex.colorSpace = _THREE.NoColorSpace;
     _bump.texture = tex; return tex;
   }
 
   // ── Environment map ───────────────────────────────────────────────────────
   function buildEnvCanvas(material, dark, bgHex, bgSeed, colors) {
     const c = _env.canvas || document.createElement('canvas');
-    c.width = 1536; c.height = 768; _env.canvas = c;
+    c.width = 2048; c.height = 1024; _env.canvas = c;
     const ctx = c.getContext('2d');
     const isMetal   = material === 'metal';
     const isHolo    = material === 'holo';
@@ -232,6 +258,9 @@
         _env.texture = new _THREE.CanvasTexture(_env.canvas);
         _env.texture.mapping    = _THREE.EquirectangularReflectionMapping;
         _env.texture.colorSpace = _THREE.SRGBColorSpace;
+        _env.texture.generateMipmaps = true;
+        _env.texture.minFilter = _THREE.LinearMipmapLinearFilter;
+        _env.texture.magFilter = _THREE.LinearFilter;
       }
     }
     return _env.texture;
@@ -272,7 +301,7 @@
       cfg.iridRange        = [200, 720];
       cfg.clearcoat        = lerp(.58, 1.0,  hi);
       cfg.envInt           = lerp(1.10, 2.00, hi);
-      cfg.bumpScale        = surf * .018;  // surface = visible surface texture
+      cfg.bumpScale        = surf * .006;  // smoother premium surface; avoids pixelated bump stepping
       cfg.depthWrite       = tr < .30;
 
     } else if (mat === 'opal') {
@@ -290,7 +319,7 @@
       cfg.clearcoat        = lerp(.70, 1.0,  hi);
       cfg.clearcoatRough   = lerp(.035, .004, hi);
       cfg.envInt           = lerp(1.40, 2.30, hi);
-      cfg.bumpScale        = surf * .016;  // surface adds visible pearlescent micro-texture
+      cfg.bumpScale        = surf * .005;  // smoother premium surface; avoids pixelated bump stepping
       cfg.depthWrite       = false;
 
     } else if (mat === 'water') {
@@ -302,7 +331,7 @@
       cfg.attenuationColor = accent;
       cfg.attenuationDist  = lerp(.55, 3.8,  tr);
       cfg.iridescence      = .018;
-      cfg.bumpScale        = .008 + surf * .030;  // surface = visible ripples
+      cfg.bumpScale        = .002 + surf * .010;  // smoother water ripples; avoids pixel stepping
       cfg.envInt           = lerp(.88, 1.62, hi);
 
     } else if (mat === 'metal') {
@@ -320,7 +349,7 @@
       cfg.iridRange        = [120, 500];
       cfg.clearcoat        = lerp(.42, 1.0, hi);
       cfg.clearcoatRough   = lerp(.10, .004, hi) + surf * .08;
-      cfg.bumpScale        = surf * .016;  // surface = metal grain
+      cfg.bumpScale        = surf * .005;  // smoother metal grain; avoids pixelated highlights
       cfg.envInt           = lerp(1.80, 4.20, hi);
       cfg.specular         = lerp(.90, 1.90, hi);
 
@@ -358,8 +387,15 @@
       cfg.clearcoatRough   = lerp(.001, .0003, hi);
       cfg.specular         = lerp(2.80, 4.50, hi);  // explosive diamond fire
       cfg.envInt           = lerp(3.80, 6.50, hi);
-      cfg.bumpScale        = surf * .012;  // surface = micro-facet texture
+      cfg.bumpScale        = surf * .004;  // smoother micro-facet texture; avoids pixelated highlights
     }
+    // Soap/tablet have broad glossy faces, so bump reads as pixelated stepping much faster.
+    // Keep them smoother while leaving the other shapes' material character intact.
+    if (opts && (opts.object === 'soap' || opts.object === 'tablet')) {
+      cfg.bumpScale *= 0.22;
+      cfg.roughness = Math.max(cfg.roughness, 0.012);
+    }
+
     return cfg;
   }
 
@@ -422,6 +458,113 @@
     geo.center(); geo.computeVertexNormals(); return geo;
   }
 
+  // Rounded rectangle with constant visual footprint.
+  // Extrude bevels can make the soap appear to grow as Edge increases; this helper
+  // compensates the source outline so Edge changes roundness, not overall scale.
+  function extBoxConstantOuter(w, h, d, r, bevel, segs) {
+    const b = Math.max(.001, bevel || .001);
+    const innerW = Math.max(.08, w - b * 2.0);
+    const innerH = Math.max(.08, h - b * 2.0);
+    const innerR = Math.max(.001, Math.min(r - b, innerW * .49, innerH * .49));
+    const geo = new _THREE.ExtrudeGeometry(rrShape(innerW, innerH, innerR), {
+      depth: Math.max(.05, d - b * .35),
+      bevelEnabled: true,
+      bevelSize: b,
+      bevelThickness: b,
+      bevelSegments: segs,
+      steps: 1,
+      curveSegments: Math.max(16, segs * 4),
+    });
+    geo.center();
+    geo.computeVertexNormals();
+    return geo;
+  }
+
+
+  function signedPow(v, p) {
+    return Math.sign(v) * Math.pow(Math.abs(v), p);
+  }
+
+  // Smooth superellipsoid used for SOAP + TABLET.
+  // It avoids the stepped bevel topology of ExtrudeGeometry on glossy transparent surfaces.
+  function superEllipsoidGeometry(a, b, c, n1, n2, segU, segV) {
+    const positions = [];
+    const uvs = [];
+    const indices = [];
+    const su = Math.max(64, Math.round(segU || 160));
+    const sv = Math.max(32, Math.round(segV || 80));
+
+    for (let iy = 0; iy <= sv; iy++) {
+      const v = -Math.PI / 2 + (iy / sv) * Math.PI;
+      const cv = Math.cos(v);
+      const svv = Math.sin(v);
+      for (let ix = 0; ix <= su; ix++) {
+        const u = -Math.PI + (ix / su) * Math.PI * 2;
+        const cu = Math.cos(u);
+        const sux = Math.sin(u);
+        const x = a * signedPow(cv, n1) * signedPow(cu, n2);
+        const y = b * signedPow(cv, n1) * signedPow(sux, n2);
+        const z = c * signedPow(svv, n1);
+        positions.push(x, y, z);
+        uvs.push(ix / su, iy / sv);
+      }
+    }
+
+    for (let iy = 0; iy < sv; iy++) {
+      for (let ix = 0; ix < su; ix++) {
+        const a0 = iy * (su + 1) + ix;
+        const b0 = a0 + 1;
+        const c0 = a0 + (su + 1);
+        const d0 = c0 + 1;
+        indices.push(a0, c0, b0, b0, c0, d0);
+      }
+    }
+
+    const geo = new _THREE.BufferGeometry();
+    geo.setAttribute('position', new _THREE.Float32BufferAttribute(positions, 3));
+    geo.setAttribute('uv', new _THREE.Float32BufferAttribute(uvs, 2));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    return geo;
+  }
+
+  // Symmetric lathed tablet geometry: true circular pill with rounded upper/lower edges.
+  // This avoids the warped look of superellipsoid tablets while keeping smooth glossy reflections.
+  function roundedTabletGeometry(radius, thickness, bevel, radialSeg, profileSeg) {
+    const R = radius;
+    const H = thickness * 0.5;
+    const B = Math.min(bevel, H * 0.92, R * 0.46);
+    const pts = [];
+
+    // Top face: axis to beginning of rounded shoulder.
+    pts.push(new _THREE.Vector2(0.0001, H));
+    pts.push(new _THREE.Vector2(R - B, H));
+
+    // Upper outer roundover.
+    for (let i = 1; i <= profileSeg; i++) {
+      const t = i / profileSeg;
+      const a = t * Math.PI * 0.5;
+      pts.push(new _THREE.Vector2((R - B) + Math.sin(a) * B, H - (1 - Math.cos(a)) * B));
+    }
+
+    // Soft side wall.
+    pts.push(new _THREE.Vector2(R, -H + B));
+
+    // Lower outer roundover.
+    for (let i = 1; i <= profileSeg; i++) {
+      const t = i / profileSeg;
+      const a = t * Math.PI * 0.5;
+      pts.push(new _THREE.Vector2(R - (1 - Math.cos(a)) * B, (-H + B) - Math.sin(a) * B));
+    }
+
+    // Bottom face back to axis.
+    pts.push(new _THREE.Vector2(0.0001, -H));
+
+    const geo = new _THREE.LatheGeometry(pts, radialSeg || 224);
+    geo.computeVertexNormals();
+    return geo;
+  }
+
   function buildGeometry(type, sc, surf, edg, seed, dep) {
     const s=sc||1, e=clamp(edg,0,1), d=clamp(dep,.25,2.4);
     let g;
@@ -445,9 +588,17 @@
     }
 
     if (type === 'soap') {
-      const bv=lerp(.22,.045,e)*s, r=lerp(.38,.08,e)*s, seg=Math.round(lerp(28,5,e));
-      g=extBox(2.18*s,1.30*s,.42*s*d,r,bv,seg); g.rotateX(Math.PI/2);
-      deform(g, (.010+surf*.025)*(1-e*.55), 'soap', seed); return g;
+      // Edge now changes only the corner/edge softness — not the object's size.
+      // Low edge = flatter, cleaner rounded rectangle. High edge = softer pillow-like soap.
+      const outerW = 2.18 * s;
+      const outerH = 1.34 * s;
+      const outerD = .54 * s * d;
+      const bv  = lerp(.045, .24, e) * s;
+      const rad = lerp(.18, .56, e) * s;
+      g = extBoxConstantOuter(outerW, outerH, outerD, rad, bv, 56);
+      g.rotateX(Math.PI/2);
+      g.computeVertexNormals();
+      return g;
     }
     if (type === 'pebble') {
       if (e > 0.45) {
@@ -468,8 +619,13 @@
       g.scale(1.28, .84, .58); deform(g, lerp(.052,.020,e)+surf*.040, 'pebble', seed); return g;
     }
     if (type === 'tablet') {
-      const bv=lerp(.16,.035,e)*s, r=lerp(.76,.42,e)*s, seg=Math.round(lerp(36,8,e));
-      g=extBox(1.64*s,1.64*s,.42*s*d,r,bv,seg); g.rotateX(Math.PI/2); return g;
+      // Edge controls the tablet rim: low = sharper coin edge, high = rounded soft pill edge.
+      // Wider range makes the slider visibly responsive while keeping the radius constant.
+      const bevel = lerp(.018, .205, e) * s;
+      g = roundedTabletGeometry(.86*s, .46*s*d, bevel, 256, 40);
+      g.rotateX(Math.PI/2);
+      g.computeVertexNormals();
+      return g;
     }
     if (type === 'capsule') {
       g = new _THREE.CapsuleGeometry(.44*s, 1.52*s*lerp(.88,1.12,d/2.4), 48, 96);
@@ -597,7 +753,13 @@
       _bg.key = key;
       const nc = buildBgCanvas(opts);
       if (_bg.texture) { _bg.texture.image = nc; _bg.texture.needsUpdate = true; }
-      else { _bg.texture = new _THREE.CanvasTexture(nc); _bg.texture.colorSpace = _THREE.SRGBColorSpace; }
+      else {
+        _bg.texture = new _THREE.CanvasTexture(nc);
+        _bg.texture.colorSpace = _THREE.SRGBColorSpace;
+        _bg.texture.generateMipmaps = true;
+        _bg.texture.minFilter = _THREE.LinearMipmapLinearFilter;
+        _bg.texture.magFilter = _THREE.LinearFilter;
+      }
       _bg.canvas = nc;
     }
     return _bg.texture;

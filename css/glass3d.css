@@ -466,3 +466,57 @@
    ═══════════════════════════════════════════════════ */
 .glass3d-section { margin-bottom: 2px; }
 .glass3d-section .section-label { margin-bottom: 0; }
+
+/* ─── 3D material colour preset swatch repair ───────────────────────────────
+   Protects the 3D preset swatches from global button / palette CSS overrides.
+   These swatches must remain visible rounded colour pills. */
+.mode-glass3d .glass3d-preset-row,
+.panel .glass3d-preset-row {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 6px !important;
+  width: 100% !important;
+  margin-top: 8px !important;
+  overflow: visible !important;
+}
+
+.mode-glass3d .glass3d-preset-pill,
+.panel .glass3d-preset-pill {
+  display: block !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  height: 30px !important;
+  min-height: 30px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border-radius: 10px !important;
+  border: 1.5px solid rgba(255,255,255,0.72) !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+  cursor: pointer !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  color: transparent !important;
+  font-size: 0 !important;
+  line-height: 0 !important;
+  box-shadow:
+    0 1px 4px rgba(8,4,48,0.10),
+    inset 0 1px 0 rgba(255,255,255,0.60) !important;
+}
+
+.mode-glass3d .glass3d-preset-pill:hover,
+.panel .glass3d-preset-pill:hover {
+  transform: translateY(-1px) !important;
+  border-color: rgba(255,255,255,0.92) !important;
+  box-shadow: 0 3px 8px rgba(8,4,48,0.14) !important;
+}
+
+.mode-glass3d .glass3d-preset-pill.active,
+.panel .glass3d-preset-pill.active {
+  border-color: rgba(20,12,80,0.72) !important;
+  box-shadow:
+    0 0 0 1.5px rgba(20,12,80,0.20),
+    inset 0 1px 0 rgba(255,255,255,0.62) !important;
+}
