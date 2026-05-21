@@ -228,6 +228,15 @@ void main(){
   float w1 = 1.0 / (d1*d1*sharpness + softness);
   float w2 = 1.0 / (d2*d2*sharpness + softness);
   float w3 = 1.0 / (d3*d3*sharpness + softness);
+
+  // NURR v10 rating data favoured clear hierarchy over equal, flat colour fields.
+  // The palette order is now meaningful: 0 = anchor/dominant, 1 = colour body,
+  // 2 = light/mist, 3 = accent. These weights keep all colours visible while
+  // reducing the washed-out, equal-blend look.
+  w0 *= 1.48;
+  w1 *= 0.96;
+  w2 *= 0.78;
+  w3 *= 0.58;
   float k1 = step(2.0, cnt); float k2 = step(3.0, cnt); float k3 = step(4.0, cnt);
   vec3 acc = u_color0*w0 + u_color1*w1*k1 + u_color2*w2*k2 + u_color3*w3*k3;
   float wsum = w0 + w1*k1 + w2*k2 + w3*k3;
@@ -639,10 +648,10 @@ function GradientControls({ tweaks, setTweaks }) {
 }
 
 window.GRADIENT_DEFAULTS = {
-  colors:['#08015F','#FC6C3D'],
+  colors:['#13051E','#EC315E','#F8E9D2'],
   grain:0.22,
-  flow:1.0,
-  spread:0.62,
+  flow:0.92,
+  spread:0.56,
   pigment:0.5,
   saturation:0.5,
   temperature:0,
