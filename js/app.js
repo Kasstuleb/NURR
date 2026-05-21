@@ -481,8 +481,11 @@ function App() {
 
 
   const pickPalette = (count = 4) => {
+    const engine = window.NURR_GRADIENT_PALETTE_ENGINE;
     const presets = (window.WP && Array.isArray(WP.PALETTE_PRESETS)) ? WP.PALETTE_PRESETS : [];
-    const source = presets.length ? presets[Math.floor(Math.random() * presets.length)] : ['#08015F', '#FC6C3D', '#F4C4D7'];
+    const source = engine && typeof engine.randomPalette === 'function'
+      ? engine.randomPalette(4, { module: mode })
+      : (presets.length ? presets[Math.floor(Math.random() * presets.length)] : ['#08015F', '#FC6C3D', '#F4C4D7']);
     const unique = [];
     source.forEach(c => {
       const hex = String(c || '').trim().toUpperCase();
@@ -540,9 +543,7 @@ function App() {
         surface: Math.random() * 0.34,
         light: 0.58 + Math.random() * 0.36,
         motion: 0.10 + Math.random() * 0.28,
-        rotationSpeed: 0.02 + Math.random() * 0.22,
-        turnY: Math.round(-55 + Math.random() * 110),
-        tiltX: Math.round(-45 + Math.random() * 60),
+        rotation: Math.random(),
         grain: Math.min(0.18, Math.max(0.025, (s.grain ?? 0.055) + (Math.random() - 0.5) * 0.05)),
         seed: Math.random()
       }));
