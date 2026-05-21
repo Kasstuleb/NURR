@@ -336,6 +336,7 @@
 
   // ── Controls component ────────────────────────────────────────────────────
   function Glass3DControls({ tweaks, setTweaks }) {
+    const [presetsOpen, setPresetsOpen] = React.useState(false);
     const shapes = [
       ['sphere','Sphere'],['cube','Cube'],['soap','Soap'],
       ['pebble','Pebble'],['tablet','Tablet'],['capsule','Capsule'],['torus','Donut'],
@@ -431,12 +432,18 @@
       ),
 
       // ── Colour
-      e('div', { className: 'section glass3d-section' },
-        e('div', { className: 'section-label' },
-          e('span', { className: 'name' }, 'Colour'),
-          e('span', { className: 'value' }, (presets.find(p => p.id === colorPreset) || {}).label || 'Custom')
+      e('div', { className: 'section glass3d-section presets-section collapsible-presets ' + (presetsOpen ? 'is-open' : 'is-collapsed') },
+        e('button', {
+          type: 'button',
+          className: 'section-label presets-toggle',
+          onClick: () => setPresetsOpen(!presetsOpen),
+          'aria-expanded': presetsOpen
+        },
+          e('span', { className: 'name' }, 'Presets'),
+          e('span', { className: 'value' }, (presets.find(p => p.id === colorPreset) || {}).label || 'Custom'),
+          e('span', { className: 'preset-arrow' }, presetsOpen ? '⌃' : '⌄')
         ),
-        e('div', { className: 'glass3d-preset-row' },
+        e('div', { className: 'glass3d-preset-row palette-grid' },
           presets.map(p =>
             e('button', {
               key: p.id, title: p.label,

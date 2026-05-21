@@ -535,6 +535,7 @@ function GeometricMode({ tweaks, registerSnapshot, mouseRef }) {
 
 // ─── GeometricControls ────────────────────────────────────────────────────────
 function GeometricControls({ tweaks, setTweaks }) {
+  const [presetsOpen, setPresetsOpen] = React.useState(false);
   const setColors = (next) => setTweaks({ colors: next.slice(0, 6) });
   const PaletteEditor = window.NurrPaletteEditor;
 
@@ -557,11 +558,17 @@ function GeometricControls({ tweaks, setTweaks }) {
 
       <PaletteEditor colors={tweaks.colors} setColors={setColors} countLabel={`${tweaks.colors.length} colors`} allowAdd={true} minColors={1} maxColors={6} compact={true} />
 
-      <div className="section presets-section">
-        <div className="section-label">
+      <div className={'section presets-section collapsible-presets ' + (presetsOpen ? 'is-open' : 'is-collapsed')}>
+        <button
+          type="button"
+          className="section-label presets-toggle"
+          onClick={() => setPresetsOpen(!presetsOpen)}
+          aria-expanded={presetsOpen}
+        >
           <span className="name">Presets</span>
           <span className="value">{WP.PALETTE_PRESETS.length}</span>
-        </div>
+          <span className="preset-arrow">{presetsOpen ? '⌃' : '⌄'}</span>
+        </button>
         <div className="palette-grid">
           {WP.PALETTE_PRESETS.map((p,i) => (
             <button key={i} className="palette-card" onClick={()=>setTweaks({colors:p.slice(0,3)})} title={p.slice(0,3).join(' · ')}>

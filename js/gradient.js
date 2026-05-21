@@ -503,6 +503,7 @@ function GradientMode({ tweaks, registerSnapshot, mouseRef }) {
 }
 
 function GradientControls({ tweaks, setTweaks }) {
+  const [presetsOpen, setPresetsOpen] = React.useState(false);
   const setColors = (next) => setTweaks({ colors: next });
   const PaletteEditor = window.NurrPaletteEditor;
 
@@ -536,11 +537,17 @@ function GradientControls({ tweaks, setTweaks }) {
     <>
       <PaletteEditor colors={tweaks.colors} setColors={setColors} minColors={1} maxColors={4} allowAdd={true} />
 
-      <div className="section presets-section">
-        <div className="section-label">
+      <div className={'section presets-section collapsible-presets ' + (presetsOpen ? 'is-open' : 'is-collapsed')}>
+        <button
+          type="button"
+          className="section-label presets-toggle"
+          onClick={() => setPresetsOpen(!presetsOpen)}
+          aria-expanded={presetsOpen}
+        >
           <span className="name">Presets</span>
           <span className="value">{WP.PALETTE_PRESETS.length}</span>
-        </div>
+          <span className="preset-arrow">{presetsOpen ? '⌃' : '⌄'}</span>
+        </button>
         <div className="palette-grid">
           {WP.PALETTE_PRESETS.map((p,i) => (
             <button key={i} className={'palette-card'+(i===activePresetIdx?' active':'')}

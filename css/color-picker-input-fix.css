@@ -112,3 +112,42 @@ body > .color-wheel-card.nurr-picker-portal {
     linear-gradient(to right, #ff0000 0%, #ff7a00 8%, #fff000 16%, #00ff38 29%, #00ffd5 43%, #008cff 56%, #1500ff 68%, #8a00ff 80%, #ff00be 91%, #ff0000 100%) !important;
 }
 body > .eyedropper-follow { z-index: 2147483500 !important; }
+
+/* Final v2 override — loaded after color-picker-working.css */
+.color-wheel-card.nurr-wheel-v2,
+body > .color-wheel-card.nurr-wheel-v2 {
+  width: 360px !important;
+  max-width: calc(100vw - 32px) !important;
+  padding: 22px 22px 20px !important;
+  border-radius: 28px !important;
+  background: rgba(242,245,242,0.68) !important;
+  border: 1px solid rgba(18,18,32,0.12) !important;
+  box-shadow: 0 28px 90px rgba(7,7,20,0.20), inset 0 1px 0 rgba(255,255,255,0.55) !important;
+  backdrop-filter: blur(22px) saturate(1.18) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(1.18) !important;
+  z-index: 2147483000 !important;
+}
+.color-wheel-card.nurr-wheel-v2 .color-wheel-surface,
+.color-wheel-card.nurr-wheel-v2 .color-readout,
+.color-wheel-card.nurr-wheel-v2 .color-readout-hint { display:none !important; }
+.color-wheel-card.nurr-wheel-v2 input[type="text"],
+.color-wheel-card.nurr-wheel-v2 input.color-input {
+  display:block !important;
+  position:static !important;
+  width:100% !important;
+  height:34px !important;
+  opacity:1 !important;
+  visibility:visible !important;
+  pointer-events:auto !important;
+}
+@media (max-width: 820px), (max-height: 650px) {
+  .color-wheel-card.nurr-wheel-v2,
+  body > .color-wheel-card.nurr-wheel-v2 {
+    left:50% !important;
+    top:50% !important;
+    transform:translate(-50%,-50%) !important;
+    width:min(360px, calc(100vw - 26px)) !important;
+    max-height:calc(100vh - 26px) !important;
+    overflow-y:auto !important;
+  }
+}

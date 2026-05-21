@@ -734,6 +734,7 @@ void main() {
   }
 
   function AbstractControls(props) {
+    const [presetsOpen, setPresetsOpen] = React.useState(false);
     const tweaks = props.tweaks || {};
     const setTweaks = props.setTweaks || function(){};
     const st = getAbstractState(tweaks);
@@ -831,11 +832,17 @@ void main() {
           />
         )}
 
-        <div className="section">
-          <div className="section-label">
-            <span className="name">Gradient presets</span>
+        <div className={'section presets-section collapsible-presets ' + (presetsOpen ? 'is-open' : 'is-collapsed')}>
+          <button
+            type="button"
+            className="section-label presets-toggle"
+            onClick={function () { setPresetsOpen(!presetsOpen); }}
+            aria-expanded={presetsOpen}
+          >
+            <span className="name">Presets</span>
             <span className="value">8 styles</span>
-          </div>
+            <span className="preset-arrow">{presetsOpen ? '⌃' : '⌄'}</span>
+          </button>
           <div className="palette-grid">
             {[
               ['#EAF0F2','#F04A2F','#2637D9','#2E2A4F','#F7FAFB'],
