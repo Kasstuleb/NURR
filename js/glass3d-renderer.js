@@ -80,7 +80,7 @@
   }
 
   // ── Persistent state ──────────────────────────────────────────────────────
-  let _THREE = null, _renderer = null;
+  let _THREE = null, _renderer = null, _tRenderer = null; // _tRenderer = alpha-enabled for transparent exports
   const _geoCache = {};
   const _env  = { canvas: null, texture: null, key: '' };
   const _bg   = { canvas: null, texture: null, key: '' };
@@ -111,6 +111,32 @@
     _renderer.setPixelRatio(1); // explicit: render size is already supersampled in pixels
     _renderer.setSize(W, H, false);
     return _renderer;
+  }
+
+  // Separate renderer with alpha:true for transparent layer exports.
+  // Kept independent from _renderer so normal renders are never affected.
+  function ensureTransparentRenderer(W, H) {
+    if (!_THREE) return null;
+    if (!_tRenderer) {
+      const oc = document.createElement('canvas');
+      _tRenderer = new _THREE.WebGLRenderer({
+        canvas: oc,
+        antialias: true,
+        alpha: true,
+        premultipliedAlpha: false,
+        preserveDrawingBuffer: true,
+        powerPreference: 'high-performance',
+        precision: 'highp',
+      });
+      _tRenderer.outputColorSpace    = _THREE.SRGBColorSpace;
+      _tRenderer.toneMapping         = _THREE.ACESFilmicToneMapping;
+      _tRenderer.toneMappingExposure = 1.06;
+      _tRenderer.setClearColor(0x000000, 0); // fully transparent background
+    }
+    _tRenderer.setPixelRatio(1);
+    _tRenderer.setSize(W, H, false);
+    _tRenderer.setClearColor(0x000000, 0); // re-assert on each use
+    return _tRenderer;
   }
 
   function getBump() {
@@ -305,22 +331,28 @@
       cfg.depthWrite       = tr < .30;
 
     } else if (mat === 'opal') {
-      // Pearl: smooth milky body, soft rainbow iridescence, pastel depth
-      cfg.roughness        = lerp(.10, .018, hi);   // smooth glossy surface
-      cfg.transmission     = lerp(.0,  .22,  tr);   // milky — slightly translucent only
-      cfg.opacity          = lerp(.99, .92,  tr);
-      cfg.thickness        = lerp(1.0, 2.8,  tr) * dep;
-      cfg.ior              = 1.52;
-      cfg.attenuationColor = blendHex(accent, '#f8e8f8', 0.35);  // pastel tint
-      cfg.attenuationDist  = lerp(0.60, 2.20, tr);
-      cfg.iridescence      = lerp(.90, 1.0,  hi);   // always strong — pearl lives by iridescence
-      cfg.iridescenceIOR   = 1.52;  // close to opal IOR = broad, soft colour bands like MOP
-      cfg.iridRange        = [220, 700];
-      cfg.clearcoat        = lerp(.70, 1.0,  hi);
-      cfg.clearcoatRough   = lerp(.035, .004, hi);
-      cfg.envInt           = lerp(1.40, 2.30, hi);
-      cfg.bumpScale        = surf * .005;  // smoother premium surface; avoids pixelated bump stepping
+      // Opal = visible translucent crystal body + soft iridescent colour.
+      // It must keep form on light/colourful backgrounds, so the body is brighter
+      // and denser than clear glass, while all colour remains normal-based.
+      cfg.color            = blendHex('#f7fdff', main, .16);
+      cfg.roughness        = lerp(.018, .003, hi) + surf * .020;
+      cfg.transmission     = lerp(.52, .82, tr);
+      cfg.opacity          = lerp(.58, .32, tr);
+      cfg.transparent      = true;
       cfg.depthWrite       = false;
+      cfg.thickness        = lerp(2.65, 1.35, tr) * dep;
+      cfg.ior              = 1.76;
+      cfg.attenuationColor = blendHex('#ecfbff', accent, .28);
+      cfg.attenuationDist  = lerp(1.70, .72, tr);
+      cfg.iridescence      = lerp(.42, .78, hi);
+      cfg.iridescenceIOR   = 1.82;
+      cfg.iridRange        = [170, 820];
+      cfg.clearcoat        = 1.0;
+      cfg.clearcoatRough   = lerp(.010, .0015, hi);
+      cfg.specular         = lerp(2.25, 3.55, hi);
+      cfg.specularColor    = '#ffffff';
+      cfg.envInt           = lerp(2.70, 4.45, hi);
+      cfg.bumpScale        = surf * .0008;
 
     } else if (mat === 'water') {
       cfg.roughness        = lerp(.14, .006, hi) + surf * .18;
@@ -354,21 +386,30 @@
       cfg.specular         = lerp(.90, 1.90, hi);
 
     } else if (mat === 'holo') {
-      // Oil-slick/gas-on-ground: strongly metallic, multicoloured, gradient-glossy
-      cfg.metalness        = lerp(.75, .92, hi);   // high metalness = reflective base
-      cfg.roughness        = lerp(.025, .004, hi) + surf * .12;
-      cfg.transmission     = lerp(0, .18, tr);     // moderate — stays metallic first
-      cfg.opacity          = lerp(1.0, .82, tr);
-      cfg.transparent      = tr > .10; cfg.depthWrite = !cfg.transparent;
-      cfg.thickness        = lerp(.10, .55, tr); cfg.ior = 1.55;
+      // Holographic = coloured reflective film, not dark purple glass.
+      // Keep the base opaque and clean; smooth colour pooling is added as a shader shell below.
+      const preset = opts.colorPreset || 'spectrum';
+      const fireBase = preset === 'fire';
+      const oilBase  = preset === 'oil';
+      cfg.color            = fireBase ? blendHex('#ff3b1f', main, 0.32) : (oilBase ? blendHex('#08070d', main, 0.24) : blendHex(main, accent, 0.20));
+      cfg.specularColor    = fireBase ? '#ffe06a' : blendHex('#ffffff', accent, 0.34);
+      cfg.metalness        = lerp(.58, .78, hi);
+      cfg.roughness        = lerp(.040, .008, hi) + surf * .045;
+      cfg.transmission     = 0;
+      cfg.opacity          = 1.0;
+      cfg.transparent      = false;
+      cfg.depthWrite       = true;
+      cfg.thickness        = 0;
+      cfg.ior              = 1.85;
       cfg.attenuationColor = accent;
-      cfg.iridescence      = 1.0;
-      cfg.iridescenceIOR   = 2.35;   // vivid multi-hue shifts (between v10 and v12)
-      cfg.iridRange        = [55, 960];
-      cfg.clearcoat        = lerp(.60, 1.0, hi);
-      cfg.clearcoatRough   = lerp(.025, .002, hi) + surf * .06;
-      cfg.envInt           = lerp(2.10, 3.40, hi);
-      cfg.specular         = lerp(1.30, 2.20, hi);
+      cfg.iridescence      = lerp(.72, 1.0, hi);
+      cfg.iridescenceIOR   = 2.15;
+      cfg.iridRange        = [90, 980];
+      cfg.clearcoat        = 1.0;
+      cfg.clearcoatRough   = lerp(.018, .002, hi) + surf * .025;
+      cfg.envInt           = lerp(3.20, 5.20, hi);
+      cfg.specular         = lerp(1.90, 3.30, hi);
+      cfg.bumpScale        = surf * .0015;
 
     } else if (mat === 'crystal') {
       // Swarovski/diamond: bright white + prismatic fire, not gray void
@@ -808,15 +849,276 @@
   }
 
   // ── Main render ───────────────────────────────────────────────────────────
+
+
+  // Opal prism shells — adapted from the successful crystal-test material.
+  // These layers are normal/view-angle based: no UV maps, no diagonal seams, no hard strokes.
+  const OPAL_VERTEX = `
+    varying vec3 vNormalW;
+    varying vec3 vViewDirW;
+    varying vec3 vWorldPos;
+    void main() {
+      vec4 worldPos = modelMatrix * vec4(position, 1.0);
+      vWorldPos = worldPos.xyz;
+      vNormalW = normalize(mat3(modelMatrix) * normal);
+      vViewDirW = normalize(cameraPosition - worldPos.xyz);
+      gl_Position = projectionMatrix * viewMatrix * worldPos;
+    }
+  `;
+
+  function makeOpalShellMaterial(colorA, colorB, options) {
+    options = options || {};
+    return new _THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      depthTest: true,
+      side: options.side || _THREE.FrontSide,
+      blending: _THREE.AdditiveBlending,
+      uniforms: {
+        colorA: { value: new _THREE.Color(colorA) },
+        colorB: { value: new _THREE.Color(colorB) },
+        alpha:  { value: options.alpha == null ? .18 : options.alpha },
+        power:  { value: options.power == null ? 4.2 : options.power },
+        narrow: { value: options.narrow == null ? .68 : options.narrow },
+        axis:   { value: new _THREE.Vector3(...(options.axis || [.7,.2,.6])).normalize() }
+      },
+      vertexShader: OPAL_VERTEX,
+      fragmentShader: `
+        varying vec3 vNormalW;
+        varying vec3 vViewDirW;
+        uniform vec3 colorA;
+        uniform vec3 colorB;
+        uniform vec3 axis;
+        uniform float alpha;
+        uniform float power;
+        uniform float narrow;
+        void main() {
+          vec3 N = normalize(vNormalW);
+          vec3 V = normalize(vViewDirW);
+          float fres = pow(1.0 - max(dot(N,V), 0.0), power);
+          float dir = dot(N, axis) * 0.5 + 0.5;
+          vec3 col = mix(colorA, colorB, smoothstep(0.0, 1.0, dir));
+          float band = smoothstep(narrow, 1.0, fres);
+          float a = clamp((band * 0.78 + fres * 0.18) * alpha, 0.0, 0.36);
+          gl_FragColor = vec4(col, a);
+        }
+      `
+    });
+  }
+
+  function makeOpalPalette(opts, colors) {
+    const preset = opts.colorPreset || 'pearl';
+    const main = colors && colors.rawMain ? colors.rawMain : '#d9f7ff';
+    const accent = colors && colors.accent ? colors.accent : '#ffc8f0';
+    const map = {
+      pearl:  { cyan:'#8ff6ff', pink:'#ffc4ee', gold:'#fff0a8', body:'#f8fdff' },
+      aurora: { cyan:'#76ffe7', pink:'#d8a8ff', gold:'#fff6a0', body:'#f1fff9' },
+      blush:  { cyan:'#9fe7ff', pink:'#ff8fd8', gold:'#ffd89a', body:'#fff4fb' },
+      cream:  { cyan:'#b9f7ff', pink:'#ffd0c6', gold:'#fff0a0', body:'#fff9ea' },
+      smoke:  { cyan:'#8fd8ff', pink:'#b9a4ff', gold:'#e8f0ff', body:'#dfe8f2' },
+      dispersion: { cyan:'#00f4ff', pink:'#ff54dc', gold:'#fff45f', body:'#f4feff' }
+    };
+    const p = map[preset] || map.pearl;
+    return {
+      cyan: blendHex(p.cyan, main, .30),
+      pink: blendHex(p.pink, accent, .34),
+      gold: p.gold,
+      body: blendHex(p.body, main, .12),
+      violet: blendHex('#b595ff', accent, .28)
+    };
+  }
+
+  function makeOpalVolumeMaterial(opts, colors) {
+    const tr = clamp(opts.translucency != null ? opts.translucency : .72, 0, 1);
+    const pal = makeOpalPalette(opts, colors);
+    const body = lerp(.34, .54, 1 - tr);
+    return new _THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      depthTest: true,
+      side: _THREE.FrontSide,
+      blending: _THREE.NormalBlending,
+      uniforms: {
+        alpha: { value: body },
+        cyan:  { value: new _THREE.Color(pal.cyan) },
+        pink:  { value: new _THREE.Color(pal.pink) },
+        pearl: { value: new _THREE.Color(pal.body) }
+      },
+      vertexShader: OPAL_VERTEX,
+      fragmentShader: `
+        varying vec3 vNormalW;
+        varying vec3 vViewDirW;
+        varying vec3 vWorldPos;
+        uniform float alpha;
+        uniform vec3 cyan;
+        uniform vec3 pink;
+        uniform vec3 pearl;
+        void main() {
+          vec3 N = normalize(vNormalW);
+          vec3 V = normalize(vViewDirW);
+          float fres = pow(1.0 - max(dot(N,V), 0.0), 1.55);
+          float side = dot(N, normalize(vec3(-0.70, .22, .55))) * .5 + .5;
+          float vertical = clamp(vWorldPos.y * .42 + .5, 0.0, 1.0);
+          vec3 col = mix(pink, cyan, smoothstep(.08, .94, side));
+          col = mix(col, pearl, smoothstep(.58, 1.0, vertical) * .38);
+          // Denser centre body, but never a dark rim. Fresnel slightly lifts colour instead of cutting alpha.
+          col = mix(col, pearl, 0.16 + fres * 0.10);
+          float a = alpha * (0.94 - fres * .16);
+          gl_FragColor = vec4(col, clamp(a, 0.0, .56));
+        }
+      `
+    });
+  }
+
+  function makeOpalGlossMaterial(alpha) {
+    return new _THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      depthTest: true,
+      side: _THREE.FrontSide,
+      blending: _THREE.AdditiveBlending,
+      uniforms: { alpha: { value: alpha == null ? .24 : alpha } },
+      vertexShader: OPAL_VERTEX,
+      fragmentShader: `
+        varying vec3 vNormalW;
+        varying vec3 vViewDirW;
+        void main() {
+          vec3 N = normalize(vNormalW);
+          vec3 V = normalize(vViewDirW);
+          float fres = pow(1.0 - max(dot(N,V), 0.0), 3.1);
+          float card1 = smoothstep(.942, 1.0, dot(N, normalize(vec3(-.55,.80,.25))));
+          float card2 = smoothstep(.956, 1.0, dot(N, normalize(vec3(.72,.12,.68))));
+          float card3 = smoothstep(.966, 1.0, dot(N, normalize(vec3(.02,-.78,.62))));
+          float a = (fres * .30 + card1 * .34 + card2 * .22 + card3 * .16) * alpha;
+          gl_FragColor = vec4(vec3(1.0), clamp(a, 0.0, .44));
+        }
+      `
+    });
+  }
+
+  function addOpalPrismShell(scene, geo, mesh, opts, colors) {
+    const hi = clamp(opts.light != null ? opts.light : .72, 0, 1);
+    const pal = makeOpalPalette(opts, colors);
+    const edge = lerp(.92, 1.22, hi);
+    const layers = [
+      [0.998, makeOpalVolumeMaterial(opts, colors)],
+      // Front-side shells only: removes the dark inner/back stroke while keeping colour fire.
+      [1.002, makeOpalShellMaterial(pal.cyan, pal.body, { alpha: .25 * edge, power: 2.55, narrow: .44, axis: [.70,.20,.60] })],
+      [1.007, makeOpalShellMaterial(pal.pink, pal.violet, { alpha: .21 * edge, power: 3.20, narrow: .56, axis: [-.40,.70,.55] })],
+      [1.012, makeOpalShellMaterial(pal.gold, pal.cyan, { alpha: .17 * edge, power: 3.95, narrow: .66, axis: [.15,-.70,.70] })],
+      [1.004, makeOpalGlossMaterial(.30 + hi * .10)]
+    ];
+    layers.forEach(([scale, mat]) => {
+      const layer = new _THREE.Mesh(geo, mat);
+      layer.position.copy(mesh.position);
+      layer.rotation.copy(mesh.rotation);
+      layer.scale.copy(mesh.scale).multiplyScalar(scale);
+      scene.add(layer);
+    });
+  }
+
+  // Smooth holographic colour film. This intentionally avoids UV textures and sine stripes,
+  // because those produced hard diagonal seams on tablets/capsules.
+  function makeHoloFilmMaterial(opts, colors) {
+    const preset = opts.colorPreset || 'spectrum';
+    const palettes = {
+      fire:     ['#ff2f1f', '#ff8a24', '#ffe85a', '#ff3aa5'],
+      spectrum: ['#ff38d4', '#32d7ff', '#7a5cff', '#fff05a'],
+      ice:      ['#7be7ff', '#b8c7ff', '#ff9be8', '#ffffff'],
+      toxic:    ['#61ff76', '#dfff38', '#25e0ff', '#ff3fb4'],
+      oil:      ['#1b0b36', '#00f0ff', '#2dff88', '#ff2bbf']
+    };
+    const p = palettes[preset] || palettes.spectrum;
+    return new _THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      depthTest: true,
+      side: _THREE.FrontSide,
+      blending: _THREE.NormalBlending,
+      uniforms: {
+        c1: { value: new _THREE.Color(p[0]) },
+        c2: { value: new _THREE.Color(p[1]) },
+        c3: { value: new _THREE.Color(p[2]) },
+        c4: { value: new _THREE.Color(p[3]) },
+        strength: { value: preset === 'fire' ? 0.54 : 0.48 }
+      },
+      vertexShader: `
+        varying vec3 vNormalW;
+        varying vec3 vViewW;
+        varying vec3 vWorldPos;
+        void main() {
+          vec4 wp = modelMatrix * vec4(position, 1.0);
+          vWorldPos = wp.xyz;
+          vNormalW = normalize(mat3(modelMatrix) * normal);
+          vViewW = normalize(cameraPosition - wp.xyz);
+          gl_Position = projectionMatrix * viewMatrix * wp;
+        }
+      `,
+      fragmentShader: `
+        varying vec3 vNormalW;
+        varying vec3 vViewW;
+        varying vec3 vWorldPos;
+        uniform vec3 c1;
+        uniform vec3 c2;
+        uniform vec3 c3;
+        uniform vec3 c4;
+        uniform float strength;
+        void main() {
+          vec3 N = normalize(vNormalW);
+          vec3 V = normalize(vViewW);
+          float fres = pow(1.0 - max(dot(N,V), 0.0), 1.55);
+
+          // Large, continuous pools based on normal + world position.
+          // No UVs, no high-frequency stripes, no hard thresholds.
+          float a = clamp(N.x * 0.5 + 0.5, 0.0, 1.0);
+          float b = clamp(N.y * 0.5 + 0.5, 0.0, 1.0);
+          float c = clamp(N.z * 0.5 + 0.5, 0.0, 1.0);
+          float drift = smoothstep(0.0, 1.0, clamp((vWorldPos.x * 0.18 + vWorldPos.y * 0.22 + vWorldPos.z * 0.12) + 0.5, 0.0, 1.0));
+
+          vec3 col = mix(c1, c2, smoothstep(0.08, 0.92, a));
+          col = mix(col, c3, smoothstep(0.12, 0.88, b) * 0.62);
+          col = mix(col, c4, smoothstep(0.16, 0.92, c) * 0.46);
+          col = mix(col, mix(c2, c3, 0.5), drift * 0.22);
+          col += vec3(1.0) * fres * 0.20;
+
+          float alpha = strength * (0.28 + fres * 0.55);
+          gl_FragColor = vec4(col, clamp(alpha, 0.0, 0.62));
+        }
+      `
+    });
+  }
+
+  function addHoloFilmShell(scene, geo, mesh, opts, colors) {
+    const shell = new _THREE.Mesh(geo, makeHoloFilmMaterial(opts, colors));
+    shell.position.copy(mesh.position);
+    shell.rotation.copy(mesh.rotation);
+    shell.scale.copy(mesh.scale).multiplyScalar(1.003);
+    scene.add(shell);
+
+    const rim = new _THREE.Mesh(geo, makeHoloFilmMaterial(Object.assign({}, opts, { colorPreset: opts.colorPreset || 'spectrum' }), colors));
+    rim.material.uniforms.strength.value *= 0.46;
+    rim.position.copy(mesh.position);
+    rim.rotation.copy(mesh.rotation);
+    rim.scale.copy(mesh.scale).multiplyScalar(1.012);
+    scene.add(rim);
+  }
+
   function renderToCanvas(canvas, options) {
     if (!canvas || !window.THREE) return false;
     _THREE = window.THREE;
     _frameCount++;
     const W = canvas.width, H = canvas.height;
     const rW = Math.round(W * SSAA), rH = Math.round(H * SSAA);
-    const renderer = ensureRenderer(rW, rH); if (!renderer) return false;
 
-    const opts   = options || {};
+    const opts        = options || {};
+    const isTransparent = opts.transparent === true;
+
+    // Route through the alpha-enabled renderer for transparent layer exports.
+    // The normal opaque _renderer is never touched during transparent renders,
+    // so live animation on screen continues undisturbed.
+    const renderer = isTransparent ? ensureTransparentRenderer(rW, rH) : ensureRenderer(rW, rH);
+    if (!renderer) return false;
+
     const mat    = opts.material || 'glass';
     const dark   = (opts.bgMode || '') === 'black';
     const motion = clamp(opts.motion != null ? opts.motion : .28, 0, 1);
@@ -857,12 +1159,14 @@
 
     scene.environment = getEnvTexture(mat, dark, opts.bgColor||'#f0f0ee', opts.bgSeed, colors);
 
-    // Background plane
-    const bgPln = new _THREE.Mesh(
-      new _THREE.PlaneGeometry(14 * aspect, 14),
-      new _THREE.MeshBasicMaterial({ map: getBgTexture(opts) })
-    );
-    bgPln.position.z = -4.2; scene.add(bgPln);
+    // Background plane — omitted for transparent exports (object on clear canvas)
+    if (!isTransparent) {
+      const bgPln = new _THREE.Mesh(
+        new _THREE.PlaneGeometry(14 * aspect, 14),
+        new _THREE.MeshBasicMaterial({ map: getBgTexture(opts) })
+      );
+      bgPln.position.z = -4.2; scene.add(bgPln);
+    }
 
     // ── Lights
     // Hemisphere: balanced ambient
@@ -912,10 +1216,22 @@
       rFill.position.set(3.5, 1.5, 1.5); scene.add(rFill);
     }
     if (mat === 'holo') {
-      const hL = new _THREE.DirectionalLight(new _THREE.Color(colors.rawMain), lerp(.7, 2.0, hi));
+      const preset = opts.colorPreset || 'spectrum';
+      const fire = preset === 'fire';
+      const hL = new _THREE.DirectionalLight(new _THREE.Color(fire ? '#ff5a22' : colors.rawMain), lerp(1.2, 2.7, hi));
       hL.position.set(-3.0, 1.0, 3.0); scene.add(hL);
-      const hR = new _THREE.DirectionalLight(new _THREE.Color(colors.accent), lerp(.5, 1.6, hi));
+      const hR = new _THREE.DirectionalLight(new _THREE.Color(fire ? '#ffe05a' : colors.accent), lerp(1.0, 2.2, hi));
       hR.position.set(3.0, -1.0, 3.0); scene.add(hR);
+      const hC = new _THREE.PointLight(new _THREE.Color(fire ? '#ff2f9f' : '#7a5cff'), lerp(.7, 1.5, hi), 8);
+      hC.position.set(.2, 2.6, 2.8); scene.add(hC);
+    }
+    if (mat === 'opal') {
+      const oC = new _THREE.DirectionalLight(0x7df7ff, lerp(.70, 1.80, hi));
+      oC.position.set(-3.8, .4, 2.8); scene.add(oC);
+      const oP = new _THREE.DirectionalLight(0xff8fe8, lerp(.55, 1.45, hi));
+      oP.position.set(3.5, -.5, 3.0); scene.add(oP);
+      const oG = new _THREE.PointLight(0xfff0a0, lerp(.35, 1.10, hi), 8);
+      oG.position.set(.2, 2.3, 2.6); scene.add(oG);
     }
 
     // ── Mesh
@@ -952,6 +1268,8 @@
     if (type === 'capsule') mesh.rotation.z = .28 + autoY*.25 + Math.sin(time*.40)*.018*motion;
 
     scene.add(mesh);
+    if (mat === 'holo') addHoloFilmShell(scene, geo, mesh, opts, colors);
+    if (mat === 'opal') addOpalPrismShell(scene, geo, mesh, opts, colors);
 
     // Store projected object bounds for precise hover/grab cursor hit testing.
     try {
@@ -984,7 +1302,7 @@
     } catch (err) {}
 
     // Inner depth shell for refractive materials
-    if (['glass','crystal','holo','opal'].includes(mat) && ['sphere','soap','pebble','torus'].includes(type)) {
+    if (['glass','crystal'].includes(mat) && ['sphere','soap','pebble','torus'].includes(type)) {
       const io = Object.assign({}, opts, {
         translucency: clamp((opts.translucency!=null?opts.translucency:.72)+.15, 0, 1),
         surface: 0, depth: (opts.depth!=null?opts.depth:1)*.26,
@@ -1006,7 +1324,8 @@
     ctx2d.clearRect(0, 0, W, H);
     ctx2d.drawImage(renderer.domElement, 0, 0, W, H);
 
-    applyGrain(canvas, opts.grain || 0, time);
+    // Skip grain for transparent exports — soft-light blend on alpha edges is unreliable
+    if (!isTransparent) applyGrain(canvas, opts.grain || 0, time);
 
     // Cleanup
     const cachedGeos = new Set(Object.values(_geoCache));

@@ -36,7 +36,7 @@
       header.dataset.mobileToggleBound = 'true';
       header.addEventListener('click', function (event) {
         if (!isMobile()) return;
-        if (event.target.closest('.icon-btn, button, input, .swatch, .palette-card, .layout-card, .formation-card, .nature-thumb')) return;
+        if (event.target.closest('.icon-btn, button, input, .swatch, .palette-card, .layout-card, .abstract-form-btn, .nature-thumb')) return;
         document.body.classList.toggle('mobile-panel-open');
       });
     }

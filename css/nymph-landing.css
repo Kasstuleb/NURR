@@ -1,0 +1,302 @@
+/* NYMPH landing page — isolated start screen styles.
+   Edit/remove this file + js/nymph-landing.js to change the landing without touching the app.
+
+   Token reference (kept here so a future pass can find them in one place):
+     --nymph-abyss        #03060d  deepest field, almost black
+     --nymph-deep         #0a1b33  base blue
+     --nymph-mineral      #123c4a  mineral cyan
+     --nymph-steel        #3e5a66  faded steel
+     --nymph-aqua         #bfe6e8  aquatic highlight, used sparingly
+     Type: Helvetica Neue for the one piece of copy on the page (the enter label).
+*/
+
+.nymph-landing {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  overflow: hidden;
+  background: #03060d;
+  color: #fff;
+}
+
+.nymph-landing-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  display: block;
+  opacity: 0;
+  animation: nymphSurface 1.8s ease-out .05s forwards;
+}
+
+.nymph-landing-grain {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: .05;
+  mix-blend-mode: overlay;
+  background-image:
+    radial-gradient(circle at 30% 20%, rgba(255,255,255,.5), transparent 1px),
+    radial-gradient(circle at 72% 78%, rgba(255,255,255,.35), transparent 1px);
+  background-size: 3px 3px, 4px 4px;
+}
+
+.nymph-landing::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 78% 60% at 38% 32%, rgba(191,230,232,.025), transparent 62%),
+    linear-gradient(165deg, rgba(2,4,10,.10), rgba(2,4,10,.34) 78%);
+}
+
+.nymph-landing-content {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: clamp(56px, 9vh, 124px) clamp(40px, 7vw, 132px);
+  pointer-events: none;
+  text-align: left;
+  opacity: 0;
+  transform: translateY(10px);
+  animation: nymphRise 1.1s cubic-bezier(.16,.9,.18,1) .35s forwards;
+}
+
+/* Logomark — the page's one confident gesture: left-anchored, real scale, quietly alive.
+   Forced white and screen-blended so it reads as light caught in the water rather than
+   a flat sticker; it rises out of the surface on load and stays half-claimed by it. */
+.nymph-landing-logo {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  margin: 0 0 clamp(18px, 2.4vh, 34px) 0;
+  cursor: pointer;
+  pointer-events: auto;
+  opacity: 0;
+  filter: brightness(1.2) invert(1) drop-shadow(0 0 0 rgba(0,0,0,0));
+  mix-blend-mode: screen;
+  -webkit-mask-image: linear-gradient(to top, transparent 0%, transparent 46%, #000 64%, #000 100%);
+          mask-image: linear-gradient(to top, transparent 0%, transparent 46%, #000 64%, #000 100%);
+  -webkit-mask-size: 100% 480%;
+          mask-size: 100% 480%;
+  -webkit-mask-repeat: no-repeat;
+          mask-repeat: no-repeat;
+  -webkit-mask-position: 0 100%;
+          mask-position: 0 100%;
+  transform: translateZ(0);
+  animation:
+    nymphLogoFadeIn .45s ease-out .3s forwards,
+    nymphEmerge 2.6s cubic-bezier(.19,.85,.22,1) 1.0s forwards,
+    nymphLap 6.5s ease-in-out 3.7s infinite;
+  transition: transform .5s cubic-bezier(.2,.9,.2,1);
+}
+
+.nymph-landing-logo:hover,
+.nymph-landing-logo:focus-visible {
+  transform: translateY(-1px) scale(1.012);
+  animation-play-state: paused, paused, running;
+}
+
+/* Wordmark — secondary, a placard beneath the mark, not a second hero. */
+.nymph-landing-full-logo {
+  display: block;
+  width: clamp(150px, 15vw, 220px);
+  height: auto;
+  opacity: 0;
+  filter: grayscale(.2) brightness(1.05);
+  position: relative;
+  padding-top: clamp(14px, 1.8vh, 22px);
+  animation: nymphWordmarkIn 1s ease-out 3.0s forwards;
+}
+
+.nymph-landing-full-logo::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 1px;
+  width: 0;
+  background: linear-gradient(90deg, rgba(191,230,232,.55), transparent);
+  animation: nymphDrawLine 1.2s ease-out 3.1s forwards;
+}
+
+/* Tagline — the one line of copy on the page. Generated here rather than in markup
+   so this file alone can carry the whole landing sequence. */
+.nymph-landing-content::after {
+  content: "A LIQUID TOOL FOR IMAGE, FORM, AND ATMOSPHERE";
+  display: block;
+  margin-top: clamp(16px, 2vh, 24px);
+  max-width: 30ch;
+  font: 300 11px/1.75 "Helvetica Neue", Helvetica, Arial, sans-serif;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.38);
+  opacity: 0;
+  transform: translateY(6px);
+  animation: nymphRise 1s cubic-bezier(.16,.9,.18,1) 3.8s forwards;
+}
+
+/* Enter — a precise instrument, not a button. A hairline ring with one slow-turning mark,
+   a letterspaced word that only appears once invited. */
+.nymph-enter {
+  position: fixed;
+  right: clamp(42px, 7vw, 116px);
+  bottom: clamp(40px, 8vh, 86px);
+  z-index: 3;
+  pointer-events: auto;
+  width: 58px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(191,230,232,.38);
+  border-radius: 999px;
+  background: rgba(191,230,232,.05);
+  color: rgba(255,255,255,.88);
+  backdrop-filter: blur(16px) saturate(1.05);
+  -webkit-backdrop-filter: blur(16px) saturate(1.05);
+  font: 300 22px/1 "Helvetica Neue", Helvetica, Arial, sans-serif;
+  cursor: pointer;
+  opacity: 0;
+  box-shadow: 0 0 0 0 rgba(191,230,232,0);
+  animation:
+    nymphRise 1s cubic-bezier(.16,.9,.18,1) 3.0s forwards,
+    nymphEnterPulse 4.2s ease-in-out 4.2s infinite;
+  transition: background .3s ease, border-color .3s ease, color .3s ease, transform .35s cubic-bezier(.2,.9,.2,1);
+}
+
+.nymph-enter::before {
+  content: "";
+  position: absolute;
+  inset: -9px;
+  border-radius: 999px;
+  background: conic-gradient(from 0deg,
+    rgba(191,230,232,0) 0deg,
+    rgba(191,230,232,.85) 7deg,
+    rgba(191,230,232,0) 26deg,
+    rgba(191,230,232,0) 360deg);
+  -webkit-mask: radial-gradient(closest-side, transparent calc(100% - 1.6px), #000 calc(100% - 1.1px));
+          mask: radial-gradient(closest-side, transparent calc(100% - 1.6px), #000 calc(100% - 1.1px));
+  animation: nymphSpin 26s linear infinite;
+  opacity: .5;
+  transition: opacity .4s ease;
+}
+
+.nymph-enter::after {
+  content: "ENTER";
+  position: absolute;
+  right: calc(100% + 16px);
+  top: 50%;
+  transform: translateY(-50%);
+  font: 300 11px/1 "Helvetica Neue", Helvetica, Arial, sans-serif;
+  letter-spacing: .32em;
+  color: rgba(255,255,255,.55);
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity .45s ease, transform .45s cubic-bezier(.2,.9,.2,1);
+}
+
+.nymph-enter:hover,
+.nymph-enter:focus-visible {
+  background: rgba(255,255,255,.09);
+  border-color: rgba(191,230,232,.6);
+  color: #fff;
+  transform: scale(1.04);
+  animation-play-state: paused, paused;
+  box-shadow: 0 0 0 0 rgba(191,230,232,0);
+}
+
+.nymph-enter:hover::before,
+.nymph-enter:focus-visible::before { opacity: .9; }
+
+.nymph-enter:hover::after,
+.nymph-enter:focus-visible::after {
+  opacity: 1;
+  transform: translateY(-50%) translateX(-3px);
+}
+
+body.nymph-landing-active .nurr-support-strip,
+body.nymph-landing-active .nurr-kofi-modal {
+  display: none !important;
+}
+
+@keyframes nymphLogoFadeIn {
+  to { opacity: 1; }
+}
+
+@keyframes nymphEmerge {
+  from { -webkit-mask-position: 0 100%; mask-position: 0 100%; }
+  to   { -webkit-mask-position: 0 50%;  mask-position: 0 50%; }
+}
+
+@keyframes nymphLap {
+  0%, 100% { -webkit-mask-position: 0 47%; mask-position: 0 47%; }
+  50%      { -webkit-mask-position: 0 53%; mask-position: 0 53%; }
+}
+
+@keyframes nymphEnterPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(191,230,232,.0); transform: scale(1); }
+  50%      { box-shadow: 0 0 0 9px rgba(191,230,232,.07); transform: scale(1.035); }
+}
+
+@keyframes nymphRise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes nymphSurface {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes nymphWordmarkIn {
+  to { opacity: .42; }
+}
+
+@keyframes nymphSpin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes nymphDrawLine {
+  from { width: 0; }
+  to   { width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nymph-landing-canvas,
+  .nymph-landing-content,
+  .nymph-enter,
+  .nymph-landing-logo,
+  .nymph-landing-full-logo,
+  .nymph-landing-full-logo::before,
+  .nymph-landing-content::after {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .nymph-landing-logo {
+    -webkit-mask-position: 0 50% !important;
+            mask-position: 0 50% !important;
+  }
+  .nymph-landing-full-logo {
+    opacity: .42 !important;
+  }
+  .nymph-landing-full-logo::before {
+    width: 100% !important;
+  }
+  .nymph-landing-content::after {
+    opacity: .38 !important;
+  }
+}
+
+@media (max-width: 820px) {
+  .nymph-landing-content { padding: 40px 26px; }
+  .nymph-landing-full-logo { width: clamp(120px, 38vw, 170px); }
+  .nymph-enter { right: 24px; bottom: 28px; }
+  .nymph-enter::after { display: none; }
+}

@@ -151,7 +151,6 @@
   .palette-card { height: 28px; }
 
   .layout-grid    { grid-template-columns: repeat(4, 1fr); }
-  .formation-grid { grid-template-columns: repeat(3, 1fr); }
 
   .nature-grid {
     grid-template-columns: repeat(4, 1fr);
@@ -165,25 +164,6 @@
     font-size: 11px;
     margin-top: 12px; padding-top: 10px;
   }
-
-  /* ── Color picker: centered modal ── */
-  .color-wheel-card {
-    position: fixed !important;
-    left:  50%  !important;
-    right: auto !important;
-    top:   50%  !important;
-    width: min(88vw, 300px);
-    padding: 18px 20px 20px;
-    transform: translate(-50%, -50%);
-    border-radius: 22px;
-    z-index: 60;
-  }
-  .color-wheel-surface { height: 140px; border-radius: 13px; }
-  .color-readout div   { font-size: 11px; padding: 5px 0; }
-
-  .eyedropper-follow { width: 50px; height: 50px; transform: translate3d(-25px,-25px,0); }
-  .eyedropper-color  { width: 42px; height: 42px; }
-  .eyedropper-follow svg { width: 26px; height: 26px; }
 
   /* ── Collection drawer ── */
   .collection-drawer {
@@ -222,10 +202,8 @@
   .rail-item { font-size: 13px; }
 
   .palette-grid   { grid-template-columns: repeat(4, 1fr); }
-  .formation-grid { grid-template-columns: repeat(2, 1fr); }
   .nature-grid    { grid-template-columns: repeat(3, 1fr); }
 }
-
 
 /* ─── Mobile white-strip repair ───────────────────────────────────────────── */
 @media (max-width: 820px), (max-height: 650px) {

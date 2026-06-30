@@ -348,81 +348,92 @@ function drawFacetedGlassShape(ctx, W, H, g, tint, seed, intensity=1) {
 function GeometricMode({ tweaks, registerSnapshot, mouseRef }) {
   const canvasRef = geomUR(null);
   WP.useStageSize(canvasRef);
-  const stateRef = geomUR({ pulse:0, prevIdx:0, transition:0, frozen:false, frozenMouse:null, frozenTime:null });
+  const stateRef = geomUR({ pulse:0, prevIdx:0, transition:0, frozen:false, frozenMouse:null, frozenTime:null, mouseLocked:false, lockedMouse:null, clickTimer:null });
 
   geomUE(() => {
-    const onDown = (e) => {
-      if (e.target.closest('.panel,.icon-btn,.rail,.layout-card,.palette-card,.nature-thumb,.swatch,.color-wheel-card,.eyedropper-follow,button,input,.drop-zone')) return;
-
+    const isInterfaceEvent = (e) => !!(e.target && e.target.closest && e.target.closest('.panel,.icon-btn,.rail,.layout-card,.palette-card,.nature-thumb,.swatch,.color-wheel-card,.eyedropper-follow,button,input,select,textarea,label,.drop-zone,.nymph-landing'));
+    const pointFromEvent = (e) => {
       const canvas = canvasRef.current;
-      if (!canvas) return;
-
+      if (!canvas) return null;
       const rect = canvas.getBoundingClientRect();
-      const insideCanvas =
-        e.clientX >= rect.left &&
-        e.clientX <= rect.right &&
-        e.clientY >= rect.top &&
-        e.clientY <= rect.bottom;
-
-      if (!insideCanvas) return;
-
+      if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) return null;
       const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
       const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
       const live = mouseRef.current || { x, y, chaosX:x, chaosY:y };
-
-      stateRef.current.pulse = 1.0;
-
-      // Click artwork once = lock the geometric composition exactly where it is.
-      // Click artwork again = unlock and return to live cursor movement.
-      if (stateRef.current.frozen) {
-        stateRef.current.frozen = false;
-        stateRef.current.frozenMouse = null;
-        stateRef.current.frozenTime = null;
-      } else {
-        stateRef.current.frozen = true;
-        stateRef.current.frozenMouse = {
-          x,
-          y,
-          chaosX: live.chaosX ?? x,
-          chaosY: live.chaosY ?? y
-        };
-        stateRef.current.frozenTime = performance.now() / 1000;
-      }
+      return { x, y, chaosX: live.chaosX ?? x, chaosY: live.chaosY ?? y };
     };
-    window.addEventListener('mousedown', onDown, true);
-    return () => window.removeEventListener('mousedown', onDown, true);
+    const onClick = (e) => {
+      if (isInterfaceEvent(e)) return;
+      const pt = pointFromEvent(e); if (!pt) return;
+      const st = stateRef.current;
+      if (st.clickTimer) clearTimeout(st.clickTimer);
+      st.clickTimer = setTimeout(() => {
+        st.pulse = 1.0;
+        st.frozen = !st.frozen;
+        if (st.frozen) { st.frozenMouse = pt; st.frozenTime = performance.now() / 1000; }
+        else { st.frozenMouse = null; st.frozenTime = null; }
+        st.clickTimer = null;
+      }, 210);
+    };
+    const onDoubleClick = (e) => {
+      if (isInterfaceEvent(e)) return;
+      const pt = pointFromEvent(e); if (!pt) return;
+      const st = stateRef.current;
+      if (st.clickTimer) { clearTimeout(st.clickTimer); st.clickTimer = null; }
+      st.mouseLocked = !st.mouseLocked;
+      st.lockedMouse = st.mouseLocked ? pt : null;
+      st.pulse = 0;
+      e.preventDefault();
+    };
+    window.addEventListener('click', onClick, true);
+    window.addEventListener('dblclick', onDoubleClick, true);
+    return () => {
+      window.removeEventListener('click', onClick, true);
+      window.removeEventListener('dblclick', onDoubleClick, true);
+      if (stateRef.current.clickTimer) clearTimeout(stateRef.current.clickTimer);
+    };
   }, []);
 
-  const drawAt = (W, H) => {
-    const canvas = canvasRef.current; if (!canvas) return;
+  const drawAt = (W, H, transparent = false, altCanvas = null) => {
+    const canvas = altCanvas || canvasRef.current; if (!canvas) return;
     const ctx = canvas.getContext('2d');
     const palette = tweaks.colors;
     const comp = GEOMETRIC_COMPOSITIONS[tweaks.compositionIdx % GEOMETRIC_COMPOSITIONS.length];
 
-    ctx.fillStyle = palette[comp.bg] || '#ffffff';
-    ctx.fillRect(0, 0, W, H);
+    // Skip background fill for transparent (layer) export
+    if (!transparent) {
+      ctx.fillStyle = palette[comp.bg] || '#ffffff';
+      ctx.fillRect(0, 0, W, H);
+    } else {
+      ctx.clearRect(0, 0, W, H);
+    }
 
     const unit = Math.max(W, H);
     const offX = (W - unit) / 2, offY = (H - unit) / 2;
-    const m = stateRef.current.frozen && stateRef.current.frozenMouse
-      ? stateRef.current.frozenMouse
-      : (mouseRef.current || { x:0.5, y:0.5, chaosX:0.5, chaosY:0.5 });
+    const stInteract = stateRef.current;
+    const m = stInteract.frozen && stInteract.frozenMouse
+      ? stInteract.frozenMouse
+      : (stInteract.mouseLocked && stInteract.lockedMouse
+        ? stInteract.lockedMouse
+        : (mouseRef.current || { x:0.5, y:0.5, chaosX:0.5, chaosY:0.5 }));
     const mvx = (m.chaosX - 0.5) * tweaks.mousePull * 2.0;
     const mvy = (m.chaosY - 0.5) * tweaks.mousePull * 2.0;
     const t = stateRef.current.frozen && stateRef.current.frozenTime
       ? stateRef.current.frozenTime
-      : performance.now() / 1000;
+      : (window.__NURR_T ?? performance.now() / 1000);
     const pulse = stateRef.current.frozen ? 0 : stateRef.current.pulse;
 
     // Glass look is deliberately additive and fail-safe: Graphic mode keeps the
     // original renderer, Glass mode swaps only the visual material/silhouette.
     const useGlass = tweaks.look === 'glass' || tweaks.glass === true;
-    if (useGlass) {
+    if (useGlass && !transparent) {
       // Subtle studio-light background so the object has something to refract.
       const studio = ctx.createRadialGradient(W*0.18,H*0.12,0,W*0.18,H*0.12,Math.max(W,H)*0.95);
       studio.addColorStop(0,'rgba(255,255,255,0.26)');
       studio.addColorStop(1,'rgba(255,255,255,0)');
       ctx.fillStyle = studio; ctx.fillRect(0,0,W,H);
+    } else if (useGlass) {
+      // transparent mode: no bg fill, shapes only
     }
 
     for (let i=0; i<comp.shapes.length; i++) {
@@ -489,8 +500,8 @@ function GeometricMode({ tweaks, registerSnapshot, mouseRef }) {
       }
     }
 
-    // Film grain
-    if (tweaks.grain > 0) {
+    // Film grain — skip for transparent export (overlay on alpha is unreliable)
+    if (tweaks.grain > 0 && !transparent) {
       const gCanvas=document.createElement('canvas'); const gctx=gCanvas.getContext('2d');
       const scale=Math.max(1,Math.round(5-tweaks.grain*3));
       gCanvas.width=Math.ceil(W/scale); gCanvas.height=Math.ceil(H/scale);
@@ -517,15 +528,28 @@ function GeometricMode({ tweaks, registerSnapshot, mouseRef }) {
 
   geomUE(() => {
     registerSnapshot((opts = {}) => {
-      const canvas=canvasRef.current; if(!canvas) return null;
-      const w = opts.width || 3840;
+      const canvas = canvasRef.current; if (!canvas) return null;
+      const w = opts.width  || 3840;
       const h = opts.height || 2160;
-      const ow=canvas.width, oh=canvas.height, osw=canvas.style.width, osh=canvas.style.height;
-      canvas.width=w; canvas.height=h; drawAt(w,h);
+
+      // Transparent layer export — render to an offscreen canvas without background.
+      // Does NOT touch the live canvas, so the live animation continues undisturbed.
+      if (opts.transparent) {
+        const off = document.createElement('canvas');
+        off.width = w; off.height = h;
+        drawAt(w, h, true, off);
+        const dataUrl = off.toDataURL('image/png');
+        if (!opts.returnDataUrl) WP.downloadCanvas(off, opts.filename || `nurr-geo-layer-${w}x${h}-${Date.now()}.png`);
+        return dataUrl;
+      }
+
+      // Normal composite snapshot (existing behaviour)
+      const ow = canvas.width, oh = canvas.height, osw = canvas.style.width, osh = canvas.style.height;
+      canvas.width = w; canvas.height = h; drawAt(w, h);
       const dataUrl = canvas.toDataURL('image/png');
       if (!opts.returnDataUrl) WP.downloadCanvas(canvas, opts.filename || `geometric-${w}x${h}-${Date.now()}.png`);
-      if (opts.returnDataUrl) { canvas.width=ow; canvas.height=oh; canvas.style.width=osw; canvas.style.height=osh; }
-      else requestAnimationFrame(()=>{ canvas.width=ow; canvas.height=oh; canvas.style.width=osw; canvas.style.height=osh; });
+      if (opts.returnDataUrl) { canvas.width = ow; canvas.height = oh; canvas.style.width = osw; canvas.style.height = osh; }
+      else requestAnimationFrame(() => { canvas.width = ow; canvas.height = oh; canvas.style.width = osw; canvas.style.height = osh; });
       return dataUrl;
     });
   }, [tweaks, registerSnapshot]);

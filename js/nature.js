@@ -140,7 +140,7 @@ function NatureMode({ tweaks, registerSnapshot, mouseRef, currentImg }) {
   const uniRef = nmUR({});
   const texRef = nmUR(null);
   const imgDimRef = nmUR({ w:1, h:1 });
-  const stateRef = nmUR({ pulse:0, t:0 });
+  const stateRef = nmUR({ pulse:0, frozen:false, frozenMouse:null, frozenTime:null, mouseLocked:false, lockedMouse:null, clickTimer:null, t:0 });
   const [loaded, setLoaded] = nmUS(false);
 
   WP.useStageSize(canvasRef);
@@ -196,12 +196,43 @@ function NatureMode({ tweaks, registerSnapshot, mouseRef, currentImg }) {
   }, [currentImg, glRef.current]);
 
   nmUE(() => {
-    const onDown = (e) => {
-      if (e.target.closest('.panel,.icon-btn,.rail,.layout-card,.palette-card,.nature-thumb,.swatch,.color-wheel-card,.eyedropper-follow,.formation-card,button,input,.drop-zone')) return;
-      stateRef.current.pulse = 1.0;
+    const isInterfaceEvent = (e) => !!(e.target && e.target.closest && e.target.closest('.panel,.icon-btn,.rail,.layout-card,.palette-card,.nature-thumb,.swatch,.color-wheel-card,.eyedropper-follow,.abstract-form-btn,button,input,select,textarea,label,.drop-zone,.nymph-landing'));
+    const mouseNow = () => {
+      const live = mouseRef?.current || { x:.5, y:.5, chaosX:.5, chaosY:.5 };
+      return { x: live.x ?? .5, y: live.y ?? .5, chaosX: live.chaosX ?? live.x ?? .5, chaosY: live.chaosY ?? live.y ?? .5 };
     };
-    window.addEventListener('mousedown', onDown);
-    return () => window.removeEventListener('mousedown', onDown);
+    const onClick = (e) => {
+      if (isInterfaceEvent(e)) return;
+      const st = stateRef.current;
+      if (st.clickTimer) clearTimeout(st.clickTimer);
+      st.clickTimer = setTimeout(() => {
+        st.pulse = 1.0;
+        st.frozen = !st.frozen;
+        if (st.frozen) { st.frozenMouse = mouseNow(); st.frozenTime = performance.now() / 1000; }
+        else { st.frozenMouse = null; st.frozenTime = null; }
+        st.clickTimer = null;
+      }, 210);
+    };
+    const onDoubleClick = (e) => {
+      if (isInterfaceEvent(e)) return;
+      const st = stateRef.current;
+      if (st.clickTimer) { clearTimeout(st.clickTimer); st.clickTimer = null; }
+      st.mouseLocked = !st.mouseLocked;
+      st.lockedMouse = st.mouseLocked ? mouseNow() : null;
+      // Double click only locks/unlocks cursor tracking; it returns the photo effect to live motion.
+      st.frozen = false;
+      st.frozenMouse = null;
+      st.frozenTime = null;
+      st.pulse = 0;
+      e.preventDefault();
+    };
+    window.addEventListener('click', onClick);
+    window.addEventListener('dblclick', onDoubleClick);
+    return () => {
+      window.removeEventListener('click', onClick);
+      window.removeEventListener('dblclick', onDoubleClick);
+      if (stateRef.current.clickTimer) clearTimeout(stateRef.current.clickTimer);
+    };
   }, []);
 
   const drawAt = (targetW, targetH) => {
@@ -211,8 +242,12 @@ function NatureMode({ tweaks, registerSnapshot, mouseRef, currentImg }) {
     if (!gl || !prog || !texRef.current) return;
     gl.viewport(0, 0, targetW, targetH);
     gl.useProgram(prog);
-    const m = mouseRef?.current || { x:.5, y:.5, chaosX:.5, chaosY:.5 };
-    const t = performance.now() / 1000;
+    const stInteract = stateRef.current;
+    const m = stInteract.frozen && stInteract.frozenMouse
+      ? stInteract.frozenMouse
+      : (stInteract.mouseLocked && stInteract.lockedMouse ? stInteract.lockedMouse : (mouseRef?.current || { x:.5, y:.5, chaosX:.5, chaosY:.5 }));
+    const liveT = window.__NURR_T ?? performance.now() / 1000;
+    const t = stInteract.frozen && stInteract.frozenTime != null ? stInteract.frozenTime : liveT;
     const effectMap = { warp:0, blur:1, split:2, melt:3, nodes:4 };
     const effectIdx = effectMap[tweaks.effect] ?? 0;
     const strength = tweaks.effect === 'blur' ? tweaks.blur : tweaks.effect === 'split' ? tweaks.split : tweaks.warp;

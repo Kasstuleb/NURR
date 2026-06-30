@@ -1,378 +1,319 @@
 /* ─────────────────────────────────────────────────────────────────────────────
-   geometric.css — scoped polish for the geometric mode panel
-   All rules are prefixed with .mode-geometric so nothing bleeds into other modes.
-   Add to index.html after base.css and gradient.css:
-     <link rel="stylesheet" href="css/geometric.css">
+   geometric.css — NURR Geometric + 3D modules   Brutalist redesign
+   Replaces existing geometric.css.
+   ─────────────────────────────────────────────────────────────────────────────
+   Geometric layout cards: bold brutalist treatment
+   - 3-column grid (larger previews)
+   - Grayscale inactive → full colour active (editorial monochrome discipline)
+   - Sharp 2px borders, near-zero radius (brutalist edge language)
+   - CSS counter numbers in corner (typographic weight)
+   - Strong active state
+
+   Glass3D overrides from old geometric.css REMOVED.
    ───────────────────────────────────────────────────────────────────────────── */
 
-/* Section rhythm — mirrors gradient.css */
-.mode-geometric .panel-body .section {
-  margin-top: 22px;
-}
-
-.mode-geometric .panel-body .section:first-child {
-  margin-top: 0;
-}
-
+/* ─── Section rhythm ──────────────────────────────────────────────────────── */
+.mode-geometric .panel-body .section        { margin-top: 20px; }
+.mode-geometric .panel-body .section:first-child { margin-top: 0; }
 .mode-geometric .section-label .value {
-  font-variant-numeric: tabular-nums;
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--ink-2);
-  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums; font-size: 11px; font-weight: 500;
+  color: rgba(245, 244, 255, 0.56); letter-spacing: 0.06em;
 }
 
-/* Sliders — same tactile system as gradient mode */
+/* ─── Sliders ─────────────────────────────────────────────────────────────── */
 .mode-geometric .slider {
-  height: 3px;
-  border-radius: 2px;
-  background: rgba(20, 20, 42, 0.14);
-  margin: 14px 0 6px;
-  cursor: pointer;
+  height: 2px; border-radius: 2px; margin: 12px 0 5px; cursor: pointer;
 }
+.mode-geometric .slider:focus         { outline: none; }
+.mode-geometric .slider:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
 
-.mode-geometric .slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 15px;
-  height: 15px;
-  border-radius: 50%;
-  background: var(--panel);
-  border: 2px solid var(--ink-2);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.22);
-  cursor: pointer;
-  transition:
-    transform      0.15s var(--ease-out),
-    background     0.15s var(--ease-out),
-    border-color   0.15s var(--ease-out),
-    box-shadow     0.15s var(--ease-out);
-}
+/* ═══════════════════════════════════════════════════════════════════════════
+   LAYOUT CARD GRID — brutalist redesign
+   3 columns. Grayscale discipline: inactive = muted, active = full colour.
+   Sharp corners. Heavy borders. Numbered cells.
+   ═══════════════════════════════════════════════════════════════════════════ */
 
-.mode-geometric .slider::-moz-range-thumb {
-  width: 15px;
-  height: 15px;
-  border-radius: 50%;
-  background: var(--panel);
-  border: 2px solid var(--ink-2);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.22);
-  cursor: pointer;
-  transition:
-    transform      0.15s var(--ease-out),
-    background     0.15s var(--ease-out),
-    border-color   0.15s var(--ease-out),
-    box-shadow     0.15s var(--ease-out);
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .mode-geometric .slider:hover::-webkit-slider-thumb {
-    transform: scale(1.12);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
-  }
-
-  .mode-geometric .slider:hover::-moz-range-thumb {
-    transform: scale(1.12);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
-  }
-}
-
-.mode-geometric .slider:active::-webkit-slider-thumb,
-.mode-geometric .slider:focus::-webkit-slider-thumb {
-  background: var(--accent);
-  border-color: var(--accent);
-  box-shadow:
-    0 0 0 5px var(--accent-soft),
-    0 1px 4px rgba(0, 0, 0, 0.22);
-  transform: scale(1.18);
-}
-
-.mode-geometric .slider:active::-moz-range-thumb,
-.mode-geometric .slider:focus::-moz-range-thumb {
-  background: var(--accent);
-  border-color: var(--accent);
-  box-shadow:
-    0 0 0 5px var(--accent-soft),
-    0 1px 4px rgba(0, 0, 0, 0.22);
-  transform: scale(1.18);
-}
-
-.mode-geometric .slider:focus {
-  outline: none;
-}
-
-.mode-geometric .slider:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 4px;
-  border-radius: 2px;
-}
-
-/* Composition cards — same facelift language as gradient palette cards */
 .mode-geometric .layout-grid {
-  gap: 7px;
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 5px !important;
+  counter-reset: card-n;
 }
 
 .mode-geometric .layout-card {
-  border-radius: 8px;
-  overflow: hidden;
-  border: 1.5px solid transparent;
-  background: rgba(255, 255, 255, 0.20);
-  padding: 0;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  counter-increment: card-n;
+  aspect-ratio: 1 !important;
+  position: relative !important;
+
+  /* Brutalist: near-zero radius, hard edges */
+  border-radius: 3px !important;
+  overflow: hidden !important;
+
+  /* Dark glass base so previews read clearly */
+  background: rgba(8, 6, 18, 0.55) !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.16) !important;
+  padding: 0 !important;
+
+  /* Grayscale discipline — inactive cards are tonally muted */
+  filter: grayscale(0.72) contrast(1.05) !important;
+
   transition:
-    transform    0.15s var(--ease-out),
-    border-color 0.15s,
-    box-shadow   0.15s;
+    filter        0.20s ease,
+    border-color  0.16s ease,
+    transform     0.14s ease,
+    box-shadow    0.18s ease !important;
 }
 
+/* Index number in corner — editorial typographic detail */
+.mode-geometric .layout-card::before {
+  content: counter(card-n, decimal-leading-zero);
+  position: absolute;
+  top: 5px; left: 7px;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 8px; font-weight: 700;
+  letter-spacing: 0.10em;
+  color: rgba(255, 255, 255, 0.38);
+  z-index: 2;
+  pointer-events: none;
+  line-height: 1;
+}
+
+/* SVG fills the card */
+.mode-geometric .layout-card svg {
+  width: 100%; height: 100%; display: block;
+}
+
+/* Hover — colours start bleeding through */
 @media (hover: hover) and (pointer: fine) {
-  .mode-geometric .layout-card:hover {
-    transform: translateY(-2px);
-    border-color: var(--ink-dim);
-    box-shadow:
-      inset 0 0 0 1px rgba(255, 255, 255, 0.10),
-      0 4px 12px rgba(0, 0, 0, 0.14);
+  .mode-geometric .layout-card:not(.active):hover {
+    filter:       grayscale(0.18) contrast(1.08) !important;
+    border-color: rgba(255, 255, 255, 0.34) !important;
+    transform:    translateY(-1px) !important;
+    box-shadow:   0 6px 18px rgba(0, 0, 0, 0.38) !important;
   }
 }
 
 .mode-geometric .layout-card:active {
-  transform: scale(0.96);
+  transform: scale(0.97) !important;
 }
 
+/* Active card — full colour, hard white border */
 .mode-geometric .layout-card.active {
-  border-color: var(--accent);
+  filter: none !important;
+  border-color: rgba(255, 255, 255, 0.88) !important;
+  border-width: 2px !important;
   box-shadow:
-    0 0 0 2px var(--accent-soft),
-    0 4px 12px rgba(0, 0, 0, 0.12);
+    0 0 0 1px rgba(255, 255, 255, 0.22),
+    0 8px 24px rgba(0, 0, 0, 0.44) !important;
+  transform: none !important;
 }
 
+/* Active card number — full brightness */
+.mode-geometric .layout-card.active::before {
+  color: rgba(255, 255, 255, 0.90);
+}
+
+/* Active flag — accent stripe at bottom edge */
 .mode-geometric .layout-card.active::after {
-  display: none;
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 2.5px;
+  background: var(--accent);
+  z-index: 2;
 }
 
-.mode-geometric .layout-card svg {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-
-/* Color swatches — same active accent system as gradient */
-.mode-geometric .swatches {
-  gap: 12px;
-}
-
+/* ─── Colour swatches ─────────────────────────────────────────────────────── */
+.mode-geometric .swatches { gap: 11px !important; }
 .mode-geometric .swatch {
-  width: 36px;
-  height: 36px;
-  border: 0;
+  width: 34px; height: 34px; border: 0;
   box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.16),
-    inset 0 -2px 8px rgba(0, 0, 0, 0.10),
-    0 1px 4px rgba(0, 0, 0, 0.12);
+    inset 0 0 0 1px rgba(255,255,255,0.16),
+    0 2px 6px rgba(0,0,0,0.22) !important;
 }
-
-.mode-geometric .swatch.active {
-  outline: 2.5px solid var(--accent);
-  outline-offset: 3px;
-}
-
+.mode-geometric .swatch.active { outline: 2px solid #fff !important; outline-offset: 3px !important; }
 .mode-geometric .swatch.add {
-  border: 1.5px dashed rgba(20, 20, 42, 0.18);
-  box-shadow: none;
+  border: 1.5px dashed rgba(255,255,255,0.22) !important;
+  background: rgba(255,255,255,0.06) !important; box-shadow: none !important;
+  color: rgba(255,255,255,0.45) !important;
 }
+.mode-geometric .swatch.add:hover { border-color: var(--accent) !important; color: var(--accent) !important; }
 
-/* Presets grid — aligned with gradient preset treatment */
-.mode-geometric .presets-section {
-  margin-top: 24px;
-}
-
-.mode-geometric .palette-grid {
-  gap: 7px;
-}
-
+/* ─── Palette preset grid ─────────────────────────────────────────────────── */
+.mode-geometric .presets-section { margin-top: 20px; }
+.mode-geometric .palette-grid    { gap: 6px; }
 .mode-geometric .palette-card {
-  height: 42px;
-  border-radius: 5px;
-  overflow: hidden;
-  border: 1.5px solid transparent;
-  padding: 0;
-  transition:
-    transform    0.15s var(--ease-out),
-    border-color 0.15s,
-    box-shadow   0.15s;
+  height: 44px; border-radius: 4px; overflow: hidden; padding: 0;
+  border: 1.5px solid rgba(255,255,255,0.16) !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.18) !important;
+  filter: grayscale(0.40) !important;
+  transition: filter 0.18s ease, transform 0.14s ease, border-color 0.16s !important;
 }
-
 @media (hover: hover) and (pointer: fine) {
   .mode-geometric .palette-card:hover {
-    transform: translateY(-2px);
-    border-color: var(--ink-dim);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.14);
+    filter: grayscale(0) !important;
+    transform: translateY(-2px) !important;
+    border-color: rgba(255,255,255,0.38) !important;
+    box-shadow: 0 5px 14px rgba(0,0,0,0.30) !important;
   }
 }
-
-.mode-geometric .palette-card:active {
-  transform: scale(0.96);
-}
-
+.mode-geometric .palette-card:active { transform: scale(0.96) !important; }
 .mode-geometric .palette-card.active {
-  border-color: var(--accent);
-  box-shadow:
-    0 0 0 2px var(--accent-soft),
-    0 4px 12px rgba(0, 0, 0, 0.12);
+  filter: none !important;
+  border-color: rgba(255,255,255,0.85) !important;
+  border-width: 2px !important;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.20), 0 4px 12px rgba(0,0,0,0.28) !important;
 }
+.mode-geometric .palette-card span { display: block; flex: 1; height: 100%; }
 
-.mode-geometric .palette-card span {
-  display: block;
-  flex: 1;
-  height: 100%;
-}
-
-/* Help card — same quiet card as gradient */
+/* ─── Help ────────────────────────────────────────────────────────────────── */
 .mode-geometric .help.compact-help {
-  background: rgba(20, 20, 42, 0.05);
-  border: 1px solid var(--rule);
-  border-top: 1px solid var(--rule);
-  border-radius: 8px;
-  padding: 11px 13px;
-  margin-top: 22px;
-  font-size: 11px;
-  line-height: 1.55;
-  color: var(--ink-dim);
+  background: rgba(255,255,255,0.06) !important;
+  border: 1px solid rgba(255,255,255,0.12) !important;
+  border-radius: 6px; padding: 10px 12px; margin-top: 18px;
+  font-size: 11px; line-height: 1.55; color: rgba(245,244,255,0.56) !important;
+}
+.mode-geometric .help em  { color: var(--accent) !important; }
+.mode-geometric .help kbd {
+  border-color: rgba(255,255,255,0.16) !important;
+  background: rgba(255,255,255,0.08) !important;
+  color: rgba(245,244,255,0.75) !important;
 }
 
-.mode-geometric .help.compact-help kbd {
-  font-size: 9px;
-  padding: 1px 4px;
-}
-
-/* Material toggle */
+/* ─── Material toggle ─────────────────────────────────────────────────────── */
 .mode-geometric .material-toggle {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 5px;
 }
-
 .mode-geometric .material-toggle button {
-  min-height: 34px;
-  border: 1px solid rgba(20, 20, 42, 0.16);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.26);
-  color: var(--ink);
-  font: inherit;
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  cursor: pointer;
-  transition:
-    transform 0.15s var(--ease-out),
-    border-color 0.15s,
-    background 0.15s,
-    box-shadow 0.15s;
+  min-height: 32px;
+  border: 1px solid rgba(255,255,255,0.16); border-radius: 4px;
+  background: rgba(255,255,255,0.07); color: rgba(245,244,255,0.72);
+  font: inherit; font-size: 11px; letter-spacing: 0.05em; cursor: pointer;
+  transition: background 0.14s ease, border-color 0.14s ease, transform 0.10s ease;
 }
-
 @media (hover: hover) and (pointer: fine) {
   .mode-geometric .material-toggle button:hover {
+    background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.28);
     transform: translateY(-1px);
-    border-color: var(--ink-dim);
-    background: rgba(255, 255, 255, 0.42);
   }
 }
-
 .mode-geometric .material-toggle button.active {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.22) inset;
+  border-color: var(--accent); background: rgba(255,45,114,0.14);
+  color: rgba(255,255,255,0.96);
 }
 
-/* 3D Glass module helpers */
+/* ─── Collapsible presets ─────────────────────────────────────────────────── */
+.collapsible-presets .presets-toggle {
+  width: 100%; appearance: none; border: 0; background: transparent;
+  color: inherit; font: inherit; cursor: pointer; padding: 0;
+  display: flex; align-items: center; gap: 8px; text-align: left;
+}
+.collapsible-presets .presets-toggle .value { margin-left: auto; }
+.collapsible-presets .preset-arrow {
+  width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center;
+  font-size: 15px; line-height: 1; opacity: 0.65;
+  transition: opacity 0.14s ease;
+}
+.collapsible-presets .presets-toggle:hover .preset-arrow { opacity: 1; }
+.presets-section.collapsible-presets.is-collapsed .palette-grid { display: none !important; }
+.presets-section.collapsible-presets.is-open      .palette-grid { display: grid; margin-top: 8px; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   3D module panel helpers — ONLY what's needed.
+   Old geometric.css had .mode-glass3d overrides that broke glass3d.css
+   material button column layout. All such overrides removed.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
 .mode-glass3d .panel-title::after { content: ' / 3D'; }
-.glass3d-bg-grid .palette-card { min-height: 28px; }
-.glass3d-bg-grid .palette-card span { width: 100%; }
 
-/* 3D Objects v6 cleanup controls */
-.mode-glass3d .wide-btn {
-  width: 100%;
-  border: 0;
-  border-radius: 999px;
-  padding: 9px 12px;
-  font: inherit;
-  font-size: 12px;
-  background: rgba(255,255,255,.62);
-  color: rgba(0,0,0,.78);
-  cursor: pointer;
-}
-.mode-glass3d .wide-btn:hover { background: rgba(255,255,255,.82); }
-
-/* 3D Objects v8 — separate module controls */
-.mode-glass3d .glass3d-icon-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-}
-.mode-glass3d .glass3d-icon-btn,
-.mode-glass3d .glass3d-material-btn {
-  min-height: 58px;
-  border: 1px solid rgba(20,20,42,.14);
-  border-radius: 16px;
-  background: rgba(255,255,255,.32);
-  color: rgba(16,16,32,.72);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-  font-size: 9px;
-  letter-spacing: .04em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: transform .14s var(--ease-out), border-color .14s, background .14s, color .14s;
-}
-.mode-glass3d .material-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.mode-glass3d .glass3d-material-btn { min-height: 48px; flex-direction: row; justify-content: flex-start; padding: 8px 10px; }
-.mode-glass3d .glass3d-icon-btn:hover,
-.mode-glass3d .glass3d-material-btn:hover {
-  transform: translateY(-1px);
-  border-color: rgba(20,20,42,.34);
-  background: rgba(255,255,255,.55);
-}
-.mode-glass3d .glass3d-icon-btn.active,
-.mode-glass3d .glass3d-material-btn.active {
-  border-color: var(--nurr-blue);
-  background: rgba(255,255,255,.72);
-  color: var(--nurr-blue);
-}
-.mode-glass3d .glass3d-shape-icon {
-  width: 28px; height: 28px; display: grid; place-items: center;
-  perspective: 80px;
-}
-.mode-glass3d .glass3d-shape-icon i { display:block; width: 20px; height: 20px; border: 1.5px solid currentColor; background: rgba(255,255,255,.22); box-shadow: inset -5px -6px 10px rgba(0,0,0,.08), inset 4px 4px 8px rgba(255,255,255,.7); }
-.mode-glass3d .shape-sphere i { border-radius: 50%; }
-.mode-glass3d .shape-cube i { border-radius: 4px; transform: rotateX(58deg) rotateZ(45deg); }
-.mode-glass3d .shape-soap i { width: 25px; height: 15px; border-radius: 10px; transform: rotate(-8deg); }
-.mode-glass3d .shape-pebble i { width: 24px; height: 17px; border-radius: 52% 48% 58% 42%; transform: rotate(-14deg); }
-.mode-glass3d .shape-tablet i { width: 22px; height: 22px; border-radius: 50%; box-shadow: inset 0 0 0 4px rgba(255,255,255,.22), inset -5px -6px 10px rgba(0,0,0,.08); }
-.mode-glass3d .shape-capsule i { width: 27px; height: 13px; border-radius: 999px; transform: rotate(-12deg); }
-.mode-glass3d .shape-torus i { width: 24px; height: 24px; border-radius: 50%; background: radial-gradient(circle, transparent 0 31%, rgba(255,255,255,.28) 33% 100%); }
-.mode-glass3d .glass3d-material-chip { width: 22px; height: 22px; border-radius: 50%; border: 1px solid rgba(20,20,42,.12); flex: 0 0 auto; }
-.mode-glass3d .material-glass { background: radial-gradient(circle at 30% 25%, #fff, #dbefff 45%, rgba(255,255,255,.25)); }
-.mode-glass3d .material-opal { background: radial-gradient(circle at 25% 20%, #fff, #f0dceb 38%, #d7fff1 76%); }
-.mode-glass3d .material-water { background: radial-gradient(circle at 25% 20%, #efffff, #8fddea 48%, #0b6574); }
-.mode-glass3d .material-metal { background: linear-gradient(135deg, #fafafa, #8f969a 42%, #1b1d21 55%, #e5e2d8); }
-.mode-glass3d .material-holo { background: conic-gradient(from 30deg, #ff6fd8, #ffe46b, #6df7ff, #8e78ff, #ff6fd8); }
-.mode-glass3d .material-crystal { background: linear-gradient(135deg, #fff, #dff8ff 28%, #bca9ff 55%, #fff); }
-.mode-glass3d .glass3d-swatches { gap: 11px; }
-.mode-glass3d .glass3d-tone { border-radius: 50%; }
-.mode-glass3d .glass3d-hue-add { overflow: hidden; }
-.mode-glass3d .glass3d-bg-row { display:flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-.mode-glass3d .glass3d-bg-swatch {
-  width: 34px; height: 34px; border-radius: 50%; border: 1.5px solid rgba(20,20,42,.14); cursor:pointer; position:relative; padding:0;
-  transition: transform .14s var(--ease-out), border-color .14s;
-}
-.mode-glass3d .glass3d-bg-swatch:hover { transform: translateY(-2px) scale(1.06); }
-.mode-glass3d .glass3d-bg-swatch.active { outline: 2.5px solid var(--nurr-blue); outline-offset: 3px; }
-.mode-glass3d .bg-gradient { background: radial-gradient(circle at 28% 22%, #fff, #d7d7d7 43%, #111 100%); }
-.mode-glass3d .bg-custom { display:grid; place-items:center; color: rgba(20,20,42,.55); font-size:20px; border-style:dashed; overflow:hidden; }
-.mode-glass3d .bg-custom input,
-.mode-glass3d .glass3d-hue-add input { position:absolute; inset:0; opacity:0; cursor:pointer; }
+/* Glass3D hex input (not covered elsewhere) */
 .mode-glass3d .glass3d-hex-input {
-  width: 100%; margin-top: 10px; border: 1px solid rgba(20,20,42,.14); border-radius: 999px;
-  background: rgba(255,255,255,.42); padding: 8px 11px;
-  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 11px; color: var(--ink-2);
+  border-color: rgba(255,255,255,0.18) !important;
+  background: rgba(255,255,255,0.08) !important;
+  color: rgba(255,255,255,0.80) !important;
 }
+.mode-glass3d .glass3d-hex-input:focus {
+  border-color: rgba(255,255,255,0.38) !important;
+  background: rgba(255,255,255,0.13) !important;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Extracted ownership rules — 2026-06-29 CSS architecture cleanup.
+   Moved out of global CSS without changing declaration values.
+   ───────────────────────────────────────────────────────────── */
+.layout-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }.layout-card {
+  aspect-ratio: 1; position: relative;
+  background: var(--panel-2); border: 1px solid var(--rule);
+  cursor: pointer;
+  transition: border-color 0.14s, transform 0.14s var(--ease-out);
+  overflow: hidden; border-radius: 3px;
+}@media (hover: hover) and (pointer: fine){
+.layout-card:hover { transform: translateY(-1px); }
+}
+.layout-card:active { transform: scale(0.95); }.layout-card.active { border-color: var(--ink-2); }.layout-card.active::after {
+  content: ""; position: absolute; inset: 0;
+  box-shadow: inset 0 0 0 2px var(--ink-2); pointer-events: none;
+}.layout-card svg { width: 100%; height: 100%; display: block; }@media (min-width: 821px){
+.panel .layout-card {
+    background: rgba(255,255,255,0.07) !important;
+    border-color: rgba(255,255,255,0.16) !important;
+  }.panel .layout-card.active {
+    border-color: rgba(255,255,255,0.80) !important;
+    background: rgba(255,255,255,0.16) !important;
+  }
+}
+#root:has(.panel.mode-glass3d)  canvas.stage,
+#root:has(.panel.mode-geometric) canvas.stage {
+  transform: none !important;
+  animation: none !important;
+}.mode-geometric .layout-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+}.mode-geometric .layout-card {
+  aspect-ratio: 1 / 1 !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border-radius: 7px !important;
+  overflow: hidden !important;
+  background: rgba(255,255,255,0.28) !important;
+  border: 1.25px solid rgba(20,18,34,0.22) !important;
+  box-shadow: none !important;
+  filter: none !important;
+  transform: none !important;
+}.mode-geometric .layout-card.active {
+  border-color: rgba(20,18,34,0.82) !important;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.48) !important;
+}.mode-geometric .layout-card::after { display: none !important; }.mode-geometric .layout-card::before {
+  color: rgba(20,18,34,0.38) !important;
+  font-size: 8px !important;
+  top: 5px !important;
+  left: 6px !important;
+}.mode-geometric .layout-grid{
+  display:grid !important;
+  grid-template-columns:repeat(4, minmax(0,1fr)) !important;
+  gap:6px !important;
+}.mode-geometric .layout-card{
+  height:38px !important;
+  min-height:38px !important;
+  padding:4px !important;
+  border:1px solid var(--nx-line-soft) !important;
+  background:rgba(255,255,255,.045) !important;
+}.mode-geometric .layout-card svg{
+  width:100% !important;
+  height:100% !important;
+  display:block !important;
+  filter:grayscale(1) contrast(.95) brightness(1.55) opacity(.72) !important;
+}.mode-geometric .layout-card.active{
+  background:rgba(255,255,255,.10) !important;
+  border-color:rgba(255,255,255,.40) !important;
+}.mode-geometric .layout-card.active svg{ filter:none !important; }.mode-geometric .layout-grid{ grid-template-columns:repeat(4,1fr) !important; gap:7px !important; }.mode-geometric .layout-card{ height:48px !important; min-height:48px !important; padding:5px !important; border:1px solid var(--nx-line-soft) !important; background:rgba(255,255,255,.05) !important; }.mode-geometric .layout-card svg{ filter:grayscale(1) saturate(0) contrast(.9) brightness(1.35) opacity(.68) !important; }.mode-geometric .layout-card.active{ background:rgba(255,255,255,.14) !important; border-color:rgba(255,255,255,.34) !important; }.mode-geometric .layout-card.active svg{ filter:none !important; opacity:1 !important; }.mode-geometric .layout-grid{ grid-template-columns:repeat(4,minmax(0,1fr)) !important; gap:8px !important; }.mode-geometric .layout-card{
+  height:62px !important;
+  min-height:62px !important;
+  padding:5px !important;
+  border:1px solid var(--nx-line-soft) !important;
+  background:rgba(255,255,255,.04) !important;
+  box-shadow:none !important;
+  overflow:hidden !important;
+}.mode-geometric .layout-card::before,
+.mode-geometric .layout-card::after{ display:none !important; content:none !important; }.mode-geometric .layout-card svg{ width:100% !important; height:100% !important; filter:grayscale(1) saturate(0) contrast(.9) brightness(1.45) opacity(.72) !important; }.mode-geometric .layout-card.active{ background:rgba(255,255,255,.12) !important; border-color:rgba(255,255,255,.38) !important; }.mode-geometric .layout-card.active svg{ filter:none !important; opacity:1 !important; }.mode-geometric .section-label .value{ font-family:"Helvetica Neue", Helvetica, Arial, sans-serif !important; font-size:8px !important; letter-spacing:.10em !important; }

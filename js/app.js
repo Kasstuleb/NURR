@@ -1,35 +1,61 @@
-// app.js — App shell. Wires modes, panel, history, collection, keyboard shortcuts.
-// Nature fix: natureImages initialises empty; currentImg starts null → placeholder shown
-// until user either drops their own photos OR discover finds real files.
+// app.js — NURR v4.
+// Modes: gradient | geometric | glass3d | nature | abstract
+// Panel: Create / Library + restored Export panel with Still / Motion / Web / Recipe.
+// Layer capture: every save stores type, module, hasAlpha, alphaPreview, tweaks snapshot.
 
 const { useEffect, useRef, useState, useCallback } = React;
 
-// ─── NaturePlaceholder ────────────────────────────────────────────────────────
+const MODULE_LAYER_TYPE = {
+  gradient: 'background', abstract: 'background',
+  nature: 'background', glass3d: 'object', geometric: 'object',
+};
+const MODULE_HAS_ALPHA = { glass3d: true, geometric: true };
+
+const EXPORT_SIZES = {
+  square:   { label: '1×1',   w: 1080, h: 1080, ratio: '1:1' },
+  wide:     { label: '16:9',  w: 1920, h: 1080, ratio: '16:9' },
+  story:    { label: '9:16',  w: 1080, h: 1920, ratio: '9:16' },
+  classic:  { label: '4:3',   w: 1600, h: 1200, ratio: '4:3' },
+  qhd:      { label: '2K',    w: 2560, h: 1440, ratio: '16:9' },
+  uhd:      { label: '4K',    w: 3840, h: 2160, ratio: '16:9' },
+};
+
+const EXPORT_PANEL_KEYS = ['square', 'wide', 'story', 'classic', 'qhd', 'uhd'];
+const EXPORT_FORMATS = {
+  png:  { label: 'PNG',  mime: 'image/png',  ext: 'png' },
+  jpg:  { label: 'JPG',  mime: 'image/jpeg', ext: 'jpg' },
+  webp: { label: 'WEBP', mime: 'image/webp', ext: 'webp' },
+  pdf:  { label: 'PDF',  mime: 'application/pdf', ext: 'pdf' },
+};
+
+const SPEED_OPTIONS    = [
+  { value: 0.25, label: '0.25×' }, { value: 0.5, label: '0.5×' },
+  { value: 1.0,  label: '1×'    }, { value: 1.5, label: '1.5×' },
+  { value: 2.5,  label: '2.5×'  }, { value: 4.0, label: '4×'   },
+];
+const DURATION_PRESETS = [3, 5, 8, 12, 20, 30];
+
+function getRecorderMime() {
+  if (typeof MediaRecorder === 'undefined') return null;
+  const types = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
+  return types.find(t => MediaRecorder.isTypeSupported(t)) || null;
+}
+
+// ─── NaturePlaceholder ───────────────────────────────────────────────────────
 function NaturePlaceholder({ onFiles }) {
   const inputRef = useRef(null);
   const [dragOver, setDragOver] = useState(false);
-  const onDrop = (e) => {
-    e.preventDefault(); setDragOver(false);
-    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
-    if (files.length) onFiles(files);
-  };
   return (
     <div className="placeholder-overlay">
       <div className="placeholder-card"
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
-        onDrop={onDrop}
+        onDrop={(e) => { e.preventDefault(); setDragOver(false); const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/')); if (files.length) onFiles(files); }}
         style={{ borderColor: dragOver ? 'var(--accent)' : undefined }}>
         <h2>Photo mode needs images.</h2>
-        <p style={{ marginTop: 14 }}>
-          Drop images here to start instantly — no server needed.<br />
-          Or place files in <code>./nature/</code> and list them in <code>nature/manifest.json</code>:<br />
-          <code style={{ marginTop: 6, display: 'block' }}>["01.jpg", "02.jpg", "03.webp"]</code>
-        </p>
+        <p style={{ marginTop: 14 }}>Drop images here — no server needed.<br />Or place in <code>./nature/</code> with <code>manifest.json</code>.</p>
         <div className="btn-row" style={{ marginTop: 20 }}>
-          <button className="btn primary btn-italic" onClick={() => inputRef.current?.click()}>
-            Choose images
-          </button>
+          <button className="btn primary btn-italic" onClick={() => inputRef.current?.click()}>Choose images</button>
         </div>
         <input ref={inputRef} type="file" accept="image/*" multiple style={{ display: 'none' }}
           onChange={(e) => { onFiles(Array.from(e.target.files)); e.target.value = ''; }} />
@@ -38,13 +64,226 @@ function NaturePlaceholder({ onFiles }) {
   );
 }
 
-// ─── App ──────────────────────────────────────────────────────────────────────
-function App() {
-  const [mode, setMode]         = useState('gradient');
-  const [page, setPage]         = useState('studio');
-  const [collapsed, setCollapsed] = useState(false);
+// ─── VideoRecorder ───────────────────────────────────────────────────────────
+function VideoRecorder() {
+  const [speed,     setSpeed]     = useState(1.0);
+  const [duration,  setDuration]  = useState(8);
+  const [recording, setRecording] = useState(false);
+  const [progress,  setProgress]  = useState(0);
+  const [done,      setDone]      = useState(false);
+  const [error,     setError]     = useState(null);
+  const recorderRef = useRef(null);
+  const timerRef    = useRef(null);
+  const mimeType    = getRecorderMime();
 
-  // Per-mode tweaks
+  const start = () => {
+    if (!mimeType) { setError('Requires Chrome, Edge, or Chromium.'); return; }
+    const canvas = document.querySelector('canvas.stage');
+    if (!canvas) { setError('No canvas — switch to a visual module first.'); return; }
+    setError(null); setDone(false); setProgress(0);
+
+    let recorder;
+    try {
+      const stream = canvas.captureStream(30);
+      recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 8_000_000 });
+    } catch (err) { setError('Recorder error: ' + err.message); return; }
+
+    const chunks = [];
+    recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+    recorder.onstop = () => {
+      window.__NURR_SPEED = 1.0;
+      const blob = new Blob(chunks, { type: mimeType.split(';')[0] });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url; a.download = `nurr-motion-${duration}s-${Date.now()}.webm`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 3000);
+      setRecording(false); setProgress(100); setDone(true);
+    };
+
+    const durationMs = duration * 1000;
+    // Pre-roll: apply speed FIRST, wait 6 rAF frames for animation to stabilise,
+    // THEN start recording — eliminates the visual jump on speed change.
+    window.__NURR_SPEED = speed;
+    let preroll = 0;
+    const go = () => {
+      if (++preroll < 6) { requestAnimationFrame(go); return; }
+      recorder.start(200);
+      recorderRef.current = recorder;
+      setRecording(true);
+      const startTime = Date.now();
+      const tick = () => {
+        const elapsed = Date.now() - startTime;
+        setProgress(Math.min(99, (elapsed / durationMs) * 100));
+        if (elapsed < durationMs) timerRef.current = setTimeout(tick, 80);
+      };
+      timerRef.current = setTimeout(tick, 80);
+      setTimeout(() => {
+        clearTimeout(timerRef.current);
+        if (recorderRef.current && recorderRef.current.state !== 'inactive') recorderRef.current.stop();
+      }, durationMs);
+    };
+    requestAnimationFrame(go);
+  };
+
+  const cancel = () => {
+    clearTimeout(timerRef.current);
+    if (recorderRef.current && recorderRef.current.state !== 'inactive') {
+      recorderRef.current.ondataavailable = null;
+      recorderRef.current.onstop = null;
+      recorderRef.current.stop();
+    }
+    window.__NURR_SPEED = 1.0;
+    recorderRef.current = null;
+    setRecording(false); setProgress(0); setDone(false);
+  };
+
+  useEffect(() => () => { clearTimeout(timerRef.current); window.__NURR_SPEED = 1.0; }, []);
+
+  return (
+    <div className="vid-recorder">
+      <div className="vid-label">Motion export</div>
+
+      <div className="vid-sublabel">Speed</div>
+      <div className="vid-chips">
+        {SPEED_OPTIONS.map(s => (
+          <button key={s.value} className={'vid-chip' + (speed === s.value ? ' active' : '')}
+            onClick={() => { if (!recording) setSpeed(s.value); }}>{s.label}</button>
+        ))}
+      </div>
+
+      <div className="vid-sublabel">Duration</div>
+      <div className="vid-chips">
+        {DURATION_PRESETS.map(d => (
+          <button key={d} className={'vid-chip' + (duration === d ? ' active' : '')}
+            onClick={() => { if (!recording) setDuration(d); }}>{d}s</button>
+        ))}
+      </div>
+
+      {error && <div className="vid-error">{error}</div>}
+
+      {recording && (
+        <div className="vid-progress">
+          <div className="vid-progress-track"><div className="vid-progress-bar" style={{ width: progress + '%' }} /></div>
+          <span className="vid-progress-label">Recording {Math.round(progress)}%</span>
+        </div>
+      )}
+
+      {done && !recording && <div className="vid-done">✓ Download started — check downloads</div>}
+
+      <div className="vid-actions">
+        {!recording
+          ? <button className="btn primary btn-italic" onClick={start} disabled={!mimeType}>● Record WebM</button>
+          : <button className="btn" onClick={cancel}>✕ Cancel</button>}
+      </div>
+
+      <div className="vid-hint">
+        WebM plays in Chrome, Firefox, Safari 16+.<br/>
+        Convert to MP4: drag into DaVinci Resolve or ffmpeg.
+      </div>
+    </div>
+  );
+}
+
+// ─── LibraryTab ──────────────────────────────────────────────────────────────
+function LibraryTab({ library, onDelete, onPreview, onClear, onDownloadAll, onOpenExport }) {
+  if (!library.length) {
+    return (
+      <div className="lib-empty">
+        <div className="lib-empty-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4">
+            <path d="M21 19V8a2 2 0 0 0-2-2h-3.17l-1.84-2H10l-1.84 2H5a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2Z"/>
+            <circle cx="12" cy="13" r="4"/>
+          </svg>
+        </div>
+        <p>Library empty</p>
+        <p className="lib-empty-hint">Press <kbd>S</kbd> or the camera icon to save the current view.</p>
+      </div>
+    );
+  }
+
+  const objects     = library.filter(l => l.type === 'object');
+  const backgrounds = library.filter(l => l.type === 'background');
+
+  const renderSection = (items, title, hint) => (
+    <div className="lib-section" key={title}>
+      <div className="lib-sect-label">
+        {title}
+        {hint && <span className="lib-sect-hint">{hint}</span>}
+      </div>
+      <div className="lib-grid">
+        {items.map(item => (
+          <div className="lib-tile" key={item.id}>
+            <div className="lib-thumb" onClick={() => onPreview(item.preview)}>
+              <img src={item.preview} alt="" />
+              <span className={'lib-type-badge lib-type-' + item.type}>
+                {item.type === 'object' ? 'OBJ' : 'BG'}
+              </span>
+              <span className="lib-mod-badge">{item.module.slice(0, 3).toUpperCase()}</span>
+              {item.hasAlpha && <span className="lib-alpha-badge" title="Has transparent layer">α</span>}
+              <button className="lib-delete" onClick={(e) => { e.stopPropagation(); onDelete(item.id); }} title="Remove">×</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="library-tab">
+      {objects.length     > 0 && renderSection(objects,     `Objects · ${objects.length}`,     '— α = has transparency')}
+      {backgrounds.length > 0 && renderSection(backgrounds, `Backgrounds · ${backgrounds.length}`, null)}
+      <div className="lib-footer">
+        <button className="btn btn-italic" onClick={onOpenExport}>Export panel</button>
+        <button className="btn btn-italic" onClick={onDownloadAll}>Download ZIP</button>
+        <button className="btn" onClick={onClear}>Clear</button>
+      </div>
+    </div>
+  );
+}
+
+// ─── NymphLanding ───────────────────────────────────────────────────────────
+function NymphLanding({ onEnter }) {
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    if (!canvasRef.current || !window.NYMPHLanding || !window.NYMPHLanding.mount) return undefined;
+    return window.NYMPHLanding.mount(canvasRef.current);
+  }, []);
+
+  return (
+    <section className="nymph-landing" aria-label="NYMPH landing page">
+      <canvas ref={canvasRef} className="nymph-landing-canvas" />
+      <div className="nymph-landing-grain" aria-hidden="true" />
+      <main className="nymph-landing-content">
+        <button type="button" className="nymph-landing-logo" onClick={onEnter} aria-label="Enter NYMPH">
+          <img src="assets/logos/nymph-logo-full.svg" alt="NYMPH" className="nymph-landing-full-logo" />
+        </button>
+        <button type="button" className="nymph-enter" onClick={onEnter} aria-label="Enter NYMPH">
+          <span aria-hidden="true">→</span>
+        </button>
+      </main>
+    </section>
+  );
+}
+
+
+// ─── App ─────────────────────────────────────────────────────────────────────
+function App() {
+  const [mode, setMode]           = useState('gradient');
+  const [page, setPage]           = useState('main');
+  const [showLanding, setShowLanding] = useState(true);
+  const [collapsed, setCollapsed] = useState(false);
+  const [activeTab, setActiveTab] = useState('create');
+  const [panelTone, setPanelTone] = useState('dark');
+  const panelToneRef = useRef('dark');
+  const panelToneSwitchRef = useRef(0);
+
+  useEffect(() => {
+    document.body.classList.toggle('nymph-landing-active', showLanding);
+    return () => document.body.classList.remove('nymph-landing-active');
+  }, [showLanding]);
+
   const [gradientTweaks,  setGradientTweaks]  = useState(window.GRADIENT_DEFAULTS);
   const [geometricTweaks, setGeometricTweaks] = useState(window.GEOMETRIC_DEFAULTS);
   const [glass3dTweaks,   setGlass3dTweaks]   = useState(window.GLASS3D_DEFAULTS);
@@ -52,39 +291,27 @@ function App() {
   const [abstractTweaks,  setAbstractTweaks]  = useState(window.ABSTRACT_DEFAULTS);
   const [paletteTweaks,   setPaletteTweaks]   = useState(window.PALETTE_DEFAULTS);
 
-  // ── Nature / photo state ──
-  // Start empty — no phantom './nature/01.jpg' path.
-  // Placeholder shows until real images appear (via discovery or drag-drop).
   const [natureImages, setNatureImages] = useState([]);
   const [currentImg,   setCurrentImg]   = useState(null);
-
   useEffect(() => {
-    window.discoverNatureImages().then(imgs => {
-      if (imgs.length) {
-        setNatureImages(imgs);
-        setCurrentImg(imgs[0]);
-      }
-      // else: stays empty → placeholder stays visible
-    });
+    window.discoverNatureImages().then(imgs => { if (imgs.length) { setNatureImages(imgs); setCurrentImg(imgs[0]); } });
   }, []);
-
   const onFiles = (files) => {
     const urls = files.map(f => URL.createObjectURL(f));
     setNatureImages(prev => [...prev, ...urls]);
     if (urls.length) setCurrentImg(urls[0]);
   };
 
-  // ── History (undo, max 10) ──
+  // History
   const [history, setHistory] = useState([]);
   const suppressHistory = useRef(false);
-
   const currentState = () => ({ mode, gradientTweaks, geometricTweaks, glass3dTweaks, natureTweaks, abstractTweaks, paletteTweaks, currentImg });
-  const pushHistory = () => {
-    if (suppressHistory.current) return;
-    setHistory(h => [...h.slice(-9), currentState()]);
+  const pushHistory = () => { if (suppressHistory.current) return; setHistory(h => [...h.slice(-11), currentState()]); };
+
+  const changeMode = (next) => {
+    if (next !== mode) { pushHistory(); setMode(next); }
   };
 
-  const changeMode = (next) => { if (next !== mode) { pushHistory(); setMode(next); } };
   const patchGradient  = (p) => { pushHistory(); setGradientTweaks(s  => ({ ...s, ...p })); };
   const patchGeometric = (p) => { pushHistory(); setGeometricTweaks(s => ({ ...s, ...p })); };
   const patchGlass3D   = (p) => { pushHistory(); setGlass3dTweaks(s   => ({ ...s, ...p })); };
@@ -94,542 +321,529 @@ function App() {
 
   const undo = () => {
     setHistory(h => {
-      const prev = h[h.length - 1];
-      if (!prev) return h;
+      const prev = h[h.length - 1]; if (!prev) return h;
       suppressHistory.current = true;
       setMode(prev.mode);
       setGradientTweaks(prev.gradientTweaks);
       setGeometricTweaks(prev.geometricTweaks);
-      if (prev.glass3dTweaks) setGlass3dTweaks(prev.glass3dTweaks);
+      if (prev.glass3dTweaks)  setGlass3dTweaks(prev.glass3dTweaks);
       setNatureTweaks(prev.natureTweaks);
       setAbstractTweaks(prev.abstractTweaks);
-      if (prev.paletteTweaks) setPaletteTweaks(prev.paletteTweaks);
+      if (prev.paletteTweaks)  setPaletteTweaks(prev.paletteTweaks);
       if (prev.currentImg != null) setCurrentImg(prev.currentImg);
       setTimeout(() => { suppressHistory.current = false; }, 0);
       return h.slice(0, -1);
     });
   };
 
-  // ── Snapshot / collection ──
-  const snapshotRef = useRef(null);
-  const registerSnapshot = useCallback((fn) => { snapshotRef.current = fn; }, []);
-  const [toast, setToast] = useState(false);
-  const [collection, setCollection] = useState([]);
-  const [exportChecks, setExportChecks] = useState({});
-  const collectionRef = useRef(null);
-  const [collectionCollapsed, setCollectionCollapsed] = useState(false);
-  const [collectionPos, setCollectionPos] = useState({ x: 88, y: 128 });
-  const collectionDragRef = useRef(null);
-  const collectionResizeRef = useRef(null);
-  const exportResizeRef = useRef(null);
+  // Snapshot / library
+  const snapshotRef       = useRef(null);
+  const registerSnapshot  = useCallback((fn) => { snapshotRef.current = fn; }, []);
+
+  const [library, setLibrary]           = useState([]);
+  const [toast, setToast]               = useState({ show: false, text: '' });
   const [previewImage, setPreviewImage] = useState(null);
+  const [exportChecks, setExportChecks] = useState({});
+  const [exportTab, setExportTab] = useState('still');
+  const [exportFormats, setExportFormats] = useState({ png: true, jpg: false, webp: false, pdf: false });
 
-  const showToast = () => { setToast(true); setTimeout(() => setToast(false), 1600); };
+  const showToast = (text = '✓ Saved') => {
+    setToast({ show: true, text });
+    setTimeout(() => setToast(t => ({ ...t, show: false })), 1800);
+  };
 
-  const exportSizes = {
-    uhd:    { label: '4K',        w: 3840, h: 2160 },
-    qhd:    { label: '2K',        w: 2560, h: 1440 },
-    hd:     { label: 'HD',        w: 1920, h: 1080 },
-    cover:  { label: '1.91:1',    w: 1920, h: 1005 },
-    insta:  { label: '4:5',       w: 1080, h: 1350 },
-    mobile: { label: '9:16',      w: 1080, h: 1920 },
+  const doSnapshot = (sizeKey = 'qhd') => {
+    const ref = snapshotRef;
+    if (!ref.current) { showToast('⚠ Not ready yet'); return; }
+    const size = EXPORT_SIZES[sizeKey] || EXPORT_SIZES.qhd;
+    ref.current({ width: size.w, height: size.h, filename: `nurr-${mode}-${size.label}-${Date.now()}.png` });
+  };
+
+  const doTransparentSnapshot = (sizeKey = 'hd') => {
+    if (!snapshotRef.current) return;
+    const size = EXPORT_SIZES[sizeKey] || EXPORT_SIZES.hd;
+    snapshotRef.current({ width: size.w, height: size.h, transparent: true, filename: `nurr-${mode}-layer-${size.label}-${Date.now()}.png` });
   };
 
   const captureCurrent = () => {
     const run = () => {
-      if (!snapshotRef.current) return false;
-
-      // Keep the first click fast: save a lightweight preview immediately.
-      // Large export variants are rendered lazily, one per frame, so the UI does not freeze.
-      const id = Date.now();
-      const preview = snapshotRef.current({ width: 960, height: 540, returnDataUrl: true });
+      const ref = snapshotRef;
+      if (!ref.current) return false;
+      const id       = Date.now();
+      const type     = MODULE_LAYER_TYPE[mode] || 'background';
+      const hasAlpha = MODULE_HAS_ALPHA[mode]  || false;
+      // captureRenderState asks gradient/abstract to also freeze the exact
+      // interaction state (time, mouse, click pulse) behind this preview.
+      // Modules that don't understand the option just return a plain data
+      // URL string, same as before.
+      const captured = ref.current({ width: 960, height: 540, returnDataUrl: true, captureRenderState: true });
+      if (!captured) return false;
+      const preview     = typeof captured === 'string' ? captured : captured.dataUrl;
+      const renderState = (captured && typeof captured === 'object') ? captured.renderState : null;
       if (!preview) return false;
-
-      setCollection(items => [...items, { id, mode, dataUrl: preview, variants: {} }].slice(-24));
-      setCollectionCollapsed(false);
-      showToast();
-
-      const keys = Object.keys(exportSizes);
-      const renderNext = (idx = 0) => {
-        if (!snapshotRef.current || idx >= keys.length) return;
-        const sizeKey = keys[idx];
-        const size = exportSizes[sizeKey];
-        const dataUrl = snapshotRef.current({ width: size.w, height: size.h, returnDataUrl: true });
-        if (dataUrl) {
-          setCollection(items => items.map(item => item.id === id
-            ? { ...item, variants: { ...(item.variants || {}), [sizeKey]: dataUrl } }
-            : item
-          ));
-        }
-        requestAnimationFrame(() => renderNext(idx + 1));
-      };
-      setTimeout(() => renderNext(0), 160);
-
+      let alphaPreview = null;
+      if (hasAlpha && snapshotRef.current) {
+        alphaPreview = snapshotRef.current({ width: 960, height: 540, returnDataUrl: true, transparent: true });
+      }
+      const tweaksSnap = { gradient: gradientTweaks, geometric: geometricTweaks, glass3d: glass3dTweaks, nature: natureTweaks, abstract: abstractTweaks, palette: paletteTweaks };
+      setLibrary(items => [...items, {
+        id, type, module: mode, hasAlpha,
+        preview, alphaPreview, renderState,
+        tweaks: tweaksSnap,
+        currentImg: mode === 'nature' ? currentImg : null,
+        label: null, capturedAt: id,
+      }].slice(-32));
+      // Keep the current Create/Library tab unchanged when taking snapshots; only the badge count updates.
+      showToast(hasAlpha ? '✓ Saved — includes transparent layer' : '✓ Saved to library');
       return true;
     };
-    // Some modules register their export renderer one frame after a mode/state change.
-    // Retry once so the first camera click is not silently lost.
     if (!run()) requestAnimationFrame(() => { if (!run()) setTimeout(run, 60); });
   };
 
-  const doSnapshot = (sizeKey = 'qhd') => {
-    if (!snapshotRef.current) return;
-    const size = exportSizes[sizeKey] || exportSizes.qhd;
-    snapshotRef.current({ width: size.w, height: size.h, filename: `nurr-${mode}-${size.label.replace(':','x')}-${Date.now()}.png` });
+  // Export matrix helpers
+  const toggleCheck   = (itemId, sizeKey) => setExportChecks(prev => { const k = itemId + ':' + sizeKey; return { ...prev, [k]: !prev[k] }; });
+  const setExportAll  = (val) => { const next = {}; library.forEach(item => EXPORT_PANEL_KEYS.forEach(sk => { next[item.id + ':' + sk] = val; })); setExportChecks(next); };
+  const setExportRow  = (itemId, val) => setExportChecks(prev => { const next = { ...prev }; EXPORT_PANEL_KEYS.forEach(sk => { next[itemId + ':' + sk] = val; }); return next; });
+  const setExportCol  = (sizeKey, val) => setExportChecks(prev => { const next = { ...prev }; library.forEach(item => { next[item.id + ':' + sizeKey] = val; }); return next; });
+  const colAllChecked = (sizeKey) => !!library.length && library.every(item => !!exportChecks[item.id + ':' + sizeKey]);
+  const rowAllChecked = (itemId) => EXPORT_PANEL_KEYS.every(sk => !!exportChecks[itemId + ':' + sk]);
+  const selectedCount = library.reduce((n, item) => n + EXPORT_PANEL_KEYS.filter(sk => exportChecks[item.id + ':' + sk]).length, 0);
+
+  const activeExportFormats = Object.keys(exportFormats).filter(k => exportFormats[k]);
+  const selectedFileCount = selectedCount * Math.max(1, activeExportFormats.length);
+
+  const downloadBlob = (blob, filename) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
   };
 
-  const toggleExportCheck = (itemId, sizeKey) => {
-    const key = itemId + ':' + sizeKey;
-    setExportChecks(prev => ({ ...prev, [key]: !prev[key] }));
+  const dataUrlToImage = (src) => new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+
+  const canvasToBlob = (canvas, mime, quality = 0.94) => new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else if (mime !== 'image/png') canvas.toBlob((fallback) => fallback ? resolve(fallback) : reject(new Error('Canvas export failed.')), 'image/png');
+      else reject(new Error('Canvas export failed.'));
+    }, mime, quality);
+  });
+
+  const jpegBlobToPdf = async (jpegBlob, w, h) => {
+    const bytes = new Uint8Array(await jpegBlob.arrayBuffer());
+    const pageW = Math.round(w * 0.75);
+    const pageH = Math.round(h * 0.75);
+    const enc = new TextEncoder();
+    const chunks = [];
+    let pos = 0;
+    const add = (part) => {
+      const data = typeof part === 'string' ? enc.encode(part) : part;
+      chunks.push(data); pos += data.length;
+    };
+    const offsets = [0];
+    const obj = (n, bodyParts) => {
+      offsets[n] = pos;
+      add(`${n} 0 obj\n`);
+      bodyParts.forEach(add);
+      add(`\nendobj\n`);
+    };
+    add('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n');
+    obj(1, [`<< /Type /Catalog /Pages 2 0 R >>`]);
+    obj(2, [`<< /Type /Pages /Kids [3 0 R] /Count 1 >>`]);
+    obj(3, [`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageW} ${pageH}] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>`]);
+    obj(4, [`<< /Type /XObject /Subtype /Image /Width ${w} /Height ${h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${bytes.length} >>\nstream\n`, bytes, `\nendstream`]);
+    const content = `q\n${pageW} 0 0 ${pageH} 0 0 cm\n/Im0 Do\nQ\n`;
+    obj(5, [`<< /Length ${content.length} >>\nstream\n${content}endstream`]);
+    const xref = pos;
+    add(`xref\n0 6\n0000000000 65535 f \n`);
+    for (let i = 1; i <= 5; i++) add(String(offsets[i]).padStart(10, '0') + ' 00000 n \n');
+    add(`trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`);
+    return new Blob(chunks, { type: 'application/pdf' });
   };
 
-  const setExportCell = (itemId, sizeKey, value) => {
-    const key = itemId + ':' + sizeKey;
-    setExportChecks(prev => ({ ...prev, [key]: value }));
+  // For gradient and abstract, the library only stores a small 960×540
+  // preview (so the Library list stays cheap). Re-rendering natively at the
+  // exact export size from the saved tweaks + frozen renderState — instead
+  // of stretching that small bitmap up to 2K/4K — is what keeps Grain
+  // looking like grain instead of square blocks, and keeps every aspect
+  // ratio sharp and faithful to what was saved. Modules without a
+  // high-res renderer (geometric, glass3d, nature, palette) keep the
+  // existing preview-resample behaviour unchanged.
+  const highResExportSource = async (item, size) => {
+    const moduleTweaks = item.tweaks ? item.tweaks[item.module] : null;
+    if (!moduleTweaks || !item.renderState) return null;
+    if (item.module === 'gradient' && typeof window.NurrGradientRenderToDataURL === 'function') {
+      return window.NurrGradientRenderToDataURL(moduleTweaks, item.renderState, size.w, size.h);
+    }
+    if (item.module === 'abstract' && typeof window.NurrAbstractRenderToDataURL === 'function') {
+      return window.NurrAbstractRenderToDataURL(moduleTweaks, item.renderState, size.w, size.h);
+    }
+    return null;
   };
 
-  const setExportAll = (value) => {
-    const next = {};
-    collection.forEach(item => Object.keys(exportSizes).forEach(sizeKey => { next[item.id + ':' + sizeKey] = value; }));
-    setExportChecks(next);
+  const renderExportBlob = async (item, size, formatKey) => {
+    const hiRes = await highResExportSource(item, size);
+    const img = await dataUrlToImage(hiRes || item.preview);
+    const canvas = document.createElement('canvas');
+    canvas.width = size.w; canvas.height = size.h;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, size.w, size.h);
+    // hiRes sources are already rendered natively at size.w×size.h, so this
+    // is a 1:1 copy. The fallback preview path still resamples into the
+    // requested aspect ratio, same as before.
+    ctx.drawImage(img, 0, 0, size.w, size.h);
+    if (formatKey === 'pdf') {
+      const jpg = await canvasToBlob(canvas, 'image/jpeg', 0.95);
+      return jpegBlobToPdf(jpg, size.w, size.h);
+    }
+    const meta = EXPORT_FORMATS[formatKey] || EXPORT_FORMATS.png;
+    return canvasToBlob(canvas, meta.mime, formatKey === 'png' ? undefined : 0.94);
   };
 
-  const setExportRow = (itemId, value) => {
-    setExportChecks(prev => {
-      const next = { ...prev };
-      Object.keys(exportSizes).forEach(sizeKey => { next[itemId + ':' + sizeKey] = value; });
-      return next;
-    });
-  };
-
-  const setExportColumn = (sizeKey, value) => {
-    setExportChecks(prev => {
-      const next = { ...prev };
-      collection.forEach(item => { next[item.id + ':' + sizeKey] = value; });
-      return next;
-    });
-  };
-
-  const exportColumnChecked = (sizeKey) => {
-    return !!collection.length && collection.every(item => !!exportChecks[item.id + ':' + sizeKey]);
-  };
-
-  const exportRowChecked = (itemId) => {
-    return Object.keys(exportSizes).every(sizeKey => !!exportChecks[itemId + ':' + sizeKey]);
-  };
-
-  const exportSelected = async () => {
+  const buildExportJobs = () => {
+    const formats = activeExportFormats.length ? activeExportFormats : ['png'];
     const jobs = [];
-    collection.forEach((item, index) => {
-      Object.keys(exportSizes).forEach(sizeKey => {
-        if (exportChecks[item.id + ':' + sizeKey]) jobs.push({ item, index, sizeKey, size: exportSizes[sizeKey] });
+    library.forEach((item, idx) => {
+      EXPORT_PANEL_KEYS.forEach(sizeKey => {
+        if (exportChecks[item.id + ':' + sizeKey]) {
+          formats.forEach(formatKey => jobs.push({ item, idx, sizeKey, size: EXPORT_SIZES[sizeKey], formatKey }));
+        }
       });
     });
+    return jobs;
+  };
+
+  const exportSelected = async (delivery = 'zip') => {
+    const jobs = buildExportJobs();
     if (!jobs.length) return;
-    if (window.JSZip) {
+    if (delivery === 'zip' && !window.JSZip) { showToast('⚠ ZIP library missing — use Download files'); return; }
+    if (delivery === 'zip' && window.JSZip) {
       const zip = new JSZip();
       for (const job of jobs) {
-        const dataUrl = (job.item.variants && job.item.variants[job.sizeKey]) || job.item.dataUrl;
-        zip.file(`nurr-${String(job.index + 1).padStart(2,'0')}-${job.item.mode}-${job.size.label.replace(':','x')}.png`, dataUrl.split(',')[1], { base64: true });
+        const meta = EXPORT_FORMATS[job.formatKey] || EXPORT_FORMATS.png;
+        const blob = await renderExportBlob(job.item, job.size, job.formatKey);
+        zip.file(`nymph-${String(job.idx + 1).padStart(2, '0')}-${job.item.module}-${job.size.label.replace(':', 'x')}-${job.size.w}x${job.size.h}.${meta.ext}`, blob);
       }
       const blob = await zip.generateAsync({ type: 'blob' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href=url; a.download='nurr-export-panel.zip';
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1500);
-    } else {
-      jobs.forEach(job => {
-        const dataUrl = (job.item.variants && job.item.variants[job.sizeKey]) || job.item.dataUrl;
-        const a = document.createElement('a');
-        a.href = dataUrl;
-        a.download = `nurr-${job.item.mode}-${job.size.label.replace(':','x')}.png`;
-        document.body.appendChild(a); a.click(); a.remove();
-      });
+      downloadBlob(blob, 'nymph-export.zip');
+      return;
     }
+    jobs.forEach((job, i) => setTimeout(async () => {
+      const meta = EXPORT_FORMATS[job.formatKey] || EXPORT_FORMATS.png;
+      const blob = await renderExportBlob(job.item, job.size, job.formatKey);
+      downloadBlob(blob, `nymph-${String(job.idx + 1).padStart(2, '0')}-${job.item.module}-${job.size.label.replace(':', 'x')}-${job.size.w}x${job.size.h}.${meta.ext}`);
+    }, i * 120));
   };
 
-  const downloadCollection = async () => {
-    if (!collection.length) return;
+  const downloadAlphaLayer = (item) => {
+    if (!item.alphaPreview) return;
+    const a = document.createElement('a');
+    a.href = item.alphaPreview; a.download = `nurr-${item.module}-layer-${item.id}.png`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  };
+
+  const downloadAll = async () => {
+    if (!library.length) return;
     if (window.JSZip) {
       const zip = new JSZip();
-      collection.forEach((item, i) => {
-        zip.file(`nurr-${String(i+1).padStart(2,'0')}-${item.mode}.png`, item.dataUrl.split(',')[1], { base64: true });
+      library.forEach((item, i) => {
+        const name = `nurr-${String(i + 1).padStart(2, '0')}-${item.module}-${item.type}`;
+        zip.file(name + '.png', item.preview.split(',')[1], { base64: true });
+        if (item.alphaPreview) zip.file(name + '-layer.png', item.alphaPreview.split(',')[1], { base64: true });
       });
       const blob = await zip.generateAsync({ type: 'blob' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href=url; a.download='nurr-collection.zip';
-      document.body.appendChild(a); a.click(); a.remove();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a'); a.href = url; a.download = 'nurr-library.zip';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(url), 1500);
     } else {
-      collection.forEach((item, i) => {
-        const a = document.createElement('a'); a.href=item.dataUrl; a.download=`nurr-${i+1}-${item.mode}.png`;
-        document.body.appendChild(a); a.click(); a.remove();
-      });
+      library.forEach((item, i) => setTimeout(() => {
+        const a = document.createElement('a'); a.href = item.preview; a.download = `nurr-${i + 1}-${item.module}.png`;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      }, i * 80));
     }
   };
 
-  // Geometric canvas clicks are handled inside geometric.js.
-  // Click now freezes/unfreezes the composition before saving.
-  // Composition changes should happen from the panel cards or generate-new action.
-
-  // ── Keyboard shortcuts ──
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.target.tagName === 'INPUT') return;
-      if (e.key === 's' || e.key === 'S') doSnapshot();
-      if (e.key === '1') changeMode('gradient');
-      if (e.key === '2') changeMode('geometric');
-      if (e.key === '3') changeMode('glass3d');
-      if (e.key === '4') changeMode('nature');
-      if (e.key === '5') changeMode('abstract');
-      if (e.key === '6') changeMode('palette');
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
-      if (e.key === 'h' || e.key === 'H') setCollapsed(c => !c);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [mode]);
-
-  const mouseRef = WP.useMouse();
-
-  const onCollectionHeadDown = (e) => {
-    if (e.target.closest('button')) return;
-    const el = collectionRef.current;
-    const rect = el?.getBoundingClientRect();
-    if (!rect) return;
-    collectionDragRef.current = {
-      offX: e.clientX - rect.left,
-      offY: e.clientY - rect.top,
-      x: rect.left,
-      y: rect.top
-    };
-    document.body.classList.add('nurr-no-select');
-    e.preventDefault();
-  };
-
-
-  const onCollectionResizeDown = (e) => {
-    const el = collectionRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    collectionResizeRef.current = {
-      startX: e.clientX,
-      startY: e.clientY,
-      startW: rect.width,
-      startH: rect.height
-    };
-    document.body.classList.add('nurr-no-select');
-    e.preventDefault();
-    e.stopPropagation();
-  };
-
-  const onExportResizeDown = (e) => {
-    const win = exportPanelRef.current;
-    if (!win) return;
-    const rect = win.getBoundingClientRect();
-    win.style.left = rect.left + 'px';
-    win.style.top = rect.top + 'px';
-    win.style.transform = 'none';
-    exportResizeRef.current = {
-      startX: e.clientX,
-      startY: e.clientY,
-      startW: rect.width,
-      startH: rect.height,
-      left: rect.left,
-      top: rect.top,
-      raf: null
-    };
-    document.body.classList.add('nurr-no-select');
-    e.preventDefault();
-    e.stopPropagation();
-  };
-
-  useEffect(() => {
-    let raf = 0;
-    const onMove = (e) => {
-      const drag = collectionDragRef.current;
-      const resize = collectionResizeRef.current;
-      const el = collectionRef.current;
-      if ((!drag && !resize) || !el) return;
-      if (raf) cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => {
-        if (resize) {
-          const w = Math.max(320, Math.min(window.innerWidth - 40, resize.startW + (e.clientX - resize.startX)));
-          const h = Math.max(220, Math.min(window.innerHeight - 40, resize.startH + (e.clientY - resize.startY)));
-          el.style.setProperty('width', w + 'px', 'important');
-          el.style.setProperty('height', h + 'px', 'important');
-          return;
-        }
-        const w = el.offsetWidth || 320;
-        const h = el.offsetHeight || 110;
-        const x = Math.max(8, Math.min(window.innerWidth - w - 8, e.clientX - drag.offX));
-        const y = Math.max(8, Math.min(window.innerHeight - h - 8, e.clientY - drag.offY));
-        drag.x = x; drag.y = y;
-        el.style.setProperty('--collection-x', x + 'px');
-        el.style.setProperty('--collection-y', y + 'px');
-      });
-    };
-    const onUp = () => {
-      const drag = collectionDragRef.current;
-      const resize = collectionResizeRef.current;
-      if (!drag && !resize) return;
-      if (raf) cancelAnimationFrame(raf);
-      if (drag) setCollectionPos({ x: drag.x, y: drag.y });
-      collectionDragRef.current = null;
-      collectionResizeRef.current = null;
-      document.body.classList.remove('nurr-no-select');
-    };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); if (raf) cancelAnimationFrame(raf); };
-  }, []);
-
-  // ── Draggable panel ──
-  const panelRef  = useRef(null);
-  const [panelPos, setPanelPos] = useState(null);
-  const dragState = useRef(null);
-
-  // Export floating window drag
-  const exportPanelRef = useRef(null);
-  const exportDragRef  = useRef(null);
-  const [exportPos, setExportPos] = useState(null); // null = CSS-centered
-
-  const onHeaderDown = (e) => {
-    if (e.target.closest('.icon-btn')) return;
-    const rect = panelRef.current.getBoundingClientRect();
-    dragState.current = { offX: e.clientX - rect.left, offY: e.clientY - rect.top };
-    e.preventDefault(); e.stopPropagation();
-  };
-
-  const onExportHeaderDown = (e) => {
-    if (e.target.closest('button')) return;
-    const win = exportPanelRef.current;
-    const rect = win?.getBoundingClientRect();
-    if (!rect || !win) return;
-    exportDragRef.current = {
-      offX: e.clientX - rect.left,
-      offY: e.clientY - rect.top,
-      raf: null
-    };
-    win.classList.add('is-dragging');
-    // Break out of the initial centred CSS position before dragging.
-    win.style.left = rect.left + 'px';
-    win.style.top = rect.top + 'px';
-    win.style.transform = 'none';
-    document.body.classList.add('nurr-no-select');
-    e.preventDefault();
-  };
-
-  useEffect(() => {
-    const onMove = (e) => {
-      if (dragState.current) {
-        const { offX, offY } = dragState.current;
-        const x = Math.max(8, Math.min(window.innerWidth  - 80, e.clientX - offX));
-        const y = Math.max(8, Math.min(window.innerHeight - 80, e.clientY - offY));
-        setPanelPos({ x, y });
-      }
-      if (exportDragRef.current) {
-        const st = exportDragRef.current;
-        const win = exportPanelRef.current;
-        if (!win) return;
-        const w = win.offsetWidth  || 820;
-        const h = win.offsetHeight || 560;
-        const x = Math.max(8, Math.min(window.innerWidth  - w - 8, e.clientX - st.offX));
-        const y = Math.max(8, Math.min(window.innerHeight - h - 8, e.clientY - st.offY));
-        if (st.raf) cancelAnimationFrame(st.raf);
-        st.raf = requestAnimationFrame(() => {
-          win.style.left = x + 'px';
-          win.style.top = y + 'px';
-          win.style.transform = 'none';
-        });
-      }
-      if (exportResizeRef.current) {
-        const st = exportResizeRef.current;
-        const win = exportPanelRef.current;
-        if (!win) return;
-        const maxW = Math.max(520, window.innerWidth - st.left - 16);
-        const maxH = Math.max(260, window.innerHeight - st.top - 16);
-        const w = Math.max(520, Math.min(maxW, st.startW + (e.clientX - st.startX)));
-        const h = Math.max(300, Math.min(maxH, st.startH + (e.clientY - st.startY)));
-        if (st.raf) cancelAnimationFrame(st.raf);
-        st.raf = requestAnimationFrame(() => {
-          win.style.setProperty('width', w + 'px', 'important');
-          win.style.setProperty('height', h + 'px', 'important');
-        });
-      }
-    };
-    const onUp = () => {
-      dragState.current = null;
-      if (exportDragRef.current) {
-        if (exportDragRef.current.raf) cancelAnimationFrame(exportDragRef.current.raf);
-        exportDragRef.current = null;
-        exportPanelRef.current?.classList.remove('is-dragging');
-        document.body.classList.remove('nurr-no-select');
-      }
-      if (exportResizeRef.current) {
-        if (exportResizeRef.current.raf) cancelAnimationFrame(exportResizeRef.current.raf);
-        exportResizeRef.current = null;
-        document.body.classList.remove('nurr-no-select');
-      }
-    };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup',   onUp);
-    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
-  }, []);
-
-  const panelStyle = panelPos ? { left: panelPos.x, top: panelPos.y, right: 'auto' } : {};
-
-
+  // Generate new (randomise)
   const pickPalette = (count = 4) => {
     const presets = (window.WP && Array.isArray(WP.PALETTE_PRESETS)) ? WP.PALETTE_PRESETS : [];
-    const source = presets.length ? presets[Math.floor(Math.random() * presets.length)] : ['#08015F', '#FC6C3D', '#F4C4D7'];
-    const unique = [];
-    source.forEach(c => {
-      const hex = String(c || '').trim().toUpperCase();
-      if (/^#[0-9A-F]{6}$/.test(hex) && unique.indexOf(hex) === -1) unique.push(hex);
-    });
+    const source  = presets.length ? presets[Math.floor(Math.random() * presets.length)] : ['#08015F','#FC6C3D','#F4C4D7'];
+    const unique  = [];
+    source.forEach(c => { const h = String(c || '').trim().toUpperCase(); if (/^#[0-9A-F]{6}$/.test(h) && !unique.includes(h)) unique.push(h); });
     return unique.slice(0, count);
   };
 
   const generateNew = () => {
     pushHistory();
     if (mode === 'gradient') {
-      const colors = pickPalette(4);
+      const formula = window.NURR_NYMPH_GRADIENT_ENGINE && window.NURR_NYMPH_GRADIENT_ENGINE.shuffle
+        ? window.NURR_NYMPH_GRADIENT_ENGINE.shuffle()
+        : null;
+      const colors = formula && formula.colors ? formula.colors : pickPalette(4);
       setGradientTweaks(s => ({
         ...s,
         colors: colors.length >= 2 ? colors : s.colors,
-        spread: colors.length >= 3 ? Math.max(s.spread ?? 0.62, 0.62) : 0.48
+        spread: formula && formula.spread != null ? formula.spread : (colors.length >= 3 ? Math.max(s.spread ?? 0.62, 0.62) : 0.48),
+        colorDistance: formula && formula.distance != null ? formula.distance : (s.colorDistance ?? 0.56),
+        blend: formula && formula.blend != null ? formula.blend : (s.blend ?? 0.56),
+        pigment: formula && formula.pigment != null ? formula.pigment : (s.pigment ?? 0.5),
+        saturation: formula && formula.saturation != null ? formula.saturation : (s.saturation ?? 0.5),
+        formula: formula ? formula.formula : s.formula,
+        formulaLabel: formula ? formula.label : s.formulaLabel,
+        formulaWeights: formula && formula.formulaWeights ? formula.formulaWeights : s.formulaWeights,
+        grain: formula && formula.grain != null ? formula.grain : (s.grain ?? 0.035)
       }));
       return;
     }
-    if (mode === 'geometric') {
-      setGeometricTweaks(s => ({
-        ...s,
-        compositionIdx: Math.floor(Math.random() * window.GEOMETRIC_COMPOSITIONS_LEN),
-        colors: pickPalette(3).slice(0, 3),
-        grain: Math.min(0.32, Math.max(0.04, (s.grain ?? 0.1) + (Math.random() - 0.5) * 0.08))
-      }));
-      return;
-    }
+    if (mode === 'geometric') { setGeometricTweaks(s => ({ ...s, compositionIdx: Math.floor(Math.random() * (window.GEOMETRIC_COMPOSITIONS_LEN || 12)), colors: pickPalette(3).slice(0, 3), grain: Math.min(0.32, Math.max(0.04, (s.grain ?? 0.1) + (Math.random() - 0.5) * 0.08)) })); return; }
     if (mode === 'glass3d') {
-      // 3D module v8: regenerate within the new one-object/material-aware system only.
       const objects = ['sphere','cube','soap','pebble','tablet','capsule','torus'];
-      const materialTones = {
-        glass: ['clear','smoke'],
-        opal: ['milk','dusk'],
-        water: ['aqua','deep'],
-        metal: ['silver','gold','titanium','blackChrome'],
-        holo: ['pearl','night'],
-        crystal: ['ice','violet']
-      };
-      const materials = Object.keys(materialTones);
-      const material = materials[Math.floor(Math.random() * materials.length)];
+      const materialTones = { glass: ['clear','smoke'], opal: ['milk','dusk'], water: ['aqua','deep'], metal: ['silver','gold','titanium','blackChrome'], holo: ['pearl','night'], crystal: ['ice','violet'] };
+      const materials = Object.keys(materialTones); const material = materials[Math.floor(Math.random() * materials.length)];
       const tones = materialTones[material];
-      setGlass3dTweaks(s => ({
-        ...s,
-        object: objects[Math.floor(Math.random() * objects.length)],
-        material,
-        tone: tones[Math.floor(Math.random() * tones.length)],
-        customTone: false,
-        bgMode: 'gradient',
-        bgSeed: Math.random(),
-        scale: 0.82 + Math.random() * 0.50,
-        translucency: material === 'metal' ? 0 : 0.48 + Math.random() * 0.42,
-        depth: 0.72 + Math.random() * 0.85,
-        edge: material === 'crystal' ? 0.62 + Math.random() * 0.35 : Math.random() * 0.72,
-        surface: Math.random() * 0.34,
-        light: 0.58 + Math.random() * 0.36,
-        motion: 0.10 + Math.random() * 0.28,
-        rotationSpeed: 0.02 + Math.random() * 0.22,
-        turnY: Math.round(-55 + Math.random() * 110),
-        tiltX: Math.round(-45 + Math.random() * 60),
-        grain: Math.min(0.18, Math.max(0.025, (s.grain ?? 0.055) + (Math.random() - 0.5) * 0.05)),
-        seed: Math.random()
-      }));
+      setGlass3dTweaks(s => ({ ...s, object: objects[Math.floor(Math.random() * objects.length)], material, tone: tones[Math.floor(Math.random() * tones.length)], customTone: false, bgMode: 'gradient', bgSeed: Math.random(), scale: 0.82 + Math.random() * 0.50, translucency: material === 'metal' ? 0 : 0.48 + Math.random() * 0.42, depth: 0.72 + Math.random() * 0.85, edge: material === 'crystal' ? 0.62 + Math.random() * 0.35 : Math.random() * 0.72, surface: Math.random() * 0.34, light: 0.58 + Math.random() * 0.36, motion: 0.10 + Math.random() * 0.28, rotationSpeed: 0.02 + Math.random() * 0.22, turnY: Math.round(-55 + Math.random() * 110), tiltX: Math.round(-45 + Math.random() * 60), grain: Math.min(0.18, Math.max(0.025, (s.grain ?? 0.055) + (Math.random() - 0.5) * 0.05)), seed: Math.random() }));
       return;
     }
-    if (mode === 'nature') {
-      const effects = ['warp', 'blur', 'split', 'melt', 'nodes'];
-      setNatureTweaks(s => ({
-        ...s,
-        effect: effects[Math.floor(Math.random() * effects.length)],
-        warp: 0.28 + Math.random() * 0.52,
-        blur: 0.22 + Math.random() * 0.58,
-        split: 0.24 + Math.random() * 0.62,
-        hue: (Math.random() - 0.5) * 0.22,
-        sat: 0.78 + Math.random() * 0.72,
-        contrast: 0.78 + Math.random() * 0.62,
-        grain: Math.random() * 0.18,
-        vignette: 0.08 + Math.random() * 0.38
-      }));
-      if (natureImages.length) setCurrentImg(natureImages[Math.floor(Math.random() * natureImages.length)]);
-      return;
-    }
-    if (mode === 'abstract') {
-      setAbstractTweaks(s => ({
-        ...s,
-        colors: pickPalette(4),
-        seed: Math.random(),
-        variant: Math.floor(Math.random() * 8),
-        gradientSource: Math.random() > 0.5 ? 'blob' : 'smooth'
-      }));
-      return;
-    }
-    if (mode === 'palette') {
-      const engine = window.NURR_PALETTE_ENGINE;
-      if (engine && engine.generatePalette && engine.gradientFromPalette) {
-        setPaletteTweaks(s => {
-          const next = { ...s, temperature: (Math.random() - 0.5) * 0.7, intensity: 0.35 + Math.random() * 0.5, contrast: 0.35 + Math.random() * 0.5 };
-          next.palette = engine.generatePalette(next);
-          next.gradientColors = engine.gradientFromPalette(next.palette);
-          return next;
-        });
-      }
-    }
+    if (mode === 'nature') { const effects = ['warp','blur','split','melt','nodes']; setNatureTweaks(s => ({ ...s, effect: effects[Math.floor(Math.random() * effects.length)], warp: 0.28 + Math.random() * 0.52, blur: 0.22 + Math.random() * 0.58, split: 0.24 + Math.random() * 0.62, hue: (Math.random() - 0.5) * 0.22, sat: 0.78 + Math.random() * 0.72, contrast: 0.78 + Math.random() * 0.62, grain: Math.random() * 0.18, vignette: 0.08 + Math.random() * 0.38 })); if (natureImages.length) setCurrentImg(natureImages[Math.floor(Math.random() * natureImages.length)]); return; }
+    if (mode === 'abstract') { setAbstractTweaks(s => ({ ...s, colors: pickPalette(4), seed: Math.random(), variant: Math.floor(Math.random() * 8), gradientSource: Math.random() > 0.5 ? 'blob' : 'smooth' })); return; }
   };
 
-  // ── Mode list ──
-  const modes = [
-    { id: 'gradient',  label: 'Gradient',  num: 'i.'   },
-    { id: 'geometric', label: 'Geometric', num: 'ii.'  },
-    { id: 'glass3d',   label: '3D Objects', num: 'iii.' },
-    { id: 'nature',    label: 'Photo',     num: 'iv.'  },
-    { id: 'abstract',  label: 'Abstract',  num: 'v.'   },
-    { id: 'palette',   label: 'Palette',   num: 'vi.'  },
-  ];
+  // Keyboard shortcuts
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (e.key === 's' || e.key === 'S') captureCurrent();
+      if (e.key === '1') changeMode('gradient');
+      if (e.key === '2') changeMode('abstract');
+      if (e.key === '3') changeMode('geometric');
+      if (e.key === '4') changeMode('nature');
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
+      if (e.key === 'h' || e.key === 'H') setCollapsed(c => !c);
+      if (e.key === 'Escape') { setPage('main'); setPreviewImage(null); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [mode, library]);
 
-  if (false) { /* export page now rendered as floating overlay below */ }
+
+  // Adaptive panel tone: sample the active visual under the side panel and
+  // switch control text for dark/light backgrounds. Keeps the glass material
+  // transparent without forcing one text color across all modules.
+  useEffect(() => {
+    let raf = 0;
+    const temp = document.createElement('canvas');
+    temp.width = 10; temp.height = 10;
+    const ctx = temp.getContext('2d', { willReadFrequently: true });
+    const sample = () => {
+      const panel = panelRef.current;
+      const stage = document.querySelector('canvas.stage');
+      if (!panel || !stage || !ctx) { raf = requestAnimationFrame(sample); return; }
+      try {
+        const pr = panel.getBoundingClientRect();
+        const sr = stage.getBoundingClientRect();
+        const x = Math.max(sr.left, Math.min(sr.right - 1, pr.left + pr.width * 0.52));
+        const y = Math.max(sr.top,  Math.min(sr.bottom - 1, pr.top  + pr.height * 0.42));
+        const sx = (x - sr.left) / Math.max(1, sr.width)  * stage.width;
+        const sy = (y - sr.top)  / Math.max(1, sr.height) * stage.height;
+        const sw = Math.max(1, stage.width * 0.12);
+        const sh = Math.max(1, stage.height * 0.12);
+        ctx.clearRect(0,0,10,10);
+        ctx.drawImage(stage, Math.max(0, sx - sw/2), Math.max(0, sy - sh/2), sw, sh, 0, 0, 10, 10);
+        const data = ctx.getImageData(0,0,10,10).data;
+        let l = 0, n = 0;
+        for (let i=0; i<data.length; i+=4) {
+          const a = data[i+3] / 255;
+          if (a < 0.08) continue;
+          const r = data[i] / 255, g = data[i+1] / 255, b = data[i+2] / 255;
+          l += (0.2126*r + 0.7152*g + 0.0722*b) * a;
+          n += a;
+        }
+        if (n > 0) {
+          const lum = l / n;
+          const currentTone = panelToneRef.current || 'dark';
+          let nextTone = currentTone;
+          // Hysteresis prevents black/white flicker on high-contrast abstract visuals.
+          if (currentTone === 'dark' && lum > 0.74) nextTone = 'light';
+          if (currentTone === 'light' && lum < 0.30) nextTone = 'dark';
+          const nowMs = performance.now();
+          if (nextTone !== currentTone && nowMs - (panelToneSwitchRef.current || 0) > 900) {
+            panelToneRef.current = nextTone;
+            panelToneSwitchRef.current = nowMs;
+            setPanelTone(nextTone);
+          }
+        }
+      } catch(err) {
+        const fallbackTone = (mode === 'geometric' || mode === 'nature') ? 'light' : 'dark';
+        panelToneRef.current = fallbackTone;
+        setPanelTone(fallbackTone);
+      }
+      raf = requestAnimationFrame(sample);
+    };
+    raf = requestAnimationFrame(sample);
+    return () => cancelAnimationFrame(raf);
+  }, [mode, collapsed]);
+
+  const mouseRef = WP.useMouse();
+
+  // Panel drag
+  const panelRef  = useRef(null);
+  const [panelPos, setPanelPos] = useState(null);
+  const dragState = useRef(null);
+
+  const getSafePanelPos = useCallback((x, y, w = 392, h = 560) => {
+    const railRect = document.querySelector('.rail')?.getBoundingClientRect();
+    const footerRect = document.querySelector('.nurr-support-strip')?.getBoundingClientRect();
+    const topMin = Math.max(14, (railRect?.bottom || 72) + 18);
+    const bottomMax = (footerRect?.top || window.innerHeight) - 18;
+    const leftMin = 8;
+    const rightMax = window.innerWidth - w - 8;
+    return {
+      x: Math.max(leftMin, Math.min(Math.max(leftMin, rightMax), x)),
+      y: Math.max(topMin, Math.min(Math.max(topMin, bottomMax - h), y))
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!panelPos || collapsed) return undefined;
+    const raf = requestAnimationFrame(() => {
+      const el = panelRef.current;
+      if (!el) return;
+      const safe = getSafePanelPos(panelPos.x, panelPos.y, el.offsetWidth || 392, el.offsetHeight || 560);
+      if (Math.abs(safe.x - panelPos.x) > 0.5 || Math.abs(safe.y - panelPos.y) > 0.5) {
+        setPanelPos(safe);
+      }
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [mode, collapsed, panelPos, getSafePanelPos]);
+  const onHeaderDown = (e) => {
+    if (e.button !== 0) return;
+    if (e.target.closest('button,input,select,textarea,label,a,.icon-btn,.panel-tabs,.swatch,.layout-card,.palette-card,.surface-card,.object-card,.material-card,.slider-row,.range-wrap,.presets-grid,.nature-thumb,.abstract-form-btn,.color-wheel-card,.eyedropper-follow')) return;
+    const panel = panelRef.current;
+    const rect = panel?.getBoundingClientRect();
+    if (!rect) return;
+    // Convert the CSS-positioned panel into a real fixed-position drag target.
+    // This avoids the old "rail" feeling where competing right/top CSS could lock one axis.
+    setPanelPos({ x: rect.left, y: rect.top });
+    dragState.current = { offX: e.clientX - rect.left, offY: e.clientY - rect.top, raf: null };
+    document.body.classList.add('nurr-no-select');
+    e.preventDefault();
+  };
+  useEffect(() => {
+    const onMove = (e) => {
+      const st = dragState.current; if (!st) return;
+      const el = panelRef.current;
+      const w = el?.offsetWidth || 332;
+      const h = el?.offsetHeight || 560;
+      const next = getSafePanelPos(e.clientX - st.offX, e.clientY - st.offY, w, h);
+      if (st.raf) cancelAnimationFrame(st.raf);
+      st.raf = requestAnimationFrame(() => setPanelPos(next));
+    };
+    const onUp = () => {
+      if (dragState.current?.raf) cancelAnimationFrame(dragState.current.raf);
+      dragState.current = null;
+      document.body.classList.remove('nurr-no-select');
+    };
+    window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp);
+    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+  }, [getSafePanelPos]);
+
+  // Export panel drag + resize
+  const exportPanelRef  = useRef(null);
+  const exportDragRef   = useRef(null);
+  const exportResizeRef = useRef(null);
+
+  useEffect(() => {
+    if (page !== 'export') return;
+    const id = requestAnimationFrame(() => {
+      const win = exportPanelRef.current;
+      if (!win) return;
+      win.classList.remove('is-dragging');
+      win.style.setProperty('left', '50%', 'important');
+      win.style.setProperty('top', '50%', 'important');
+      win.style.setProperty('right', 'auto', 'important');
+      win.style.setProperty('bottom', 'auto', 'important');
+      win.style.setProperty('transform', 'translate(-50%, -50%)', 'important');
+      win.style.removeProperty('width');
+      win.style.removeProperty('height');
+    });
+    return () => cancelAnimationFrame(id);
+  }, [page]);
+
+  const onExportHeaderDown = (e) => {
+    if (e.target.closest('button,input,label')) return;
+    const win = exportPanelRef.current; const rect = win?.getBoundingClientRect(); if (!rect || !win) return;
+    exportDragRef.current = { offX: e.clientX - rect.left, offY: e.clientY - rect.top, raf: null };
+    win.classList.add('is-dragging');
+    win.style.setProperty('left', rect.left + 'px', 'important'); win.style.setProperty('top', rect.top + 'px', 'important'); win.style.setProperty('right', 'auto', 'important'); win.style.setProperty('bottom', 'auto', 'important'); win.style.setProperty('transform', 'none', 'important');
+    document.body.classList.add('nurr-no-select'); e.preventDefault();
+  };
+  const onExportResizeDown = (e) => {
+    const win = exportPanelRef.current; if (!win) return;
+    const rect = win.getBoundingClientRect();
+    win.style.setProperty('left', rect.left + 'px', 'important'); win.style.setProperty('top', rect.top + 'px', 'important'); win.style.setProperty('right', 'auto', 'important'); win.style.setProperty('bottom', 'auto', 'important'); win.style.setProperty('transform', 'none', 'important');
+    win.classList.add('is-dragging');
+    exportResizeRef.current = { startX: e.clientX, startY: e.clientY, startW: rect.width, startH: rect.height, left: rect.left, top: rect.top, raf: null };
+    document.body.classList.add('nurr-no-select'); e.preventDefault(); e.stopPropagation();
+  };
+  useEffect(() => {
+    const onMove = (e) => {
+      if (exportDragRef.current) {
+        const st = exportDragRef.current; const win = exportPanelRef.current; if (!win) return;
+        const w = win.offsetWidth || 820; const h = win.offsetHeight || 560;
+        const x = Math.max(8, Math.min(window.innerWidth - w - 8, e.clientX - st.offX));
+        const y = Math.max(8, Math.min(window.innerHeight - h - 8, e.clientY - st.offY));
+        if (st.raf) cancelAnimationFrame(st.raf);
+        st.raf = requestAnimationFrame(() => { win.style.setProperty('left', x + 'px', 'important'); win.style.setProperty('top', y + 'px', 'important'); win.style.setProperty('right', 'auto', 'important'); win.style.setProperty('bottom', 'auto', 'important'); win.style.setProperty('transform', 'none', 'important'); });
+      }
+      if (exportResizeRef.current) {
+        const st = exportResizeRef.current; const win = exportPanelRef.current; if (!win) return;
+        const w = Math.max(520, Math.min(Math.max(520, window.innerWidth - st.left - 16), st.startW + (e.clientX - st.startX)));
+        const h = Math.max(300, Math.min(Math.max(300, window.innerHeight - st.top - 16), st.startH + (e.clientY - st.startY)));
+        if (st.raf) cancelAnimationFrame(st.raf);
+        st.raf = requestAnimationFrame(() => { win.style.setProperty('width', w + 'px', 'important'); win.style.setProperty('height', h + 'px', 'important'); });
+      }
+    };
+    const onUp = () => {
+      if (exportDragRef.current)  { if (exportDragRef.current.raf)  cancelAnimationFrame(exportDragRef.current.raf);  exportDragRef.current  = null; exportPanelRef.current?.classList.remove('is-dragging'); document.body.classList.remove('nurr-no-select'); }
+      if (exportResizeRef.current) { if (exportResizeRef.current.raf) cancelAnimationFrame(exportResizeRef.current.raf); exportResizeRef.current = null; exportPanelRef.current?.classList.remove('is-dragging'); document.body.classList.remove('nurr-no-select'); }
+    };
+    window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp);
+    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+  }, []);
+
+  const panelStyle   = panelPos ? { '--panel-x':panelPos.x + 'px', '--panel-y':panelPos.y + 'px', position:'fixed', left:panelPos.x + 'px', top:panelPos.y + 'px', right:'auto', bottom:'auto' } : {}; // free XY drag
+  const hasAlphaMode = MODULE_HAS_ALPHA[mode] || false;
+  const MotionPanel = window.MotionExportControls;
+
+  const modes = [
+    { id: 'gradient',  label: 'Gradient',   num: 'i.'   },
+    { id: 'abstract',  label: 'Abstract',   num: 'ii.'  },
+    { id: 'geometric', label: 'Geometric',  num: 'iii.' },
+    { id: 'nature',    label: 'Photo',      num: 'iv.'  },
+  ];
 
   return (
     <>
-      {/* ── Stage canvases ── */}
-      {mode === 'gradient' && (
-        <GradientMode tweaks={gradientTweaks} registerSnapshot={registerSnapshot} mouseRef={mouseRef} />
-      )}
-      {mode === 'geometric' && (
-        <GeometricMode tweaks={geometricTweaks} registerSnapshot={registerSnapshot} mouseRef={mouseRef} />
-      )}
-      {mode === 'glass3d' && (
-        <Glass3DMode tweaks={glass3dTweaks} registerSnapshot={registerSnapshot} mouseRef={mouseRef} />
-      )}
-      {mode === 'nature' && (
-        <>
-          <NatureMode tweaks={natureTweaks} registerSnapshot={registerSnapshot} mouseRef={mouseRef} currentImg={currentImg} />
-          {/* Show placeholder whenever no image is loaded yet */}
-          {!currentImg && <NaturePlaceholder onFiles={onFiles} />}
-        </>
-      )}
-      {mode === 'abstract' && (
-        <AbstractMode tweaks={abstractTweaks} registerSnapshot={registerSnapshot} mouseRef={mouseRef} />
-      )}
-      {mode === 'palette' && (
-        <PaletteMode tweaks={paletteTweaks} registerSnapshot={registerSnapshot} mouseRef={mouseRef} />
-      )}
+      {showLanding && <NymphLanding onEnter={() => setShowLanding(false)} />}
+      {mode === 'gradient'  && <GradientMode  tweaks={gradientTweaks}  registerSnapshot={registerSnapshot}  mouseRef={mouseRef} />}
+      {mode === 'geometric' && <GeometricMode tweaks={geometricTweaks} registerSnapshot={registerSnapshot}  mouseRef={mouseRef} />}
+      {mode === 'glass3d'   && <Glass3DMode   tweaks={glass3dTweaks}   registerSnapshot={registerSnapshot}  mouseRef={mouseRef} />}
+      {mode === 'nature' && (<>
+        <NatureMode tweaks={natureTweaks} registerSnapshot={registerSnapshot} mouseRef={mouseRef} currentImg={currentImg} />
+        {!currentImg && <NaturePlaceholder onFiles={onFiles} />}
+      </>)}
+      {mode === 'abstract' && <AbstractMode  tweaks={abstractTweaks}  registerSnapshot={registerSnapshot}  mouseRef={mouseRef} />}
 
-      {/* ── Brand ── */}
-      <button className="nurr-brand nurr-brand-button" onClick={() => setPage('studio')}>NURR</button>
+      <button className="nurr-brand nurr-brand-button" onClick={() => setShowLanding(true)} aria-label="Return to NYMPH landing">
+        <img src="assets/logos/nymph-logo-full.svg" alt="NYMPH" />
+      </button>
 
-      {/* ── Vertical rail ── */}
       <div className="rail">
         <div className="rail-group">
           {modes.map(m => (
@@ -638,199 +852,203 @@ function App() {
             </button>
           ))}
         </div>
-        <div className="rail-foot">Palette-led background systems</div>
       </div>
 
-      {/* ── Corner mark ── */}
       <div className="corner-mark">
         <div className="big">vol. <em>i</em></div>
         <div className="small">№ 01 — 26</div>
       </div>
 
-      {/* ── Panel ── */}
-      <div ref={panelRef} className={'panel mode-' + mode + (collapsed ? ' collapsed' : '')} style={panelStyle}>
+      {/* Main panel */}
+      <div ref={panelRef} className={'panel mode-' + mode + ' tone-' + panelTone + (collapsed ? ' collapsed' : '') + (panelPos ? ' is-dragged' : '')} style={panelStyle} onMouseDown={onHeaderDown}>
         <div className="panel-header" onMouseDown={onHeaderDown}>
           <div>
-            <div className="panel-eyebrow">NURR</div>
-            <div className="panel-title">Palette-led<br/>background systems</div>
+            <div className="panel-title panel-title-nymph"><img src={collapsed ? "assets/logos/nymph-logomark.svg" : "assets/logos/nymph-wordmark.svg"} alt="NYMPH" /></div>
           </div>
           <div className="header-actions">
             <button className="icon-btn" onClick={generateNew} title="Generate new">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21 12a9 9 0 1 1-2.64-6.36"/>
-                <path d="M21 3v6h-6"/>
-              </svg>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
             </button>
             <button className="icon-btn" onClick={undo} disabled={!history.length} title="Undo (⌘Z)">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 1 1 0 12h-2"/>
-              </svg>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 1 1 0 12h-2"/></svg>
             </button>
-            <button className="icon-btn" onClick={captureCurrent} title="Snapshot to collection">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21 19V8a2 2 0 0 0-2-2h-3.17l-1.84-2H10l-1.84 2H5a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2Z"/>
-                <circle cx="12" cy="13" r="4"/>
-              </svg>
+            <button className="icon-btn" onClick={captureCurrent} title="Save to library (S)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 19V8a2 2 0 0 0-2-2h-3.17l-1.84-2H10l-1.84 2H5a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2Z"/><circle cx="12" cy="13" r="4"/></svg>
             </button>
             <button className="icon-btn" onClick={() => setCollapsed(c => !c)} title="Collapse (H)">
-              {collapsed
-                ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6"/></svg>
-                : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 15l-6-6-6 6"/></svg>
-              }
+              {collapsed ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6"/></svg> : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 15l-6-6-6 6"/></svg>}
             </button>
           </div>
         </div>
 
-        {!collapsed && (
-          <div className="panel-body">
-            {mode === 'gradient'  && <GradientControls  tweaks={gradientTweaks}  setTweaks={patchGradient}  />}
-            {mode === 'geometric' && <GeometricControls tweaks={geometricTweaks} setTweaks={patchGeometric} />}
-            {mode === 'glass3d'   && <Glass3DControls tweaks={glass3dTweaks} setTweaks={patchGlass3D} />}
-            {mode === 'nature'    && (
-              <NatureControls tweaks={natureTweaks} setTweaks={patchNature}
-                natureImages={natureImages} currentImg={currentImg}
-                setCurrentImg={(img) => { pushHistory(); setCurrentImg(img); }}
-                onFiles={onFiles} />
-            )}
-            {mode === 'abstract'  && <AbstractControls  tweaks={abstractTweaks}  setTweaks={patchAbstract}  />}
-            {mode === 'palette'   && <PaletteControls   tweaks={paletteTweaks}   setTweaks={patchPalette}   />}
-
-            <div className="btn-row" style={{ marginTop: 18 }}>
-              <button className="btn primary btn-italic" onClick={() => doSnapshot('hd')} title="Download 1920×1080 PNG">HD ↓</button>
-              <button className="btn primary btn-italic" onClick={() => doSnapshot('qhd')} title="Download 2560×1440 PNG">2K ↓</button>
-              <button className="btn btn-italic" onClick={() => setPage('export')}>Export panel</button>
-            </div>
+        {!collapsed && (<>
+          <div className="panel-tabs">
+            <button className={'panel-tab' + (activeTab === 'create'  ? ' active' : '')} onClick={() => setActiveTab('create')}>Create</button>
+            <button className={'panel-tab' + (activeTab === 'library' ? ' active' : '')} onClick={() => setActiveTab('library')}>
+              Library{library.length > 0 ? <span className="tab-count">{library.length}</span> : null}
+            </button>
           </div>
-        )}
-      </div>
 
-      {/* ── Collection drawer ── */}
-      {collection.length > 0 && (
-        <div
-          ref={collectionRef}
-          className={'collection-drawer' + (collectionCollapsed ? ' is-collapsed' : '')}
-          style={collectionPos.y == null ? undefined : { '--collection-x': collectionPos.x + 'px', '--collection-y': collectionPos.y + 'px' }}
-        >
-          <div className="collection-head" onMouseDown={onCollectionHeadDown}>
-            <span>Snapshots · {collection.length}</span>
-            <div className="collection-head-actions">
-              <button className="icon-btn" onClick={() => setCollectionCollapsed(v => !v)} title={collectionCollapsed ? 'Expand' : 'Minimize'}>
-                {collectionCollapsed ? '+' : '−'}
-              </button>
-              <button className="icon-btn" onClick={downloadCollection} title="Download all">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                  <path d="M7 10l5 5 5-5"/><path d="M12 15V3"/>
-                </svg>
-              </button>
-            </div>
-          </div>
-          {!collectionCollapsed && (
-            <>
-              <div className="collection-grid">
-                {collection.map((item, i) => (
-                  <div className="collection-tile" key={item.id}>
-                    <button className="collection-item" type="button" onClick={() => setPreviewImage(item.dataUrl)} title="Preview snapshot">
-                      <img src={item.dataUrl} alt="" />
-                    </button>
-                    <button className="collection-delete" title="Remove"
-                      onClick={() => setCollection(items => items.filter(x => x.id !== item.id))}>×</button>
-                  </div>
-                ))}
-              </div>
-              <div className="collection-actions">
-                <button className="btn btn-italic" onClick={() => setPage('export')}>Export panel</button>
-                <button className="btn btn-italic" onClick={downloadCollection}>Download all</button>
-                <button className="btn" onClick={() => setCollection([])}>Clear</button>
-              </div>
-            </>
-          )}
-          {!collectionCollapsed && <div className="collection-resize-handle" onMouseDown={onCollectionResizeDown} title="Resize snapshots" />}
-        </div>
-      )}
-
-      {previewImage && (
-        <div className="snapshot-preview-backdrop" onClick={() => setPreviewImage(null)}>
-          <div className="snapshot-preview-window" onClick={(e) => e.stopPropagation()}>
-            <button className="snapshot-preview-close" onClick={() => setPreviewImage(null)} title="Close">×</button>
-            <img src={previewImage} alt="Snapshot preview" />
-          </div>
-        </div>
-      )}
-
-      {/* ── Toast ── */}
-      <div className={'snapshot-toast' + (toast ? ' show' : '')}>✓ saved</div>
-
-      {/* ── Export floating window overlay ── */}
-      {page === 'export' && (() => {
-        const selectedCount = Object.values(exportChecks).filter(Boolean).length;
-        return (
-          <div className="export-overlay">
-            <div className="export-overlay-backdrop" onClick={() => setPage('studio')} />
-            <div ref={exportPanelRef} className="export-window">
-              <div className="export-window-header" onMouseDown={onExportHeaderDown}>
-                <div>
-                  <div className="panel-eyebrow">EXPORT PANEL</div>
-                  <div className="export-window-title">Select &amp; download</div>
+          {activeTab === 'create' && (
+            <div className="panel-body">
+              {mode === 'gradient'  && <GradientControls  tweaks={gradientTweaks}  setTweaks={patchGradient}  />}
+              {mode === 'geometric' && <GeometricControls tweaks={geometricTweaks} setTweaks={patchGeometric} />}
+              {mode === 'glass3d'   && <Glass3DControls   tweaks={glass3dTweaks}   setTweaks={patchGlass3D}   />}
+              {mode === 'nature'    && <NatureControls tweaks={natureTweaks} setTweaks={patchNature} natureImages={natureImages} currentImg={currentImg} setCurrentImg={(img) => { pushHistory(); setCurrentImg(img); }} onFiles={onFiles} />}
+              {mode === 'abstract'  && <AbstractControls  tweaks={abstractTweaks}  setTweaks={patchAbstract}  />}
+              <>
+                <div className="create-dl-row create-size-row">
+                  <button className="btn btn-italic" onClick={() => doSnapshot('square')} title="1080×1080">1×1 ↓</button>
+                  <button className="btn primary btn-italic" onClick={() => doSnapshot('wide')}  title="1920×1080">HD ↓</button>
+                  <button className="btn primary btn-italic" onClick={() => doSnapshot('qhd')} title="2560×1440">2K ↓</button>
+                  <button className="btn btn-italic"         onClick={() => doSnapshot('uhd')} title="3840×2160">4K ↓</button>
                 </div>
-                <div style={{ display:'flex', gap:6 }}>
-                  <button className="icon-btn" onClick={() => setPage('studio')} title="Close">
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                {hasAlphaMode && (
+                  <div className="create-dl-row create-layer-row">
+                    <button className="btn create-alpha-btn" onClick={() => doTransparentSnapshot('square')} title="1×1 square transparent PNG">1×1 layer ↗</button>
+                    <button className="btn create-alpha-btn" onClick={() => doTransparentSnapshot('wide')}  title="16:9 transparent PNG">HD layer ↗</button>
+                    <button className="btn create-alpha-btn" onClick={() => doTransparentSnapshot('qhd')} title="2K transparent PNG">2K layer ↗</button>
+                    <button className="btn create-alpha-btn" onClick={() => doTransparentSnapshot('uhd')} title="4K transparent PNG">4K layer ↗</button>
+                  </div>
+                )}
+                <div className="create-secondary-row">
+                  <button className="btn btn-italic" onClick={() => setPage('export')}>
+                    Export panel{library.length > 0 ? ` · ${library.length}` : ''}
                   </button>
                 </div>
+              </>
+            </div>
+          )}
+
+          {activeTab === 'library' && (
+            <div className="panel-body panel-body-lib">
+              <LibraryTab library={library}
+                onDelete={(id) => setLibrary(items => items.filter(x => x.id !== id))}
+                onPreview={setPreviewImage}
+                onClear={() => setLibrary([])}
+                onDownloadAll={downloadAll}
+                onOpenExport={() => setPage('export')} />
+            </div>
+          )}
+        </>)}
+      </div>
+
+      {/* Preview lightbox */}
+      {previewImage && (
+        <div className="preview-backdrop" onClick={() => setPreviewImage(null)}>
+          <div className="preview-window" onClick={(e) => e.stopPropagation()}>
+            <button className="preview-close" onClick={() => setPreviewImage(null)}>×</button>
+            <img src={previewImage} alt="Preview" />
+          </div>
+        </div>
+      )}
+
+      <div className={'snapshot-toast' + (toast.show ? ' show' : '')}>{toast.text}</div>
+
+      {/* Export overlay — restored matrix: snapshots × sizes + Layer column */}
+      {page === 'export' && (
+        <div className="export-overlay">
+          <div className="export-overlay-backdrop" onClick={() => setPage('main')} />
+          <div ref={exportPanelRef} className="export-window">
+            <div className="export-window-header" onMouseDown={onExportHeaderDown}>
+              <div>
+                <div className="panel-eyebrow">Export Panel</div>
+                <div className="export-window-title">Still / Motion / Web / Recipe</div>
               </div>
-              <div className="export-window-body">
-                {!collection.length && (
-                  <div className="export-empty">No snapshots yet — use the camera icon in the panel to capture, then return here.</div>
-                )}
-                {!!collection.length && (
-                  <>
-                    <div className="export-bulk">
+              <button className="icon-btn" onClick={() => setPage('main')} title="Close">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+
+            <div className="export-tabs">
+              <button className={'export-tab' + (exportTab === 'still' ? ' active' : '')} onClick={() => setExportTab('still')}>Still</button>
+              <button className={'export-tab' + (exportTab === 'motion' ? ' active' : '')} onClick={() => setExportTab('motion')}>Motion / Web / Recipe</button>
+            </div>
+
+            <div className="export-window-body">
+              {exportTab === 'still' && (!library.length ? (
+                <div className="export-empty">
+                  No snapshots yet — press <kbd>S</kbd> on any module to save.
+                </div>
+              ) : (<>
+                <div className="export-control-panel">
+                  <div className="export-control-block">
+                    <div className="export-control-title">Selection</div>
+                    <div className="export-inline-actions">
                       <button className="btn" onClick={() => setExportAll(true)}>Check all</button>
                       <button className="btn" onClick={() => setExportAll(false)}>Clear all</button>
-                      <span className="export-count">{selectedCount} selected</span>
                     </div>
-                    <div className="export-grid-head">
-                      <span>Snapshot</span>
-                      {Object.entries(exportSizes).map(([sizeKey, size]) => (
-                        <label className="export-col-select" key={sizeKey} title="Select column">
-                          <input type="checkbox" checked={exportColumnChecked(sizeKey)} onChange={(e) => setExportColumn(sizeKey, e.target.checked)} />
-                          <span>{size.label}<small>{size.w}×{size.h}</small></span>
+                  </div>
+                  <div className="export-control-block export-format-block">
+                    <div className="export-control-title">File format</div>
+                    <div className="export-format-grid">
+                      {Object.keys(EXPORT_FORMATS).map(fk => (
+                        <label className={'export-format-chip' + (exportFormats[fk] ? ' active' : '')} key={fk}>
+                          <input type="checkbox" checked={!!exportFormats[fk]} onChange={(e) => setExportFormats(prev => ({ ...prev, [fk]: e.target.checked }))} />
+                          <span>{EXPORT_FORMATS[fk].label}</span>
                         </label>
                       ))}
                     </div>
-                    <div className="export-list">
-                      {collection.map((item, i) => (
-                        <div className="export-row" key={item.id}>
-                          <div className="export-thumb">
-                            <label className="export-row-select" title="Select row">
-                              <input type="checkbox" checked={exportRowChecked(item.id)} onChange={(e) => setExportRow(item.id, e.target.checked)} />
-                              <span></span>
-                            </label>
-                            <img src={item.dataUrl} alt="" />
-                            <div><strong>{String(i+1).padStart(2,'0')}</strong><small>{item.mode}</small></div>
+                  </div>
+                  <div className="export-control-count">{selectedFileCount} file{selectedFileCount === 1 ? '' : 's'}</div>
+                </div>
+
+                <div className="export-matrix-shell">
+                  <div className="export-grid-head">
+                    <span>Snapshot</span>
+                    {EXPORT_PANEL_KEYS.map(sk => { const sz = EXPORT_SIZES[sk]; return (
+                      <label className="export-col-select" key={sk} title={'All ' + sz.label}>
+                        <input type="checkbox" checked={colAllChecked(sk)} onChange={(e) => setExportCol(sk, e.target.checked)} />
+                        <span>{sz.label}<small>{sz.w}×{sz.h}</small></span>
+                      </label>
+                    ); })}
+                  </div>
+
+                  <div className="export-list">
+                    {library.map((item, i) => (
+                      <div className="export-row" key={item.id}>
+                        <div className="export-thumb">
+                          <label className="export-row-select">
+                            <input type="checkbox" checked={rowAllChecked(item.id)} onChange={(e) => setExportRow(item.id, e.target.checked)} />
+                            <span></span>
+                          </label>
+                          <img src={item.preview} alt="" />
+                          <div className="export-thumb-meta">
+                            <strong>{String(i + 1).padStart(2, '0')}</strong>
+                            <small>{item.module}{item.hasAlpha ? ' · α' : ''}</small>
+                            {item.alphaPreview ? (
+                              <button type="button" className="export-alpha-inline" onClick={() => downloadAlphaLayer(item)} title="Download transparent layer PNG">Layer PNG</button>
+                            ) : null}
                           </div>
-                          {Object.keys(exportSizes).map(sizeKey => (
-                            <label className="export-check" key={sizeKey}>
-                              <input type="checkbox" checked={!!exportChecks[item.id + ':' + sizeKey]} onChange={(e) => setExportCell(item.id, sizeKey, e.target.checked)} />
-                              <span></span>
-                            </label>
-                          ))}
                         </div>
-                      ))}
-                    </div>
-                    <div className="export-actions">
-                      <button className="btn primary btn-italic" onClick={exportSelected} disabled={!selectedCount}>Export selected ZIP ↓</button>
-                      <span>{selectedCount} asset{selectedCount === 1 ? '' : 's'} selected</span>
-                    </div>
-                  </>
-                )}
-              </div>
-              <div className="export-resize-grip" onMouseDown={onExportResizeDown} title="Resize export panel"></div>
+                        {EXPORT_PANEL_KEYS.map(sk => (
+                          <label className="export-check" key={sk} title={EXPORT_SIZES[sk].label + ' export'}>
+                            <input type="checkbox" checked={!!exportChecks[item.id + ':' + sk]} onChange={() => toggleCheck(item.id, sk)} />
+                            <span></span>
+                          </label>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="export-actions">
+                  <button className="btn primary btn-italic" onClick={() => exportSelected('zip')} disabled={!selectedCount}>
+                    Download ZIP ↓
+                  </button>
+                  <button className="btn btn-italic" onClick={() => exportSelected('files')} disabled={!selectedCount}>
+                    Download files ↓
+                  </button>
+                  <span>{selectedCount} export slot{selectedCount === 1 ? '' : 's'} selected</span>
+                </div>
+              </>))}
+              {exportTab === 'motion' && MotionPanel && <MotionPanel library={library} currentMode={mode} />}
             </div>
+
+            <div className="export-resize-grip" onMouseDown={onExportResizeDown} title="Resize panel" />
           </div>
-        );
-      })()}
+        </div>
+      )}
     </>
   );
 }

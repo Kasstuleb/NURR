@@ -104,17 +104,30 @@
     return cmykToHex(c, m, y, k);
   }
 
+  const RECENT_KEY = 'nymphRecentColorsUserOnlyV2';
+
+  function uniqueRecentColors(list) {
+    const out = [];
+    (Array.isArray(list) ? list : []).forEach((x) => {
+      const c = normalizeHex(x, '');
+      if (c && out.indexOf(c) === -1) out.push(c);
+    });
+    return out.slice(0, 5);
+  }
+
   function getStoredRecent() {
     try {
-      const raw = JSON.parse(localStorage.getItem('nurrRecentColors') || '[]');
-      return raw.map(x => normalizeHex(x, '')).filter(Boolean).slice(0, 5);
-    } catch (_) {
-      return [];
-    }
+      // Intentional clean key with no legacy migration. Older builds saved
+      // generated/test colours into Recent, which made the row appear full
+      // before the user had chosen anything. This row now starts empty on
+      // existing installs and only fills from explicit picker commits.
+      return uniqueRecentColors(JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'));
+    } catch (_) {}
+    return [];
   }
 
   function storeRecent(list) {
-    try { localStorage.setItem('nurrRecentColors', JSON.stringify(list.slice(0, 5))); } catch (_) {}
+    try { localStorage.setItem(RECENT_KEY, JSON.stringify(uniqueRecentColors(list))); } catch (_) {}
   }
 
 
@@ -272,7 +285,7 @@
     return null;
   }
 
-  function NurrPaletteEditor({ colors, setColors, countLabel, allowAdd = true, minColors = 2, maxColors = 4, compact = false }) {
+  function NurrPaletteEditor({ colors, swatchColors = null, setColors, countLabel, allowAdd = true, minColors = 2, maxColors = 4, compact = false, extraActions = null }) {
     const [picker, setPicker] = useState(null);
     const [pickerPos, setPickerPos] = useState({ left: 24, top: 24 });
     const [pickerMinimized, setPickerMinimized] = useState(false);
@@ -301,6 +314,13 @@
     const rgbDisplay = rgbDraft != null ? rgbDraft : `${rgbObj.r}, ${rgbObj.g}, ${rgbObj.b}`;
     const cmykDisplay = cmykDraft != null ? cmykDraft : `${cmykObj.c}, ${cmykObj.m}, ${cmykObj.y}, ${cmykObj.k}`;
     const hexDisplay = hexDraft != null ? hexDraft : activeColor;
+    // Recent colours are finished colours only.
+    // Do not fill this row with the active colour or the whole palette while the user is still editing.
+    const visibleRecentColors = (recentColors || [])
+      .map(c => normalizeHex(c, ''))
+      .filter(Boolean)
+      .filter((c, i, a) => a.indexOf(c) === i)
+      .slice(0, 5);
 
     const svBackground = useMemo(() => {
       const hueHex = hsvToHex(activeHsv.h, 1, 1);
@@ -311,7 +331,7 @@
       const clean = normalizeHex(hex, '');
       if (!clean) return;
       const base = getStoredRecent();
-      const next = [clean, ...base.filter(c => c !== clean)].slice(0, 5);
+      const next = uniqueRecentColors([clean, ...base.filter(c => c !== clean)]);
       setRecentColors(next);
       storeRecent(next);
     };
@@ -321,12 +341,13 @@
       if (!current) return;
       const clean = normalizeHex(hex, current.color || '#000000');
       const hsv = hexToHsv(clean);
-      setPicker({ ...current, color: clean, hsv });
+      const nextPicker = { ...current, color: clean, hsv, dirty: current.dirty || clean !== normalizeHex(current.openedColor || '', '') };
+      pickerRef.current = nextPicker;
+      setPicker(nextPicker);
       if (commit) {
         const next = [...colorsRef.current];
         next[current.idx] = clean;
         setColors(next);
-        pushRecent(clean);
       }
       setHexDraft(null); setRgbDraft(null); setCmykDraft(null);
     };
@@ -340,12 +361,13 @@
         v: patch.v != null ? clamp(patch.v, 0, 1) : current.hsv.v
       };
       const color = hsvToHex(hsv.h, hsv.s, hsv.v);
-      setPicker({ ...current, hsv, color });
+      const nextPicker = { ...current, hsv, color, dirty: current.dirty || color !== normalizeHex(current.openedColor || '', '') };
+      pickerRef.current = nextPicker;
+      setPicker(nextPicker);
       if (commit) {
         const next = [...colorsRef.current];
         next[current.idx] = color;
         setColors(next);
-        pushRecent(color);
       }
       setHexDraft(null); setRgbDraft(null); setCmykDraft(null);
     };
@@ -353,7 +375,13 @@
     const commitPicker = () => {
       const current = pickerRef.current;
       if (!current) return;
-      pushRecent(current.color);
+      const clean = normalizeHex(current.color, '');
+      const opened = normalizeHex(current.openedColor || '', '');
+      // Only finished picker sessions become Recent colours. This prevents every
+      // hue/SV/lightness click from creating a new recent swatch. A colour is
+      // considered finished when the picker closes or a different palette swatch
+      // is opened, and only if it actually changed.
+      if (current.dirty && clean && clean !== opened) pushRecent(clean);
     };
 
     const samplePageAt = (clientX, clientY) => {
@@ -411,7 +439,7 @@
       if (!allowAdd || colors.length >= maxColors) return;
       const random = (window.WP && WP.hslToHex) ? WP.hslToHex(Math.random() * 360, 0.72, 0.56) : hsvToHex(Math.random() * 360, .72, .82);
       setColors([...colors, random]);
-      pushRecent(random);
+      // Do not pollute Recent with auto-generated colours.
     };
 
     const removeColor = (i) => {
@@ -435,6 +463,7 @@
       const generated = buildSmartNurrPalette(targetCount);
       setPicker(null);
       setColors(generated);
+      // Do not pollute Recent with randomised palettes.
     };
 
     const openPicker = (i, e) => {
@@ -444,15 +473,18 @@
 
       if (picker && picker.idx === i) {
         commitPicker();
-        commitPicker();
         setPicker(null);
         setDrop(d => ({ ...d, visible: false }));
         return;
       }
 
+      if (pickerRef.current && pickerRef.current.idx !== i) {
+        commitPicker();
+      }
+
       const rect = e.currentTarget.getBoundingClientRect();
-      const cardW = 248;
-      const cardH = 365;
+      const cardW = 318;
+      const cardH = 510;
       const gap = 16;
       let left = rect.left - cardW - gap;
       if (left < 16) left = rect.right + gap;
@@ -463,11 +495,14 @@
       top = Math.max(16, top);
       setPickerPos({ left, top });
 
-      const color = normalizeHex(colors[i], '#000000');
+      // Open the colour the interface is actually showing.
+      // If a module passes display swatches, this bakes the visible/rendered colour
+      // into the next manual edit instead of exposing hidden raw formula colours.
+      const color = normalizeHex((swatchColors && swatchColors[i]) || colors[i], '#000000');
       setHexDraft(null); setRgbDraft(null); setCmykDraft(null);
       setRecentColors(getStoredRecent());
       setPickerMinimized(false);
-      setPicker({ idx: i, color, hsv: hexToHsv(color) });
+      setPicker({ idx: i, color, hsv: hexToHsv(color), openedColor: color, dirty: false });
       setDrop({ visible: false, x: e.clientX, y: e.clientY, color });
     };
 
@@ -479,6 +514,24 @@
       document.body.classList.add('is-picking-color');
       moveControlDrag(e);
       try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
+    };
+
+    const pointInCircle = (e, rect) => {
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const rx = (e.clientX - cx) / (rect.width / 2);
+      const ry = (e.clientY - cy) / (rect.height / 2);
+      const len = Math.sqrt(rx * rx + ry * ry);
+      if (len <= 1) return { x: e.clientX, y: e.clientY, rx, ry, len };
+      // Project to the visible circle edge so the control never selects a colour
+      // from the invisible square corners behind the circular mask.
+      return {
+        x: cx + (rx / len) * (rect.width / 2),
+        y: cy + (ry / len) * (rect.height / 2),
+        rx: rx / len,
+        ry: ry / len,
+        len: 1
+      };
     };
 
     const moveControlDrag = (e) => {
@@ -502,18 +555,31 @@
         const cx = rect.left + rect.width / 2;
         const cy = rect.top + rect.height / 2;
         const angle = Math.atan2(e.clientY - cy, e.clientX - cx) * 180 / Math.PI;
-        updateHsv({ h: (angle + 360) % 360 });
+        const prev = pickerRef.current?.hsv || {s:1, v:1};
+        // The hue ring is now an honest hue selector: choosing yellow on the ring
+        // produces a clear yellow swatch instead of preserving a muddy/greenish
+        // saturation-value state from the previous colour. Fine tone edits still
+        // happen in the inner SV field and the lightness line.
+        updateHsv({
+          h: (angle + 360) % 360,
+          s: 1.0,
+          v: 1.0
+        });
       }
 
       if (kind === 'sv') {
-        const x = clamp((e.clientX - rect.left) / rect.width, 0, 1);
-        const y = clamp((e.clientY - rect.top) / rect.height, 0, 1);
+        const pt = pointInCircle(e, rect);
+        const x = clamp((pt.x - rect.left) / rect.width, 0, 1);
+        const y = clamp((pt.y - rect.top) / rect.height, 0, 1);
         updateHsv({ s: x, v: 1 - y });
       }
 
       if (kind === 'light') {
         const x = clamp((e.clientX - rect.left) / rect.width, 0, 1);
-        updateHsv({ v: x });
+        // Lightness track: black → pure chosen hue → white.
+        // This keeps the hue stable instead of collapsing bright reds into muddy browns.
+        if (x <= 0.5) updateHsv({ s: 1, v: x / 0.5 });
+        else updateHsv({ s: 1 - ((x - 0.5) / 0.5), v: 1 });
       }
 
       setDrop(d => ({ ...d, visible: false }));
@@ -524,7 +590,9 @@
       activeDragRef.current = null;
       document.body.classList.remove('is-picking-color');
       setDrop(d => ({ ...d, visible: false }));
-      commitPicker();
+      // Recent colours are committed only when the picker session is closed or
+      // when the user switches to another swatch. Drag/click gestures inside
+      // the wheel should update the active swatch, not spam Recent.
     };
 
     useEffect(() => {
@@ -532,6 +600,7 @@
       const onUp = () => { endControlDrag(); endPanelDrag(); };
       const onKey = (e) => {
         if (e.key === 'Escape') {
+          commitPicker();
           setPicker(null);
           setDrop(d => ({ ...d, visible: false }));
         }
@@ -542,14 +611,9 @@
         if (card && card.contains(e.target)) return;
         const swatch = e.target.closest && e.target.closest('.swatch, .swatch-wrap, .swatch-remove');
         if (swatch) return;
-        const canvas = e.target.closest && e.target.closest('canvas.stage');
-        if (canvas) {
-          const sampled = sampleCanvasAt(e.clientX, e.clientY, canvas);
-          if (sampled) {
-            updateColor(sampled, true);
-            pushRecent(sampled);
-          }
-        }
+        // Closing the picker by clicking the artwork should not sample the canvas
+        // or create a Recent colour. Recent is only for explicit user colour choices
+        // made inside the picker or typed into the value fields.
         commitPicker();
         setPicker(null);
         setDrop(d => ({ ...d, visible: false }));
@@ -582,7 +646,7 @@
           onFocus={() => { inputFocusRef.current = true; setDrop(d => ({ ...d, visible: false })); }}
           onBlur={(e) => {
             const parsed = parser(e.target.value);
-            if (parsed) { updateColor(parsed, true); pushRecent(parsed); }
+            if (parsed) { updateColor(parsed, true); }
             setter(null);
             inputFocusRef.current = false;
           }}
@@ -593,7 +657,7 @@
             e.stopPropagation();
             if (e.key === 'Enter') {
               const parsed = parser(e.target.value);
-              if (parsed) { updateColor(parsed, true); pushRecent(parsed); }
+              if (parsed) { updateColor(parsed, true); }
               setter(null);
               e.target.blur();
             }
@@ -608,9 +672,18 @@
     );
 
     const hueAngle = activeHsv.h;
-    const hueThumb = { left: `${50 + Math.cos(hueAngle * Math.PI / 180) * 42}%`, top: `${50 + Math.sin(hueAngle * Math.PI / 180) * 42}%` };
-    const svThumb = { left: `${activeHsv.s * 100}%`, top: `${(1 - activeHsv.v) * 100}%` };
-    const lightThumb = { left: `${activeHsv.v * 100}%` };
+    const hueThumb = { left: `${50 + Math.cos(hueAngle * Math.PI / 180) * 39.5}%`, top: `${50 + Math.sin(hueAngle * Math.PI / 180) * 39.5}%` };
+    const svX = activeHsv.s;
+    const svY = 1 - activeHsv.v;
+    // The visible SV control is circular. Clamp the thumb to that circle so it
+    // cannot appear/select from the hidden square corners.
+    const svDx = svX - 0.5;
+    const svDy = svY - 0.5;
+    const svLen = Math.sqrt(svDx * svDx + svDy * svDy);
+    const svClamped = svLen > 0.5 ? { x: 0.5 + svDx / svLen * 0.5, y: 0.5 + svDy / svLen * 0.5 } : { x: svX, y: svY };
+    const svThumb = { left: `${svClamped.x * 100}%`, top: `${svClamped.y * 100}%` };
+    const lightPos = activeHsv.v < 0.999 ? (activeHsv.v * 0.5) : (0.5 + (1 - activeHsv.s) * 0.5);
+    const lightThumb = { '--light-pos': Math.max(0, Math.min(1, lightPos)) };
 
     return (
       <>
@@ -645,7 +718,7 @@
                 <button
                   type="button"
                   className={'swatch remove-target' + (picker?.idx === i ? ' active' : '')}
-                  style={{ background: normalizeHex(c) }}
+                  style={{ background: normalizeHex((swatchColors && swatchColors[i]) || c) }}
                   onClick={(e) => openPicker(i, e)}
                   onContextMenu={(e) => { e.preventDefault(); removeColor(i); }}
                   title="Click to pick · drag to reorder"
@@ -660,6 +733,7 @@
 
           <div className="btn-row compact-row">
             <button className="btn btn-italic" onClick={randomize}>{compact ? 'Shuffle' : 'Shuffle palette'}</button>
+            {extraActions}
           </div>
         </div>
 
@@ -668,7 +742,7 @@
             <div
               ref={cardRef}
               className={'color-wheel-card nurr-picker-portal nurr-wheel-v2' + (pickerMinimized ? ' is-minimized' : '')}
-              style={{ '--picker-left': pickerPos.left + 'px', '--picker-top': pickerPos.top + 'px', '--active-color': activeColor, '--active-hue': hsvToHex(activeHsv.h, 1, 1) }}
+              style={{ '--picker-left': pickerPos.left + 'px', '--picker-top': pickerPos.top + 'px', '--active-color': activeColor, '--active-hue': hsvToHex(activeHsv.h, 1, 1), '--sv-bg': svBackground }}
               onPointerMove={moveControlDrag}
               onPointerUp={endControlDrag}
             >
@@ -689,7 +763,7 @@
                   <div className="nurr-hue-thumb" style={hueThumb} />
                 </div>
 
-                <div className="nurr-sv-disc" style={{ background: svBackground }} onPointerDown={(e) => beginControlDrag('sv', e)}>
+                <div className="nurr-sv-disc" onPointerDown={(e) => beginControlDrag('sv', e)}>
                   <div className="nurr-sv-thumb" style={svThumb} />
                 </div>
               </div>
@@ -712,11 +786,11 @@
                 <div className="nurr-recent-label">Recent</div>
                 <div className="nurr-recent-list">
                   {Array.from({ length: 5 }).map((_, i) => {
-                    const c = recentColors[i];
+                    const c = visibleRecentColors[i];
                     return c ? (
-                      <button key={`${c}-${i}`} type="button" className="nurr-recent-chip" style={{ background: c }} title={c} onClick={(e) => { e.preventDefault(); e.stopPropagation(); updateColor(c, true); pushRecent(c); }} />
+                      <button key={`${c}-${i}`} type="button" className="nurr-recent-chip" style={{ '--recent-color': c, backgroundColor: c }} title={c} onClick={(e) => { e.preventDefault(); e.stopPropagation(); updateColor(c, true); const cur = pickerRef.current; if (cur) { pickerRef.current = { ...cur, openedColor: c }; setPicker(pickerRef.current); } }} />
                     ) : (
-                      <span key={`empty-${i}`} className="nurr-recent-chip is-empty" />
+                      <button key={`empty-${i}`} type="button" className="nurr-recent-chip is-empty" title="Empty recent colour" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }} />
                     );
                   })}
                 </div>

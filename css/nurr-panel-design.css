@@ -1,0 +1,207 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   NURR v13 — panel design reset
+   Purpose: one contained liquid-glass panel system, without leaking styles into
+   module internals. Edit panel shell/spacing here; module-specific preview fixes
+   are scoped by .mode-gradient / .mode-geometric / .mode-glass3d / .mode-nature /
+   .mode-abstract only.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  --nurr-panel-width: 332px;
+  --nurr-panel-top: 102px;
+  --nurr-panel-right: 24px;
+  --nurr-panel-bottom-gap: 14px;
+  --nurr-support-safe: var(--nurr-support-height, 34px);
+
+  --nurr-ink: rgba(20, 18, 34, 0.92);
+  --nurr-ink-soft: rgba(20, 18, 34, 0.66);
+  --nurr-ink-faint: rgba(20, 18, 34, 0.42);
+  --nurr-glass-border: rgba(255,255,255,0.62);
+  --nurr-glass-rule: rgba(26,22,42,0.12);
+}
+
+/* ── PANEL SHELL ──────────────────────────────────────────────────────────── */
+.panel:not(.collapsed) {
+  position: absolute !important;
+  top: var(--nurr-panel-top) !important;
+  right: var(--nurr-panel-right) !important;
+  left: auto !important;
+  bottom: auto !important;
+
+  width: var(--nurr-panel-width) !important;
+  height: calc(100svh - var(--nurr-panel-top) - var(--nurr-support-safe) - var(--nurr-panel-bottom-gap)) !important;
+  min-height: 0 !important;
+  max-height: none !important;
+
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+  user-select: none !important;
+  color: var(--nurr-ink) !important;
+
+  border-radius: 23px !important;
+  border: 1.35px solid var(--nurr-glass-border) !important;
+  background:
+    radial-gradient(120% 70% at 12% -10%, rgba(255,255,255,0.68), rgba(255,255,255,0.18) 42%, transparent 76%),
+    radial-gradient(90% 90% at 104% 4%, rgba(255,255,255,0.35), transparent 58%),
+    linear-gradient(135deg, rgba(255,255,255,0.48), rgba(255,255,255,0.23) 46%, rgba(255,255,255,0.16)),
+    rgba(236,239,255,0.26) !important;
+  backdrop-filter: blur(30px) saturate(1.55) brightness(1.07) !important;
+  -webkit-backdrop-filter: blur(30px) saturate(1.55) brightness(1.07) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.78),
+    inset 0 -1px 0 rgba(255,255,255,0.18),
+    0 22px 48px rgba(0,0,0,0.22) !important;
+  animation: none !important;
+}
+
+/* Dragging: only JS position vars control left/top. No forced right position. */
+.panel.is-dragged:not(.collapsed) {
+  left: var(--panel-x) !important;
+  top: var(--panel-y) !important;
+  right: auto !important;
+  bottom: auto !important;
+}
+
+.panel:not(.collapsed)::before,
+.panel:not(.collapsed)::after {
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 !important;
+  pointer-events: none !important;
+  border-radius: inherit !important;
+}
+.panel:not(.collapsed)::before {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.26), transparent 34%, rgba(255,255,255,0.08) 100%),
+    linear-gradient(90deg, rgba(255,255,255,0.28), transparent 38%, rgba(255,255,255,0.16));
+  mix-blend-mode: screen !important;
+  opacity: 0.62 !important;
+  z-index: 0 !important;
+}
+.panel:not(.collapsed)::after {
+  inset: 1px !important;
+  border: 1px solid rgba(255,255,255,0.22) !important;
+  z-index: 0 !important;
+}
+.panel:not(.collapsed) > * { position: relative !important; z-index: 1 !important; }
+
+/* ── FIXED HEADER / TABS / SCROLL BODY ───────────────────────────────────── */
+.panel:not(.collapsed) .panel-header {
+  flex: 0 0 auto !important;
+  min-height: 0 !important;
+  padding: 20px 22px 16px !important;
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: 14px !important;
+  cursor: grab !important;
+  border-bottom: 1px solid var(--nurr-glass-rule) !important;
+  background: rgba(255,255,255,0.06) !important;
+}
+.panel:not(.collapsed) .panel-header:active { cursor: grabbing !important; }
+.panel:not(.collapsed) .panel-eyebrow {
+  margin: 0 0 8px !important;
+  color: var(--nurr-ink-soft) !important;
+  font: 800 10px/1 "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+}
+.panel:not(.collapsed) .panel-title {
+  max-width: 205px !important;
+  margin: 0 !important;
+  color: var(--nurr-ink) !important;
+  font: 300 24px/0.98 "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  letter-spacing: -0.045em !important;
+}
+.panel:not(.collapsed) .header-actions {
+  display: flex !important;
+  gap: 7px !important;
+  align-items: center !important;
+  flex: 0 0 auto !important;
+}
+
+
+.panel:not(.collapsed) .panel-body {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding: 18px 22px 24px !important;
+  color: var(--nurr-ink) !important;
+  background: rgba(255,255,255,0.015) !important;
+  scrollbar-gutter: stable !important;
+}
+.panel:not(.collapsed) .panel-body::-webkit-scrollbar { width: 5px !important; }
+.panel:not(.collapsed) .panel-body::-webkit-scrollbar-track { background: transparent !important; }
+.panel:not(.collapsed) .panel-body::-webkit-scrollbar-thumb {
+  background: rgba(20,18,34,0.20) !important;
+  border-radius: 999px !important;
+}
+
+/* ── SHARED CONTENT TOKENS — scoped, not global ──────────────────────────── */
+.panel:not(.collapsed) .section {
+  margin: 0 0 18px !important;
+  padding: 0 0 16px !important;
+  border-bottom: 1px solid rgba(20,18,34,0.08) !important;
+  background: transparent !important;
+}
+.panel:not(.collapsed) .section:last-child { margin-bottom: 0 !important; }
+
+
+.panel:not(.collapsed) .slider,
+.panel:not(.collapsed) input[type="range"] {
+  width: 100% !important;
+  height: 2px !important;
+  accent-color: rgba(20,18,34,0.68) !important;
+}
+
+/* ── GRADIENT MODULE ─────────────────────────────────────────────────────── */
+
+
+/* ── GEOMETRIC MODULE — dense previews, no giant cards ───────────────────── */
+
+
+/* ── 3D MODULE — rectangular controls, no inherited circular chips ───────── */
+
+
+/* ── SWATCHES: keep circular swatches, remove dirty outer halos ───────────── */
+
+
+/* ── RESPONSIVE SAFETY ───────────────────────────────────────────────────── */
+@media (max-height: 820px) {
+  :root {
+    --nurr-panel-top: 92px;
+    --nurr-panel-bottom-gap: 10px;
+  }
+  .panel:not(.collapsed) .panel-header { padding-top: 17px !important; padding-bottom: 13px !important; }
+  .panel:not(.collapsed) .panel-title { font-size: 22px !important; }
+  .panel:not(.collapsed) .panel-body { padding-top: 15px !important; }
+}
+@media (max-width: 900px) {
+  :root {
+    --nurr-panel-width: min(332px, calc(100vw - 28px));
+    --nurr-panel-right: 14px;
+  }
+}
+
+
+/* v16: compact NYMPH-only panel header */
+.panel:not(.collapsed) .panel-title-nymph {
+  max-width: none !important;
+  font: 800 24px/1 "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  letter-spacing: 0.16em !important;
+  text-transform: uppercase !important;
+}
+.panel:not(.collapsed) .panel-title-nymph + * { display:none !important; }
+
+/* Targeted free-drag safety: once React provides left/top, no stylesheet may
+   pull the sidepanel back onto a single axis. */
+.panel.is-dragged:not(.collapsed) {
+  position: fixed !important;
+  left: var(--panel-x, auto) !important;
+  top: var(--panel-y, auto) !important;
+  right: auto !important;
+  bottom: auto !important;
+}

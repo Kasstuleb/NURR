@@ -1,522 +1,482 @@
-/* glass3d.css — NURR 3D Objects module v13 styles.
-   Refined shape icons · realistic material chips · polished controls */
+/* ─────────────────────────────────────────────────────────────────────────────
+   glass3d.css — NURR 3D Objects module   Redesign v4 (dark glass context)
+   ─────────────────────────────────────────────────────────────────────────────
+   Shape icons: bold dark silhouettes — single-colour fills, clean geometry.
+   No 3D gradient simulation. Just the form, confident and legible.
+   Material cards: tall gradient swatch on top, name label below (column layout).
+   ───────────────────────────────────────────────────────────────────────────── */
 
-/* ═══════════════════════════════════════════════════
-   Shape icon grid
-   ═══════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════════════════
+   SHAPE ICON GRID — 4 columns, bold dark silhouettes
+   ═══════════════════════════════════════════════════════════════════════════ */
+
 .glass3d-icon-grid.shape-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 4px;
-  margin-top: 6px;
+  margin-top: 8px;
 }
 
 .glass3d-icon-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
-  padding: 9px 4px 7px;
-  border: 1px solid rgba(255, 255, 255, 0.55);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.38);
-  cursor: pointer;
-  transition: background 0.14s, border-color 0.14s, transform 0.10s, box-shadow 0.14s;
-  font-size: 8.5px;
-  letter-spacing: 0.05em;
-  color: rgba(20, 12, 80, 0.52);
-  font-weight: 600;
-  text-transform: uppercase;
-  box-shadow: 0 1px 3px rgba(8,4,48,0.05);
+  display:         flex;
+  flex-direction:  column;
+  align-items:     center;
+  gap:             6px;
+  padding:         13px 5px 10px;
+  border:          1px solid rgba(255, 255, 255, 0.12);
+  border-radius:   10px;
+  background:      rgba(255, 255, 255, 0.06);
+  cursor:          pointer;
+  font-size:        8.5px;
+  letter-spacing:  0.09em;
+  color:           rgba(255, 255, 255, 0.50);
+  font-weight:     700;
+  text-transform:  uppercase;
+  box-shadow:      inset 0 1px 0 rgba(255, 255, 255, 0.10);
+  transition:
+    background   0.14s ease,
+    border-color 0.14s ease,
+    transform    0.10s ease;
 }
 
-.glass3d-icon-btn:hover {
-  background: rgba(255, 255, 255, 0.64);
-  border-color: rgba(255, 255, 255, 0.80);
-  transform: translateY(-1px);
-  box-shadow: 0 3px 8px rgba(8,4,48,0.08);
+@media (hover: hover) and (pointer: fine) {
+  .glass3d-icon-btn:hover {
+    background:   rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.24);
+    transform:    translateY(-1px);
+    color:        rgba(255, 255, 255, 0.80);
+  }
 }
 
 .glass3d-icon-btn.active {
-  background: rgba(255, 255, 255, 0.80);
-  border-color: rgba(20, 12, 80, 0.55);
-  color: rgba(20, 12, 80, 0.88);
-  box-shadow: 0 0 0 1.5px rgba(20,12,80,0.18), 0 3px 8px rgba(8,4,48,0.10);
+  background:   rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.70);
+  color:        #fff;
+  box-shadow:   inset 0 1px 0 rgba(255,255,255,0.24), 0 0 0 1.5px rgba(255,255,255,0.20);
 }
 
-/* Shape icon visuals — refined glass highlights */
+/* ─── Shape icon container ────────────────────────────────────────────────── */
 .glass3d-shape-icon {
-  display: flex;
-  align-items: center;
+  display:         flex;
+  align-items:     center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 36px; height: 34px;
 }
 
+/* ─── Base shape fill — bold single-colour silhouette ─────────────────────── */
+/* Pure dark fill. No lighting gradients. Each shape reads by its geometry. */
 .glass3d-shape-icon i {
   display: block;
-  /* Default glass sphere look */
-  background:
-    radial-gradient(circle at 34% 30%, rgba(255,255,255,0.96) 0%, rgba(255,255,255,0.60) 18%, transparent 44%),
-    radial-gradient(circle at 68% 72%, rgba(120,150,220,0.30) 0%, transparent 38%),
-    linear-gradient(145deg, rgba(200,215,255,0.82) 0%, rgba(160,190,240,0.50) 55%, rgba(100,130,200,0.30) 100%);
-  box-shadow:
-    inset 0 1.5px 2px rgba(255,255,255,0.95),
-    inset -1px -1px 2px rgba(80,100,180,0.20),
-    0 2px 5px rgba(60,80,160,0.18);
+  background: rgba(240, 238, 255, 0.88);  /* near-white so it pops on dark glass */
 }
 
-/* Individual shape geometries */
-.shape-sphere  i { width: 24px; height: 24px; border-radius: 50%; }
-.shape-cube    i {
-  width: 21px; height: 21px;
-  border-radius: 4px;
-  transform: rotate(14deg);
-  /* Chrome-ish cube preview */
-  background:
-    linear-gradient(135deg, rgba(255,255,255,0.90) 0%, rgba(210,220,240,0.72) 38%, rgba(140,165,215,0.42) 100%);
-}
-.shape-soap    i { width: 26px; height: 17px; border-radius: 52%; }
-.shape-pebble  i { width: 24px; height: 20px; border-radius: 54% 46% 44% 56% / 52% 44% 56% 48%; }
-.shape-tablet  i {
-  width: 22px; height: 22px; border-radius: 50%;
-  background:
-    radial-gradient(circle at 50% 50%, transparent 0%, transparent 38%, rgba(160,185,240,0.70) 39%, rgba(160,185,240,0.70) 62%, transparent 63%),
-    radial-gradient(circle at 34% 30%, rgba(255,255,255,0.96) 0%, rgba(255,255,255,0.55) 18%, transparent 44%),
-    linear-gradient(145deg, rgba(200,215,255,0.82) 0%, rgba(160,190,240,0.50) 100%);
-  box-shadow: inset 0 1.5px 2px rgba(255,255,255,0.88), 0 2px 5px rgba(60,80,160,0.18);
-}
-.shape-capsule i { width: 13px; height: 25px; border-radius: 50px; transform: rotate(22deg); }
-.shape-torus   i {
-  width: 24px; height: 24px; border-radius: 50%;
-  background:
-    radial-gradient(circle at 50% 50%, transparent 0%, transparent 32%,
-      rgba(160,185,240,0.80) 33%, rgba(180,200,250,0.90) 62%,
-      transparent 63%),
-    radial-gradient(circle at 36% 28%, rgba(255,255,255,0.80) 0%, transparent 28%);
-  box-shadow: inset 0 1px 2px rgba(255,255,255,0.60), 0 2px 5px rgba(60,80,160,0.16);
+/* Active state: shapes turn accent-tinted */
+.glass3d-icon-btn.active .glass3d-shape-icon i {
+  background: rgba(255, 255, 255, 1.00);
 }
 
-/* ═══════════════════════════════════════════════════
-   Material chip grid
-   ═══════════════════════════════════════════════════ */
+/* ─── Shape geometries ────────────────────────────────────────────────────── */
+.shape-sphere  i {
+  width: 24px; height: 24px;
+  border-radius: 50%;
+}
+
+.shape-cube i {
+  /* Hexagon = isometric cube silhouette */
+  width: 24px; height: 24px;
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+}
+
+.shape-soap i {
+  width: 30px; height: 16px;
+  border-radius: 6px;
+}
+
+.shape-pebble i {
+  width: 26px; height: 20px;
+  border-radius: 58% 44% 50% 56% / 52% 58% 44% 52%;
+}
+
+.shape-tablet i {
+  width: 26px; height: 14px;
+  border-radius: 999px;
+}
+
+.shape-capsule i {
+  width: 28px; height: 14px;
+  border-radius: 999px;
+}
+
+/* Torus: ring shape via box-shadow */
+.shape-torus i {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: transparent !important;
+  border: 5px solid rgba(240, 238, 255, 0.88);
+  box-shadow: none;
+}
+
+.glass3d-icon-btn.active .shape-torus i {
+  border-color: rgba(255, 255, 255, 1.00);
+  box-shadow: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MATERIAL CARD GRID — column layout: gradient swatch top, name below
+   JS renders: button.glass3d-material-btn > span.glass3d-material-chip + span(label)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
 .glass3d-icon-grid.material-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 4px;
-  margin-top: 6px;
+  display: grid !important;
+  grid-template-columns: repeat(2, 1fr) !important;
+  gap: 5px !important;
+  margin-top: 8px;
 }
 
 .glass3d-material-btn {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 9px;
-  padding: 7px 10px;
-  min-height: 42px;
-  border: 1px solid rgba(255, 255, 255, 0.55);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.36);
-  cursor: pointer;
-  transition: background 0.14s, border-color 0.14s, transform 0.10s, box-shadow 0.14s;
-  font-size: 9px;
-  letter-spacing: 0.05em;
-  color: rgba(20, 12, 80, 0.55);
-  font-weight: 600;
-  text-transform: uppercase;
-  text-align: left;
-  box-shadow: 0 1px 3px rgba(8,4,48,0.05);
+  /* Column layout: swatch on top, label below */
+  display:         flex !important;
+  flex-direction:  column !important;
+  align-items:     stretch !important;
+  gap:             0 !important;
+  padding:         0 !important;
+  height:          64px !important;
+  min-height:      64px !important;
+  border:          1px solid rgba(255, 255, 255, 0.14) !important;
+  border-radius:   11px !important;
+  background:      rgba(255, 255, 255, 0.07) !important;
+  cursor:          pointer !important;
+  overflow:        hidden !important;
+  text-align:      left !important;
+  box-shadow:      inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+  transition:
+    background   0.14s ease,
+    border-color 0.14s ease,
+    transform    0.10s ease !important;
 }
 
-.glass3d-material-btn:hover {
-  background: rgba(255, 255, 255, 0.62);
-  border-color: rgba(255, 255, 255, 0.80);
-  transform: translateY(-1px);
-  box-shadow: 0 3px 8px rgba(8,4,48,0.08);
+@media (hover: hover) and (pointer: fine) {
+  .glass3d-material-btn:hover {
+    background:   rgba(255, 255, 255, 0.14) !important;
+    border-color: rgba(255, 255, 255, 0.28) !important;
+    transform:    translateY(-1px) !important;
+  }
 }
 
 .glass3d-material-btn.active {
-  background: rgba(255, 255, 255, 0.80);
-  border-color: rgba(20, 12, 80, 0.55);
-  color: rgba(20, 12, 80, 0.88);
-  box-shadow: 0 0 0 1.5px rgba(20,12,80,0.18), 0 3px 8px rgba(8,4,48,0.10);
+  background:   rgba(255, 255, 255, 0.20) !important;
+  border-color: rgba(255, 255, 255, 0.75) !important;
+  box-shadow:   inset 0 1px 0 rgba(255,255,255,0.24), 0 0 0 1.5px rgba(255,255,255,0.22) !important;
 }
 
-/* Material chip spheres — premium realistic previews */
+/* ─── Material swatch chip (top area) ─────────────────────────────────────── */
+/* Assertive material-specific gradients. Flat, designed, not simulated. */
 .glass3d-material-chip {
-  display: block;
-  flex-shrink: 0;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
+  display: block !important;
+  flex:    0 0 40px !important;
+  height:  40px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
 }
 
+/* Arctic-clear blue — transparency / glass */
 .material-glass {
-  background:
-    radial-gradient(circle at 32% 28%, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.70) 14%, transparent 34%),
-    radial-gradient(circle at 66% 68%, rgba(180,210,255,0.55) 0%, transparent 30%),
-    linear-gradient(145deg, rgba(210,228,255,0.90) 0%, rgba(170,205,250,0.60) 50%, rgba(130,175,240,0.30) 100%);
-  box-shadow:
-    inset 0 1.5px 2.5px rgba(255,255,255,0.98),
-    inset -1px -1px 3px rgba(100,140,220,0.22),
-    0 3px 8px rgba(60,100,200,0.20);
+  background: linear-gradient(130deg,
+    #daeeff 0%, #b4d8fa 45%, #92c4f8 100%) !important;
 }
 
+/* Pearlescent — pink ↔ teal iridescence */
 .material-opal {
-  background:
-    radial-gradient(circle at 30% 25%, rgba(255,255,255,0.95) 0%, rgba(255,200,235,0.75) 20%, transparent 42%),
-    radial-gradient(circle at 72% 62%, rgba(180,240,210,0.65) 0%, transparent 32%),
-    radial-gradient(circle at 48% 75%, rgba(200,170,255,0.55) 0%, transparent 30%),
-    linear-gradient(135deg, rgba(248,235,245,0.90) 0%, rgba(220,200,240,0.72) 50%, rgba(195,230,215,0.55) 100%);
-  box-shadow:
-    inset 0 1.5px 2.5px rgba(255,255,255,0.96),
-    0 3px 8px rgba(140,100,200,0.18);
+  background: linear-gradient(130deg,
+    #fce4f8 0%, #e8ccf5 35%, #bce8ef 100%) !important;
 }
 
+/* Deep ocean — saturated, unmistakable */
 .material-water {
-  background:
-    radial-gradient(circle at 26% 22%, rgba(230,255,255,0.98) 0%, rgba(130,220,240,0.65) 22%, transparent 40%),
-    radial-gradient(circle at 65% 70%, rgba(10,90,120,0.50) 0%, transparent 36%),
-    linear-gradient(150deg, rgba(125,215,240,0.92) 0%, rgba(60,165,195,0.75) 48%, rgba(8,90,115,0.90) 100%);
-  box-shadow:
-    inset 0 1.5px 2.5px rgba(220,250,255,0.90),
-    0 3px 8px rgba(20,100,140,0.28);
+  background: linear-gradient(130deg,
+    #40c4d8 0%, #1484b0 48%, #065878 100%) !important;
 }
 
+/* Brushed chrome — tight silver sweep */
 .material-metal {
-  background:
-    radial-gradient(circle at 30% 22%, rgba(255,255,255,0.92) 0%, rgba(220,222,228,0.70) 18%, transparent 36%),
-    linear-gradient(135deg,
-      rgba(250,250,252,0.95) 0%,
-      rgba(168,176,190,0.88) 22%,
-      rgba(80,88,100,0.75) 40%,
-      rgba(50,55,65,0.88) 52%,
-      rgba(120,126,138,0.80) 65%,
-      rgba(200,205,215,0.85) 80%,
-      rgba(245,246,248,0.90) 100%);
-  box-shadow:
-    inset 0 1.5px 2px rgba(255,255,255,0.96),
-    0 3px 10px rgba(0,0,0,0.28);
+  background: linear-gradient(130deg,
+    #f0f2f6 0%, #9aa0b0 45%, #d4d8e0 100%) !important;
 }
 
+/* Full-spectrum prismatic */
 .material-holo {
-  background:
-    conic-gradient(from 15deg at 48% 52%,
-      rgba(255,80,160,0.92) 0%,
-      rgba(255,140,40,0.88) 14%,
-      rgba(240,220,30,0.88) 28%,
-      rgba(60,210,90,0.85) 42%,
-      rgba(40,195,245,0.88) 56%,
-      rgba(80,90,255,0.88) 70%,
-      rgba(155,55,255,0.88) 84%,
-      rgba(255,80,160,0.92) 100%),
-    radial-gradient(circle at 32% 28%, rgba(255,255,255,0.72) 0%, transparent 28%);
-  box-shadow:
-    inset 0 1.5px 2px rgba(255,255,255,0.80),
-    0 3px 10px rgba(140,60,200,0.28);
+  background: conic-gradient(from 160deg at 50% 50%,
+    #ff6eb0, #ffce5a, #7eecc8, #62b4ff, #c286ff, #ff6eb0) !important;
 }
 
-.material-crystal {
-  background:
-    radial-gradient(circle at 34% 26%, rgba(255,255,255,0.99) 0%, rgba(255,255,255,0.85) 10%, rgba(220,235,255,0.60) 28%, transparent 48%),
-    radial-gradient(circle at 70% 65%, rgba(180,145,255,0.50) 0%, transparent 30%),
-    radial-gradient(circle at 25% 70%, rgba(100,170,255,0.38) 0%, transparent 26%),
-    linear-gradient(145deg, rgba(235,245,255,0.92) 0%, rgba(200,215,250,0.70) 50%, rgba(230,240,255,0.88) 100%);
-  box-shadow:
-    inset 0 2px 3px rgba(255,255,255,0.99),
-    inset -1px -1px 2px rgba(140,165,240,0.28),
-    0 3px 10px rgba(80,100,200,0.18),
-    0 0 0 1px rgba(200,215,255,0.45);
+/* ─── Material label (bare span, no class — target by DOM position) ─────── */
+.glass3d-material-btn > span:last-child {
+  display:     block !important;
+  padding:     5px 9px 6px !important;
+  font-family:    "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  font-size:       9px !important;
+  letter-spacing: 0.09em !important;
+  text-transform: uppercase !important;
+  font-weight:    700 !important;
+  color:          rgba(255, 255, 255, 0.55) !important;
+  line-height:    1 !important;
+  white-space:    nowrap !important;
+  overflow:       hidden !important;
+  text-overflow:  ellipsis !important;
 }
 
-/* ═══════════════════════════════════════════════════
-   Colour system
-   ═══════════════════════════════════════════════════ */
-
-.glass3d-preset-row {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 5px;
-  margin-top: 6px;
+.glass3d-material-btn.active > span:last-child {
+  color: rgba(255, 255, 255, 0.96) !important;
 }
 
-.glass3d-preset-pill {
-  height: 28px;
-  border-radius: 9px;
-  border: 1.5px solid rgba(255, 255, 255, 0.72);
-  cursor: pointer;
-  transition: border-color 0.12s, transform 0.10s, box-shadow 0.12s;
-  box-shadow: 0 1px 4px rgba(8,4,48,0.10), inset 0 1px 0 rgba(255,255,255,0.60);
-}
+/* ═══════════════════════════════════════════════════════════════════════════
+   HUE TINT ROW
+   ═══════════════════════════════════════════════════════════════════════════ */
 
-.glass3d-preset-pill:hover {
-  border-color: rgba(255, 255, 255, 0.90);
-  transform: translateY(-1px);
-  box-shadow: 0 3px 8px rgba(8,4,48,0.14);
-}
-
-.glass3d-preset-pill.active {
-  border-color: rgba(20, 12, 80, 0.72);
-  box-shadow: 0 0 0 1.5px rgba(20,12,80,0.20);
-}
-
-/* Main + Accent picker pair */
-.glass3d-picker-pair {
-  display: flex;
-  gap: 5px;
-  margin-top: 7px;
-}
-
-.glass3d-picker-btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 8px 10px;
-  border: 1px solid rgba(255, 255, 255, 0.64);
-  border-radius: 11px;
-  background: rgba(255, 255, 255, 0.46);
-  cursor: pointer;
-  position: relative;
-  transition: background 0.12s, border-color 0.12s, box-shadow 0.12s;
-  box-shadow: 0 1px 3px rgba(8,4,48,0.05);
-}
-
-.glass3d-picker-btn:hover {
-  background: rgba(255, 255, 255, 0.68);
-  border-color: rgba(255, 255, 255, 0.85);
-  box-shadow: 0 2px 6px rgba(8,4,48,0.08);
-}
-
-.glass3d-picker-swatch {
-  display: block;
-  width: 16px;
-  height: 16px;
-  border-radius: 4px;
-  border: 1px solid rgba(0,0,0,0.12);
-  flex-shrink: 0;
-  box-shadow: inset 0 1px 1px rgba(255,255,255,0.50);
-}
-
-.glass3d-picker-label {
-  font-size: 8.5px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  font-weight: 600;
-  color: rgba(20, 12, 80, 0.50);
-}
-
-.glass3d-picker-btn input[type="color"] {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  cursor: pointer;
-  width: 100%; height: 100%;
-  padding: 0; border: none;
-}
-
-/* Hue shift row */
-.glass3d-hue-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 7px;
-}
+.glass3d-hue-row { display: flex; align-items: center; gap: 8px; margin-top: 7px; }
 
 .glass3d-hue-swatch {
-  display: block;
-  flex-shrink: 0;
-  width: 28px; height: 28px;
-  border-radius: 8px;
-  border: 1.5px dashed rgba(20, 12, 80, 0.22);
-  background: rgba(255,255,255,0.38);
-  cursor: pointer;
-  position: relative;
-  overflow: hidden;
+  display: block; flex-shrink: 0; width: 28px; height: 28px; border-radius: 8px;
+  border: 1.5px dashed rgba(255,255,255,0.26); background: rgba(255,255,255,0.10);
+  cursor: pointer; position: relative; overflow: hidden;
+  transition: border-color 0.12s;
+}
+.glass3d-hue-swatch.has-hue { border-style: solid; border-color: rgba(255,255,255,0.55); }
+.glass3d-hue-swatch input[type="color"] {
+  position: absolute; inset: -4px; opacity: 0; cursor: pointer;
+  width: calc(100% + 8px); height: calc(100% + 8px); padding: 0; border: none;
+}
+.glass3d-hue-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; color: rgba(255,255,255,0.45); flex: 1; }
+.glass3d-hue-clear {
+  width: 20px; height: 20px; border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.20); background: rgba(255,255,255,0.10);
+  cursor: pointer; font-size: 12px; line-height: 1; color: rgba(255,255,255,0.52);
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.12s, color 0.12s; padding: 0;
+}
+.glass3d-hue-clear:hover { background: rgba(255,255,255,0.22); color: rgba(255,255,255,0.90); }
+.glass3d-hex-input {
+  display: block; width: 100%; margin-top: 6px; padding: 6px 10px;
+  border: 1px solid rgba(255,255,255,0.18); border-radius: 8px;
+  background: rgba(255,255,255,0.08); font-size: 11px;
+  font-family: 'SF Mono', ui-monospace, monospace;
+  color: rgba(255,255,255,0.80); outline: none; box-sizing: border-box;
   transition: border-color 0.12s, background 0.12s;
 }
+.glass3d-hex-input:focus { border-color: rgba(255,255,255,0.38); background: rgba(255,255,255,0.13); }
 
-.glass3d-hue-swatch.has-hue {
-  border-style: solid;
-  border-color: rgba(20, 12, 80, 0.55);
-}
+/* ═══════════════════════════════════════════════════════════════════════════
+   BACKGROUND SWATCHES
+   ═══════════════════════════════════════════════════════════════════════════ */
 
-.glass3d-hue-swatch input[type="color"] {
-  position: absolute;
-  inset: -4px;
-  opacity: 0;
-  cursor: pointer;
-  width: calc(100% + 8px);
-  height: calc(100% + 8px);
-  padding: 0; border: none;
-}
-
-.glass3d-hue-label {
-  font-size: 9px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-weight: 600;
-  color: rgba(20, 12, 80, 0.45);
-  flex: 1;
-}
-
-.glass3d-hue-clear {
-  width: 20px; height: 20px;
-  border-radius: 50%;
-  border: 1px solid rgba(255,255,255,0.70);
-  background: rgba(255, 255, 255, 0.52);
-  cursor: pointer;
-  font-size: 12px;
-  line-height: 1;
-  color: rgba(20, 12, 80, 0.48);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.12s, color 0.12s;
-  padding: 0;
-  box-shadow: 0 1px 2px rgba(8,4,48,0.06);
-}
-
-.glass3d-hue-clear:hover {
-  background: rgba(255, 255, 255, 0.85);
-  color: rgba(20, 12, 80, 0.80);
-}
-
-/* Hex input */
-.glass3d-hex-input {
-  display: block;
-  width: 100%;
-  margin-top: 6px;
-  padding: 6px 10px;
-  border: 1px solid rgba(255, 255, 255, 0.60);
-  border-radius: 9px;
-  background: rgba(255, 255, 255, 0.50);
-  font-size: 11px;
-  font-family: 'SF Mono', 'Fira Code', ui-monospace, monospace;
-  color: rgba(20, 12, 80, 0.72);
-  outline: none;
-  box-sizing: border-box;
-  box-shadow: 0 1px 2px rgba(8,4,48,0.04);
-}
-
-.glass3d-hex-input:focus {
-  border-color: rgba(20, 12, 80, 0.30);
-  background: rgba(255, 255, 255, 0.72);
-}
-
-/* ═══════════════════════════════════════════════════
-   Background swatches
-   ═══════════════════════════════════════════════════ */
-.glass3d-bg-row {
-  display: flex;
-  gap: 6px;
-  margin-top: 6px;
-  flex-wrap: wrap;
-}
-
+.glass3d-bg-row { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
 .glass3d-bg-swatch {
-  width: 32px; height: 32px;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.70);
-  cursor: pointer;
-  transition: border-color 0.12s, transform 0.10s, box-shadow 0.12s;
-  box-shadow: 0 2px 5px rgba(8,4,48,0.12), inset 0 1px 0 rgba(255,255,255,0.60);
-  flex-shrink: 0;
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
+  width: 28px; height: 28px; border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.26); cursor: pointer;
+  transition: border-color 0.12s, transform 0.10s;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.28); flex-shrink: 0;
+  position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden;
 }
-
-.glass3d-bg-swatch:hover {
-  border-color: rgba(255, 255, 255, 0.90);
-  transform: scale(1.10);
-  box-shadow: 0 3px 8px rgba(8,4,48,0.18);
+@media (hover: hover) and (pointer: fine) {
+  .glass3d-bg-swatch:hover { border-color: rgba(255,255,255,0.60); transform: scale(1.10); }
 }
+.glass3d-bg-swatch.active { border-color: #fff; box-shadow: 0 0 0 2.5px rgba(255,255,255,0.30), 0 3px 8px rgba(0,0,0,0.36); }
+.glass3d-bg-swatch.bg-gradient { background: conic-gradient(from 0deg at 50% 50%, #f2e0c8, #c8daf2, #e0c8f2, #c8f0e0, #f2c8d8, #f2e0c8); }
+.glass3d-bg-swatch.bg-bw       { background: linear-gradient(145deg, #eee 0%, #909090 50%, #0e0e0e 100%); }
+.glass3d-bg-swatch.bg-custom   { font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.70); }
+.glass3d-bg-swatch input[type="color"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; padding: 0; border: none; }
 
-.glass3d-bg-swatch.active {
-  border-color: rgba(20, 12, 80, 0.70);
-  box-shadow: 0 0 0 2px rgba(20,12,80,0.18), 0 3px 8px rgba(8,4,48,0.16);
-}
+/* ═══════════════════════════════════════════════════════════════════════════
+   SECTION STRUCTURE + COLLAPSIBLE PRESETS
+   ═══════════════════════════════════════════════════════════════════════════ */
 
-.glass3d-bg-swatch.bg-gradient {
-  background: conic-gradient(from 0deg at 50% 50%,
-    #f2e0c8, #c8daf2, #e0c8f2, #c8f0e0, #f2c8d8, #f2e0c8
-  );
-}
-
-.glass3d-bg-swatch.bg-bw {
-  background: linear-gradient(145deg, #f0f0f0 0%, #909090 50%, #101010 100%);
-}
-
-.glass3d-bg-swatch.bg-custom {
-  font-size: 13px;
-  font-weight: 700;
-  color: rgba(20, 12, 80, 0.55);
-}
-
-.glass3d-bg-swatch input[type="color"] {
-  position: absolute; inset: 0; opacity: 0; cursor: pointer;
-  width: 100%; height: 100%; padding: 0; border: none;
-}
-
-/* ═══════════════════════════════════════════════════
-   Section refinement
-   ═══════════════════════════════════════════════════ */
 .glass3d-section { margin-bottom: 2px; }
 .glass3d-section .section-label { margin-bottom: 0; }
+.glass3d-section.collapsible-presets.is-open .glass3d-preset-row { display: grid !important; margin-top: 8px; }
 
-/* ─── 3D material colour preset swatch repair ───────────────────────────────
-   Protects the 3D preset swatches from global button / palette CSS overrides.
-   These swatches must remain visible rounded colour pills. */
+/* ─── Colour preset pills ─────────────────────────────────────────────────── */
 .mode-glass3d .glass3d-preset-row,
 .panel .glass3d-preset-row {
   display: grid !important;
   grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-  gap: 6px !important;
-  width: 100% !important;
-  margin-top: 8px !important;
-  overflow: visible !important;
+  gap: 5px !important; width: 100% !important; margin-top: 8px !important; overflow: visible !important;
 }
 
 .mode-glass3d .glass3d-preset-pill,
 .panel .glass3d-preset-pill {
-  display: block !important;
-  width: 100% !important;
-  min-width: 0 !important;
-  height: 30px !important;
-  min-height: 30px !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  border-radius: 10px !important;
-  border: 1.5px solid rgba(255,255,255,0.72) !important;
-  box-sizing: border-box !important;
-  overflow: hidden !important;
-  cursor: pointer !important;
-  opacity: 1 !important;
-  visibility: visible !important;
-  appearance: none !important;
-  -webkit-appearance: none !important;
-  color: transparent !important;
-  font-size: 0 !important;
-  line-height: 0 !important;
-  box-shadow:
-    0 1px 4px rgba(8,4,48,0.10),
-    inset 0 1px 0 rgba(255,255,255,0.60) !important;
+  display: block !important; width: 100% !important; min-width: 0 !important;
+  height: 26px !important; min-height: 26px !important; padding: 0 !important; margin: 0 !important;
+  border-radius: 7px !important; border: 1.5px solid rgba(255,255,255,0.26) !important;
+  box-sizing: border-box !important; overflow: hidden !important;
+  cursor: pointer !important; opacity: 1 !important; visibility: visible !important;
+  appearance: none !important; -webkit-appearance: none !important;
+  color: transparent !important; font-size: 0 !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.24), inset 0 1px 0 rgba(255,255,255,0.18) !important;
+  transition: transform 0.12s ease, border-color 0.12s ease !important;
 }
-
-.mode-glass3d .glass3d-preset-pill:hover,
-.panel .glass3d-preset-pill:hover {
-  transform: translateY(-1px) !important;
-  border-color: rgba(255,255,255,0.92) !important;
-  box-shadow: 0 3px 8px rgba(8,4,48,0.14) !important;
+@media (hover: hover) and (pointer: fine) {
+  .mode-glass3d .glass3d-preset-pill:hover,
+  .panel .glass3d-preset-pill:hover {
+    transform: translateY(-1px) !important; border-color: rgba(255,255,255,0.55) !important;
+  }
 }
-
 .mode-glass3d .glass3d-preset-pill.active,
 .panel .glass3d-preset-pill.active {
-  border-color: rgba(20,12,80,0.72) !important;
-  box-shadow:
-    0 0 0 1.5px rgba(20,12,80,0.20),
-    inset 0 1px 0 rgba(255,255,255,0.62) !important;
+  border-color: #fff !important;
+  box-shadow: 0 0 0 1.5px rgba(255,255,255,0.28) !important;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Extracted ownership rules — 2026-06-29 CSS architecture cleanup.
+   Moved out of global CSS without changing declaration values.
+   ───────────────────────────────────────────────────────────── */
+.presets-section.collapsible-presets.is-collapsed .palette-grid,
+.presets-section.collapsible-presets.is-collapsed .glass3d-preset-row {
+  display: none !important;
+}.presets-section.collapsible-presets.is-open .palette-grid,
+.presets-section.collapsible-presets.is-open .glass3d-preset-row {
+  display: grid;
+  margin-top: 10px;
+}.glass3d-section.collapsible-presets.is-open .glass3d-preset-row {
+  display: flex;
+}.mode-glass3d .glass3d-icon-grid,
+.mode-glass3d .shape-grid,
+.mode-glass3d .material-grid {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+}.mode-glass3d .glass3d-icon-btn {
+  min-height: 58px !important;
+  border-radius: 12px !important;
+  padding: 7px 5px !important;
+  background: rgba(255,255,255,0.13) !important;
+  border: 1px solid rgba(255,255,255,0.46) !important;
+  box-shadow: none !important;
+  color: var(--nurr-ink) !important;
+}.mode-glass3d .glass3d-icon-btn.active {
+  background: rgba(20,18,34,0.80) !important;
+  color: rgba(255,255,255,0.92) !important;
+}.mode-glass3d .glass3d-icon-btn svg { max-width: 24px !important; max-height: 24px !important; }.mode-glass3d .glass3d-icon-btn span {
+  font-size: 8.5px !important;
+  letter-spacing: 0.10em !important;
+  line-height: 1.1 !important;
+}.mode-glass3d .glass3d-material-btn {
+  min-height: 48px !important;
+  border-radius: 10px !important;
+  overflow: hidden !important;
+  background: rgba(255,255,255,0.14) !important;
+  border: 1px solid rgba(255,255,255,0.46) !important;
+  box-shadow: none !important;
+}.mode-glass3d .glass3d-material-btn.active { border-color: rgba(20,18,34,0.70) !important; }.mode-glass3d .glass3d-preset-row,
+.mode-glass3d .palette-grid { gap: 7px !important; }.mode-glass3d .glass3d-preset-pill,
+.mode-glass3d .glass3d-bg-swatch,
+.mode-glass3d .glass3d-hue-swatch {
+  box-shadow: none !important;
+  border: 1px solid rgba(255,255,255,0.48) !important;
+}.panel:not(.collapsed) .swatches,
+.panel:not(.collapsed) .palette-grid,
+.panel:not(.collapsed) .glass3d-preset-row{
+  display:flex !important;
+  flex-wrap:wrap !important;
+  gap:32px !important;
+  align-items:center !important;
+}.panel:not(.collapsed) .swatch,
+.panel:not(.collapsed) .glass3d-bg-swatch,
+.panel:not(.collapsed) .glass3d-hue-swatch,
+.panel:not(.collapsed) .glass3d-preset-pill{
+  border-radius:50% !important;
+  border:1.5px solid rgba(255,255,255,.88) !important;
+  box-shadow:none !important;
+}.mode-glass3d .glass3d-icon-btn{ min-height:64px !important; height:auto !important; flex-direction:column !important; }.mode-glass3d .glass3d-material-btn{ min-height:56px !important; height:auto !important; }.panel:not(.collapsed) .swatches,
+.panel:not(.collapsed) .palette-grid,
+.panel:not(.collapsed) .glass3d-preset-row{
+  gap:20px !important;
+}.mode-glass3d .glass3d-icon-grid.material-grid,
+.mode-glass3d .shape-grid,
+.mode-glass3d .glass3d-icon-grid{
+  grid-template-columns:repeat(3, minmax(0,1fr)) !important;
+  gap:6px !important;
+}.mode-glass3d .glass3d-material-btn,
+.mode-glass3d .glass3d-icon-btn{
+  min-height:40px !important;
+  height:40px !important;
+  padding:0 8px !important;
+  flex-direction:row !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:7px !important;
+  border:1px solid var(--nx-line-soft) !important;
+  border-radius:0 !important;
+  background:rgba(255,255,255,.045) !important;
+  box-shadow:none !important;
+}.mode-glass3d .glass3d-material-btn.active,
+.mode-glass3d .glass3d-icon-btn.active{
+  background:rgba(255,255,255,.14) !important;
+  border-color:rgba(255,255,255,.38) !important;
+  box-shadow:none !important;
+}.mode-glass3d .glass3d-material-chip{
+  flex:0 0 16px !important;
+  width:16px !important;
+  height:16px !important;
+  border-radius:50% !important;
+  border:1px solid rgba(255,255,255,.35) !important;
+  border-bottom:1px solid rgba(255,255,255,.35) !important;
+}.mode-glass3d .glass3d-material-btn > span:last-child,
+.mode-glass3d .glass3d-icon-btn span{
+  padding:0 !important;
+  font:800 8px/1 var(--nx-font) !important;
+  letter-spacing:.10em !important;
+  color:rgba(255,255,255,.72) !important;
+}.mode-glass3d .glass3d-material-btn.active > span:last-child,
+.mode-glass3d .glass3d-icon-btn.active span{ color:#fff !important; }.mode-glass3d .glass3d-preset-row,
+.panel:not(.collapsed) .glass3d-preset-row{
+  display:grid !important;
+  grid-template-columns:repeat(6, 1fr) !important;
+  gap:6px !important;
+}.mode-glass3d .glass3d-preset-pill,
+.panel:not(.collapsed) .glass3d-preset-pill{
+  width:100% !important;
+  height:24px !important;
+  min-width:0 !important;
+  border-radius:999px !important;
+  border:1px solid rgba(255,255,255,.28) !important;
+  box-shadow:none !important;
+}.mode-glass3d .glass3d-preset-pill.active,
+.panel:not(.collapsed) .glass3d-preset-pill.active{
+  border-color:rgba(255,255,255,.82) !important;
+  box-shadow:0 0 0 1px rgba(255,255,255,.22) !important;
+}.mode-glass3d .glass3d-icon-grid,
+.mode-glass3d .shape-grid,
+.mode-glass3d .material-grid{ grid-template-columns:repeat(3,1fr) !important; gap:5px !important; }.mode-glass3d .glass3d-icon-btn,
+.mode-glass3d .glass3d-material-btn{ height:34px !important; min-height:34px !important; padding:0 7px !important; border:1px solid var(--nx-line-soft) !important; background:rgba(255,255,255,.045) !important; border-radius:0 !important; gap:5px !important; box-shadow:none !important; }.mode-glass3d .glass3d-icon-btn span:not(.glass3d-shape-icon),
+.mode-glass3d .glass3d-material-btn span:not(.glass3d-material-chip){ font:800 7px/1 var(--nx-font) !important; letter-spacing:.09em !important; text-transform:uppercase !important; color:var(--nx-ink) !important; }.mode-glass3d .glass3d-icon-btn.active,
+.mode-glass3d .glass3d-material-btn.active{ background:rgba(255,255,255,.16) !important; border-color:rgba(255,255,255,.32) !important; }.mode-glass3d .glass3d-material-chip{ width:14px !important; height:14px !important; flex:0 0 14px !important; border-radius:50% !important; border:1px solid rgba(255,255,255,.38) !important; }.mode-glass3d .glass3d-preset-row{ display:grid !important; grid-template-columns:repeat(6,1fr) !important; gap:6px !important; }.mode-glass3d .glass3d-preset-pill,
+.mode-glass3d .glass3d-bg-swatch{ width:28px !important; height:28px !important; border-radius:50% !important; border:1px solid rgba(255,255,255,.34) !important; box-shadow:none !important; justify-self:start !important; }.mode-glass3d .glass3d-preset-pill.active,
+.mode-glass3d .glass3d-bg-swatch.active{ outline:1px solid currentColor !important; outline-offset:3px !important; }.mode-glass3d .glass3d-icon-grid,
+.mode-glass3d .shape-grid,
+.mode-glass3d .material-grid{ grid-template-columns:repeat(2,minmax(0,1fr)) !important; gap:6px !important; }.mode-glass3d .glass3d-icon-btn,
+.mode-glass3d .glass3d-material-btn{
+  height:38px !important;
+  min-height:38px !important;
+  padding:0 8px !important;
+  display:flex !important;
+  flex-direction:row !important;
+  justify-content:flex-start !important;
+  gap:8px !important;
+  overflow:hidden !important;
+}.mode-glass3d .glass3d-icon-btn span:not(.glass3d-shape-icon),
+.mode-glass3d .glass3d-material-btn span:not(.glass3d-material-chip){
+  min-width:0 !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+  white-space:nowrap !important;
+  font:800 7.5px/1 "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  letter-spacing:.08em !important;
+}.mode-glass3d .glass3d-shape-icon{ width:18px !important; height:18px !important; flex:0 0 18px !important; }.mode-glass3d .glass3d-material-chip{ width:15px !important; height:15px !important; flex:0 0 15px !important; }.mode-glass3d .glass3d-preset-row{ grid-template-columns:repeat(6,1fr) !important; gap:7px !important; }.mode-glass3d .glass3d-preset-pill,
+.mode-glass3d .glass3d-bg-swatch{ width:27px !important; height:27px !important; justify-self:center !important; }.mode-glass3d .glass3d-bg-row{ display:grid !important; grid-template-columns:repeat(6,1fr) !important; gap:7px !important; }.rail button[data-mode="glass3d"],
+.nav button[data-mode="glass3d"],
+.top-nav button[data-mode="glass3d"],
+button[title="3D BETA"],
+button[title="3D Beta"],
+button[title="3D"]{
+  display:none !important;
 }

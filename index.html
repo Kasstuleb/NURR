@@ -1,77 +1,66 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>NURR — Palette-led background systems</title>
-
-<link rel="stylesheet" href="https://use.typekit.net/uib5hvg.css" />
-<link rel="stylesheet" href="css/base.css?v=git-cache-20260521-3d-sync-1" />
-<link rel="stylesheet" href="css/mobile.css?v=git-cache-20260521-3d-sync-1" />
-<link rel="stylesheet" href="css/color-picker-working.css?v=git-cache-20260521-3d-sync-1" />
-<link rel="stylesheet" href="css/color-picker-input-fix.css?v=git-cache-20260521-3d-sync-1" />
-
-<link rel="stylesheet" href="css/gradient.css?v=git-cache-20260521-3d-sync-1" />
-<link rel="stylesheet" href="css/geometric.css?v=git-cache-20260521-3d-sync-1" />
-<link rel="stylesheet" href="css/glass3d.css?v=git-cache-20260521-3d-sync-1" />
-<link rel="stylesheet" href="css/abstract.css?v=git-cache-20260521-3d-sync-1" />
-<link rel="stylesheet" href="css/palette-mode.css?v=git-cache-20260521-3d-sync-1" />
-<link rel="stylesheet" href="css/palette-swatches-harmonize.css?v=git-cache-20260521-3d-sync-1" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NYMPH</title>
+  <link rel="stylesheet" href="https://use.typekit.net/uib5hvg.css" />
+  <link rel="stylesheet" href="css/base.css?v=20260629-css-ownership" />
+  <link rel="stylesheet" href="css/nav-v2.css?v=20260629-css-ownership" />
+  <link rel="stylesheet" href="css/mobile.css?v=20260629-css-ownership" />
+  <link rel="stylesheet" href="css/nurr-panels.css?v=20260629-css-ownership" />
+  <link rel="stylesheet" href="css/nurr-panel-design.css?v=20260629-css-ownership" />
+  <link rel="stylesheet" href="css/nymph-liquid-system.css?v=20260629-css-ownership" />
+  <link rel="stylesheet" href="css/panel-controls.css?v=20260629-css-ownership" />
+  <link rel="stylesheet" href="css/gradient.css?v=20260629-css-ownership" />
+  <link rel="stylesheet" href="css/geometric.css?v=20260629-css-ownership" />
+  <link rel="stylesheet" href="css/glass3d.css?v=20260629-css-ownership" />
+  <link rel="stylesheet" href="css/abstract.css?v=20260629-css-ownership" />
+  <link rel="stylesheet" href="css/palette.css?v=20260629-css-ownership" />
+  <link rel="stylesheet" href="css/export-panel-isolated.css?v=20260629-css-ownership" />
+  <link rel="stylesheet" href="css/panel-state-clean.css?v=20260629-css-ownership" />
+  <link rel="stylesheet" href="css/color-picker.css?v=20260629-css-ownership" />
+  <link rel="stylesheet" href="css/regression-fixes.css?v=20260629-regression-02" />
+  <link rel="stylesheet" href="css/nymph-brand-skin.css?v=20260630-logo-pass9" />
+  <link rel="stylesheet" href="css/nymph-landing.css?v=20260630-logo-pass9" />
 </head>
-
 <body>
-  <div id="root"></div>
-
-  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js"></script>
-  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js"></script>
-  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-
-  <script src="js/helpers.js?v=git-cache-20260521-3d-sync-1"></script>
-  <script type="text/babel" src="js/palette.js?v=git-cache-20260521-3d-sync-1"></script>
-
-  <script src="js/gradient-curated-palettes.js?v=git-cache-20260521-3d-sync-1"></script>
-  <script src="js/texture-presets.js?v=git-cache-20260521-3d-sync-1"></script>
-  <script src="js/texture-engine.js?v=git-cache-20260521-3d-sync-1"></script>
-  <script type="text/babel" src="js/gradient.js?v=git-cache-20260521-3d-sync-1"></script>
-
-  <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
-  <script src="js/glass3d-renderer.js?v=git-cache-20260521-3d-sync-1"></script>
-  <script type="text/babel" src="js/geometric.js?v=git-cache-20260521-3d-sync-1"></script>
-  <script type="text/babel" src="js/glass3d-mode.js?v=git-cache-20260521-3d-sync-1"></script>
-  <script type="text/babel" src="js/nature.js?v=git-cache-20260521-3d-sync-1"></script>
-  <script type="text/babel" src="js/abstract.js?v=git-cache-20260521-3d-sync-1"></script>
-  <script type="text/babel" src="js/palette-lab-mode.js?v=git-cache-20260521-3d-sync-1"></script>
-  <script type="text/babel" src="js/app.js?v=git-cache-20260521-3d-sync-1"></script>
-  <script src="js/mobile.js?v=git-cache-20260521-3d-sync-1"></script>
-
-  <div class="nurr-support-strip">
-    <span>NURR is independent.</span>
-    <a
-      href="https://ko-fi.com/kasstuleb"
-      target="_blank"
-      rel="noopener noreferrer"
-      id="nurrSupportOpen"
-    >
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="js/helpers.js?v=v16-interaction-lock"></script>
+<script src="js/palette.js?v=20260628_recent_chroma_final" type="text/babel"></script>
+<script src="js/gradient-curated-palettes.js?v=v16-interaction-lock"></script>
+<script src="js/texture-presets.js?v=20260628-chroma-reference"></script>
+<script src="js/texture-engine.js?v=20260628_recent_chroma_final"></script>
+<script src="js/gradient.js?v=20260630-export-hires-fix" type="text/babel"></script>
+<script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+<script src="js/glass3d-renderer.js?v=opal-body-swatches-1"></script>
+<script src="js/geometric.js?v=v16-interaction-lock" type="text/babel"></script>
+<script src="js/glass3d-mode.js?v=opal-body-swatches-1" type="text/babel"></script>
+<script src="js/nature.js?v=v18-preserve-features-motion" type="text/babel"></script>
+<script src="js/abstract.js?v=20260630-export-hires-fix" type="text/babel"></script>
+<script src="js/motion-export.js?v=20260624b-safari-video" type="text/babel"></script>
+<script src="js/nymph-landing.js?v=20260630-landing-replace-pass7"></script>
+<script src="js/app.js?v=20260630-export-hires-fix" type="text/babel"></script>
+<script src="js/mobile.js?v=v16-interaction-lock"></script>
+<div class="nurr-support-strip">
+<span>NYMPH is independent.</span>
+<a href="https://ko-fi.com/kasstuleb" id="nurrSupportOpen" rel="noopener noreferrer" target="_blank">
       Support me
     </a>
-  </div>
-
-  <div class="nurr-kofi-modal" id="nurrKofiModal" aria-hidden="true">
-    <button type="button" class="nurr-kofi-backdrop" id="nurrKofiClose" aria-label="Close support window"></button>
-
-    <div class="nurr-kofi-window">
-      <button type="button" class="nurr-kofi-x" id="nurrKofiCloseBtn" aria-label="Close">×</button>
-
-      <iframe
-        src="https://ko-fi.com/kasstuleb/?hidefeed=true&widget=true&embed=true&preview=true"
-        title="Support NURR on Ko-fi"
-        loading="lazy">
-      </iframe>
-    </div>
-  </div>
-
-  <script>
+</div>
+<div aria-hidden="true" class="nurr-kofi-modal" id="nurrKofiModal">
+<button aria-label="Close support window" class="nurr-kofi-backdrop" id="nurrKofiClose" type="button"></button>
+<div class="nurr-kofi-window">
+<button aria-label="Close" class="nurr-kofi-x" id="nurrKofiCloseBtn" type="button">×</button>
+<iframe loading="lazy" src="https://ko-fi.com/kasstuleb/?hidefeed=true&amp;widget=true&amp;embed=true&amp;preview=true" title="Support NURR on Ko-fi">
+</iframe>
+</div>
+</div>
+<script>
     window.addEventListener('load', function () {
       const openBtn = document.getElementById('nurrSupportOpen');
       const modal = document.getElementById('nurrKofiModal');

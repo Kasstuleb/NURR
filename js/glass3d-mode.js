@@ -85,6 +85,9 @@
       ptrStartY:   0,
       ptrHasMoved: false,
       canDrag: false,
+      mouseLocked: false,
+      lockX: 0.5,
+      lockY: 0.5,
     });
 
     const draw = React.useCallback((cssW, cssH, time, noHiDPI) => {
@@ -103,12 +106,13 @@
 
       const t    = tweaksRef.current;
       const inter = interRef.current;
-      const mouse = mouseRef?.current || { x: 0.5, y: 0.5 };
+      const liveMouse = mouseRef?.current || { x: 0.5, y: 0.5 };
+      const mouse = inter.mouseLocked ? { x: inter.lockX, y: inter.lockY } : liveMouse;
 
       const isFrozen   = inter.state === 'frozen';
       const isDragging = inter.state === 'dragging';
 
-      const now = time != null ? time : performance.now() * 0.001;
+      const now = time != null ? time : (window.__NURR_T ?? performance.now() * 0.001);
       const spin = spinRef.current;
       if (spin.lastTime == null) spin.lastTime = now;
       const dt = Math.max(0, Math.min(0.05, now - spin.lastTime));
@@ -142,13 +146,23 @@
 
     React.useEffect(() => {
       let alive = true;
+      let lastReal = null;
       const loop = () => {
         if (!alive) return;
-        draw(window.innerWidth, window.innerHeight, performance.now() * 0.001);
+        // Glass3D owns window.__NURR_T while it is the active module.
+        // This makes the speed multiplier (window.__NURR_SPEED) work for video recording.
+        const realNow = performance.now() * 0.001;
+        if (lastReal === null) lastReal = realNow;
+        const dt = Math.min(realNow - lastReal, 0.1);
+        lastReal = realNow;
+        const speed = window.__NURR_SPEED ?? 1.0;
+        if (window.__NURR_T == null) window.__NURR_T = 0;
+        window.__NURR_T += dt * speed;
+        draw(window.innerWidth, window.innerHeight, window.__NURR_T);
         frameRef.current = requestAnimationFrame(loop);
       };
-      loop();
-      const resize = () => draw(window.innerWidth, window.innerHeight, performance.now() * 0.001);
+      requestAnimationFrame(loop);
+      const resize = () => draw(window.innerWidth, window.innerHeight, window.__NURR_T ?? 0);
       window.addEventListener('resize', resize);
       return () => {
         alive = false;
@@ -160,18 +174,45 @@
     React.useEffect(() => {
       registerSnapshot((opts = {}) => {
         const canvas = canvasRef.current; if (!canvas) return null;
-        const w = opts.width || 3840;
+        const w = opts.width  || 3840;
         const h = opts.height || 2160;
+
+        // Transparent layer export — render the 3D object without background
+        // onto a dedicated offscreen canvas. The live screen canvas is untouched.
+        if (opts.transparent) {
+          const off = document.createElement('canvas');
+          off.width = w; off.height = h;
+          const t    = tweaksRef.current;
+          const inter = interRef.current;
+          const spin  = spinRef.current;
+          const ok = window.NurrGlass3DRenderer && window.NurrGlass3DRenderer.renderToCanvas(off, {
+            ...t,
+            time:       window.__NURR_T ?? performance.now() * 0.001,
+            spinAngle:  spin.angle,
+            mouse:      { x: 0.5, y: 0.5 }, // neutral mouse for clean snapshot
+            seed:       seedRef.current,
+            targetPosX: inter.state === 'frozen' ? inter.objX : null,
+            targetPosY: inter.state === 'frozen' ? inter.objY : null,
+            frozen:     inter.state === 'frozen',
+            transparent: true, // key: routes to alpha-enabled renderer, skips bgPln
+          });
+          if (!ok) return null;
+          const dataUrl = off.toDataURL('image/png');
+          if (!opts.returnDataUrl) WP.downloadCanvas(off, opts.filename || (`nurr-3d-layer-${w}x${h}-${Date.now()}.png`));
+          return dataUrl;
+        }
+
+        // Normal composite snapshot (existing behaviour)
         const ow = canvas.width, oh = canvas.height;
         const osw = canvas.style.width, osh = canvas.style.height;
-        draw(w, h, performance.now() * 0.001, true);
+        draw(w, h, window.__NURR_T ?? performance.now() * 0.001, true);
         const dataUrl = canvas.toDataURL('image/png');
-        if (!opts.returnDataUrl) WP.downloadCanvas(canvas, opts.filename || ('nurr-3d-object-' + w + 'x' + h + '-' + Date.now() + '.png'));
+        if (!opts.returnDataUrl) WP.downloadCanvas(canvas, opts.filename || (`nurr-3d-object-${w}x${h}-${Date.now()}.png`));
         const restore = () => {
           canvas.width = ow; canvas.height = oh;
           canvas.style.width = osw; canvas.style.height = osh;
           const dpr = window.devicePixelRatio || 1;
-          draw(ow / dpr, oh / dpr, performance.now() * 0.001);
+          draw(ow / dpr, oh / dpr, window.__NURR_T ?? performance.now() * 0.001);
         };
         if (opts.returnDataUrl) restore(); else requestAnimationFrame(restore);
         return dataUrl;
@@ -312,6 +353,16 @@
       if (e) setStageCursor(getObjectHit(e.clientX, e.clientY) ? 'grab' : 'default');
     }, [getObjectHit, setStageCursor]);
 
+    const onDoubleClick = React.useCallback((e) => {
+      const inter = interRef.current;
+      const canvas = canvasRef.current; if (!canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      inter.mouseLocked = !inter.mouseLocked;
+      inter.lockX = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      inter.lockY = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+      e.preventDefault();
+    }, []);
+
     return React.createElement('canvas', {
       ref:           canvasRef,
       className:     'stage',
@@ -322,6 +373,7 @@
       onPointerDown: onPointerDown,
       onPointerMove: onPointerMove,
       onPointerUp:   onPointerUp,
+      onDoubleClick: onDoubleClick,
     });
   }
 
@@ -336,14 +388,14 @@
 
   // ── Controls component ────────────────────────────────────────────────────
   function Glass3DControls({ tweaks, setTweaks }) {
-    const [presetsOpen, setPresetsOpen] = React.useState(false);
+    const [presetsOpen, setPresetsOpen] = React.useState(true);
     const shapes = [
       ['sphere','Sphere'],['cube','Cube'],['soap','Soap'],
       ['pebble','Pebble'],['tablet','Tablet'],['capsule','Capsule'],['torus','Donut'],
     ];
     const materials = [
       ['glass','Clear glass'],['opal','Opal'],['water','Water'],
-      ['metal','Metal'],['holo','Holographic'],['crystal','Crystal'],
+      ['metal','Metal'],['holo','Holographic'],
     ];
     const bgOptions = [
       ['gradient','Gradient'],['bw','B&W'],['light','Light grey'],

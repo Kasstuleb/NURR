@@ -1,30 +1,56 @@
-// texture-engine.js — shared helpers for surface/material passes.
-// This first version is intentionally small: it gives modules one stable way
-// to read texture preset data without binding the UI to one renderer.
+// texture-engine.js — isolated surface state for NURR renderers.
+// Chromatic haze and Pixelate are intentionally separated:
+// - chroma uses u_chroma* uniforms and never alters the UV grid.
+// - pixelate is the only preset that can enable the pixel prepass.
 (function(){
+  function clamp01(v, fallback){
+    const n = Number(v);
+    if (!Number.isFinite(n)) return fallback;
+    return Math.max(0, Math.min(1, n));
+  }
   function list(){ return window.NURR_TEXTURE_PRESETS || []; }
   function byId(id){ return list().find(p => p.id === id) || list()[0] || null; }
   function toUniforms(tweaks){
-    const preset = byId(tweaks && tweaks.texturePreset);
-    const amount = Number.isFinite(+tweaks?.textureAmount) ? +tweaks.textureAmount : (preset ? preset.amount : 0);
+    const presetId = (tweaks && tweaks.texturePreset) || 'clean';
+    const preset = byId(presetId) || { id:'clean', mode:0, amount:0, scale:0.45, softness:0.5, distortion:0 };
+    const seed = Number.isFinite(+tweaks?.textureSeed) ? +tweaks.textureSeed : 0.413;
+    const rawAmount = Number.isFinite(+tweaks?.textureAmount) ? +tweaks.textureAmount : preset.amount;
+
+    const isPixelate = preset.id === 'print-noise';
+    const isChroma = preset.id === 'chromatic-haze';
+
     return {
       preset,
-      mode: preset ? preset.mode : 0,
-      amount: Math.max(0, Math.min(1, amount)),
-      scale: preset ? preset.scale : 0.45,
-      softness: preset ? preset.softness : 0.5,
-      distortion: preset ? preset.distortion : 0,
-      seed: Number.isFinite(+tweaks?.textureSeed) ? +tweaks.textureSeed : 0.413,
-      image: preset ? preset.image : null,
-      blend: preset ? preset.blend : null
+      // Legacy texture mode is now reserved for non-chroma/non-pixel surfaces.
+      // Pixelate still uses mode 5 for its colour quantisation, but only when
+      // u_pixelateEnabled is also true. Chroma never uses this path.
+      mode: (isPixelate || isChroma || preset.id === 'clean') ? 0 : (preset.mode || 0),
+      amount: isPixelate ? clamp01(rawAmount, preset.amount || 0.45) : (isChroma ? 0 : clamp01(rawAmount, preset.amount || 0)),
+      scale: Number.isFinite(+tweaks?.textureScale) ? +tweaks.textureScale : (preset.scale ?? 0.45),
+      softness: preset.softness ?? 0.5,
+      distortion: preset.distortion ?? 0,
+      seed,
+      pixelateEnabled: isPixelate ? 1 : 0,
+      pixelateAmount: isPixelate ? clamp01(rawAmount, preset.amount || 0.44) : 0,
+      pixelateScale: isPixelate ? (Number.isFinite(+tweaks?.textureScale) ? +tweaks.textureScale : (preset.scale ?? 0.62)) : 0.62,
+      chromaEnabled: isChroma ? 1 : 0,
+      chromaAmount: isChroma ? clamp01(rawAmount, preset.amount || 0.72) : 0,
+      chromaSeed: seed,
+      image: preset.image || null,
+      blend: preset.blend || null
     };
   }
   function applyPresetToTweaks(preset, current){
     if (!preset) return {};
+    const id = preset.id;
     return {
-      texturePreset: preset.id,
-      textureAmount: preset.amount,
-      textureSeed: current?.textureSeed ?? Math.random()
+      texturePreset: id,
+      textureAmount: id === 'clean' ? 0 : (id === 'chromatic-haze' ? (preset.amount ?? 0.78) : (id === 'print-noise' ? (preset.amount ?? 0.44) : preset.amount)),
+      // Reset scale on every surface switch. Pixelate is the only preset that
+      // uses scale as grid size; chroma uses its own uniforms and must never
+      // inherit a previous pixel-grid value.
+      textureScale: id === 'print-noise' ? (preset.scale ?? 0.62) : (id === 'chromatic-haze' ? 0.45 : (preset.scale ?? 0.45)),
+      textureSeed: Math.random()
     };
   }
   window.NurrTextureEngine = { list, byId, toUniforms, applyPresetToTweaks };

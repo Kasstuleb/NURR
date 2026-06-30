@@ -118,14 +118,26 @@ const PALETTE_PRESETS = [
 ];
 
 // ─── React hooks ──────────────────────────────────────────────────────────────
+// ─── Global animation speed ───────────────────────────────────────────────────
+// Set window.__NURR_SPEED to a multiplier (e.g. 2.0 for 2× speed) before
+// recording. Modules read window.__NURR_T as a drop-in for performance.now()/1000.
+window.__NURR_SPEED = 1.0;
+window.__NURR_T = null; // null = not yet seeded
+
 function useAnimationLoop(cb, deps = []) {
   const cbRef = React.useRef(cb);
   cbRef.current = cb;
   React.useEffect(() => {
-    let raf, last = performance.now();
+    let raf;
+    let virtualTime = window.__NURR_T ?? 0;
+    let lastReal = performance.now();
     const tick = (now) => {
-      const dt = (now - last) / 1000; last = now;
-      cbRef.current(now / 1000, dt);
+      const dt = Math.min((now - lastReal) / 1000, 0.1); // clamp to avoid tab-hidden jump
+      lastReal = now;
+      const speed = window.__NURR_SPEED ?? 1.0;
+      virtualTime += dt * speed;
+      window.__NURR_T = virtualTime; // publish for all modules
+      cbRef.current(virtualTime, dt * speed);
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -148,7 +160,7 @@ function useMouse() {
       c.tx = ntx; c.ty = nty;
     };
     const onDown = (e) => {
-      if (e.target.closest('.panel,.icon-btn,.rail,.layout-card,.palette-card,.nature-thumb,.swatch,.color-wheel-card,.eyedropper-follow,.formation-card,button,input,.drop-zone')) return;
+      if (e.target.closest('.panel,.icon-btn,.rail,.layout-card,.palette-card,.nature-thumb,.swatch,.color-wheel-card,.eyedropper-follow,.abstract-form-btn,button,input,.drop-zone,.nymph-landing')) return;
       const c = ref.current;
       c.down = true; c.lastClick = performance.now()/1000; c.clickCount += 1;
     };
