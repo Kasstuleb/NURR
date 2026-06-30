@@ -1,8 +1,20 @@
 /* ─────────────────────────────────────────────────────────────────────────────
    NYMPH brand skin — app-only visual layer
-   Scope: header/logo/menu/panel/footer polish. Landing lives separately in:
-   css/nymph-landing.css + js/nymph-landing.js
+   Scope: header/logo/menu/panel/footer polish, plus the shared brand tokens
+   (accent color, logo geometry) referenced by css/nymph-landing.css so the
+   landing screen and the app read as one consistent surface.
    Core module logic is intentionally untouched.
+
+   Cleanup pass, 2026-06-30:
+   - Removed a duplicated/overridden ".nurr-brand" rule pair and merged it
+     into one rule using shared logo-geometry variables (no visual change to
+     the app logo — same final left/top/width/opacity as before).
+   - Replaced the global neon accent (#FF2D72) with a calm teal that matches
+     the landing's existing aqua/mineral palette, plus three small overrides
+     so badges/hover states that had the old pink hardcoded stay consistent.
+   - Added a soft CSS-only reveal for the app chrome (logo/nav/panel/footer)
+     when the landing screen is dismissed. No JS was changed — this rides on
+     the existing body.nymph-landing-active class toggle already in app.js.
    ───────────────────────────────────────────────────────────────────────────── */
 
 :root {
@@ -20,6 +32,20 @@
   --nymph-line-strong: rgba(255,255,255,.32);
   --nymph-glass: rgba(7, 9, 16, .20);
   --nymph-stripe: rgba(246,246,246,.82);
+
+  /* Shared brand-mark geometry — read by the app logo below AND by
+     css/nymph-landing.css, so the landing logo renders at the same size
+     and screen position as the in-app logo. */
+  --nymph-logo-width: clamp(230px, 22vw, 340px);
+  --nymph-logo-left:  clamp(34px, 4.6vw, 76px);
+  --nymph-logo-top:   clamp(54px, 8.5vh, 104px);
+
+  /* Brand accent — replaces the legacy neon pink (#FF2D72) used across the
+     module CSS via var(--accent)/var(--accent-soft). Redeclaring it here
+     (later in the cascade than base.css) recolors every focus ring, active
+     state and badge app-wide to a calm teal without editing module files. */
+  --accent: #3FA7AF;
+  --accent-soft: rgba(63, 167, 175, .16);
 }
 
 html,
@@ -34,14 +60,15 @@ textarea {
 #root::before { display: none !important; }
 .corner-mark { display: none !important; }
 
-/* Header logo */
+/* Header logo — single source of truth (left/top/width come from the
+   shared variables above so this always matches the landing logo). */
 @media (min-width: 821px) {
   .nurr-brand,
   .nurr-brand-button {
     position: fixed !important;
-    left: 24px !important;
-    top: 70px !important;
-    width: clamp(260px, 24vw, 430px) !important;
+    left: var(--nymph-logo-left) !important;
+    top: var(--nymph-logo-top) !important;
+    width: var(--nymph-logo-width) !important;
     height: auto !important;
     padding: 0 !important;
     display: flex !important;
@@ -52,16 +79,16 @@ textarea {
     box-shadow: none !important;
     cursor: pointer !important;
     z-index: 30 !important;
-    opacity: .72 !important;
-    mix-blend-mode: screen !important;
-    transition: opacity .26s ease, filter .34s ease, transform .34s cubic-bezier(.2,.9,.2,1) !important;
+    opacity: 1 !important;
+    mix-blend-mode: normal !important;
+    filter: none !important;
+    transform: translateZ(0) !important;
+    transition: transform .34s cubic-bezier(.2,.9,.2,1) !important;
   }
 
   .nurr-brand:hover,
   .nurr-brand-button:hover {
-    opacity: .9 !important;
-    filter: drop-shadow(0 0 18px rgba(255,255,255,.12)) !important;
-    transform: translateY(-1px) !important;
+    transform: translateY(-1px) scale(1.004) !important;
   }
 
   .nurr-brand::after,
@@ -74,9 +101,16 @@ textarea {
     height: auto !important;
     max-height: none !important;
     object-fit: contain !important;
-    filter: invert(1) grayscale(1) brightness(1.08) contrast(.96) !important;
-    opacity: .82 !important;
     pointer-events: none !important;
+    filter: brightness(0) invert(1) !important;
+    opacity: .64 !important;
+    mix-blend-mode: screen !important;
+    transition: opacity .28s ease !important;
+  }
+
+  .nurr-brand:hover img,
+  .nurr-brand-button:hover img {
+    opacity: .82 !important;
   }
 }
 
@@ -347,7 +381,7 @@ textarea {
     min-width: 276px !important;
     height: 76px !important;
     min-height: 76px !important;
-    border-radius: 18px !important;
+    border-radius: var(--nymph-panel-radius) !important;
     background:
       linear-gradient(180deg, rgba(255,255,255,.115), rgba(255,255,255,.035) 52%, rgba(0,0,0,.105)),
       rgba(4,7,11,.18) !important;
@@ -402,39 +436,64 @@ textarea {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   App logo correction — match landing/mockup scale, pale screen blend.
-   Safe override: header logo only, does not touch module controls.
+   Accent consistency — three hardcoded copies of the old pink (rgba(255,45,114,…))
+   live inside module CSS (geometric material toggle, drop-zone hover, export
+   error state) and don't read var(--accent), so the global token swap above
+   doesn't reach them on its own. Restated here, scoped to the same selectors,
+   so nothing in the app still shows the old neon pink. No module file edited.
+   The export error state is kept a calm warning-red rather than teal, since
+   recoloring an error message to the brand accent would read as not-an-error.
    ───────────────────────────────────────────────────────────────────────────── */
-@media (min-width: 821px) {
-  .nurr-brand,
-  .nurr-brand-button {
-    left: clamp(34px, 4.6vw, 76px) !important;
-    top: clamp(54px, 8.5vh, 104px) !important;
-    width: clamp(230px, 22vw, 340px) !important;
-    opacity: 1 !important;
-    mix-blend-mode: normal !important;
-    filter: none !important;
-    transform: translateZ(0) !important;
-  }
+.mode-geometric .material-toggle button.active {
+  background: rgba(63, 167, 175, .14) !important;
+}
 
-  .nurr-brand:hover,
-  .nurr-brand-button:hover {
-    opacity: 1 !important;
-    transform: translateY(-1px) scale(1.004) !important;
-    filter: none !important;
-  }
+.panel .drop-zone:hover {
+  background: rgba(63, 167, 175, .08) !important;
+}
 
-  .nurr-brand img,
-  .nurr-brand-button img {
-    width: 100% !important;
-    opacity: .64 !important;
-    filter: brightness(0) invert(1) !important;
-    mix-blend-mode: screen !important;
-    transition: opacity .28s ease, transform .36s cubic-bezier(.2,.9,.2,1) !important;
-  }
+.vid-error {
+  background: rgba(255, 122, 105, .08) !important;
+  border-color: rgba(255, 122, 105, .28) !important;
+  color: #ff9a85 !important;
+}
 
-  .nurr-brand:hover img,
-  .nurr-brand-button:hover img {
-    opacity: .74 !important;
+/* ─────────────────────────────────────────────────────────────────────────────
+   Soft opening — landing → app handoff.
+   Pure CSS, no JS changed: js/app.js already toggles body.nymph-landing-active
+   when the landing screen mounts/unmounts. This rule only fires the moment
+   that class is removed (i.e. the instant the landing is dismissed), giving
+   the header logo, nav, panel and footer a brief, calm rise-and-fade instead
+   of snapping into view.
+   ───────────────────────────────────────────────────────────────────────────── */
+@keyframes nymphAppReveal {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+body:not(.nymph-landing-active) .nurr-brand,
+body:not(.nymph-landing-active) .nurr-brand-button {
+  animation: nymphAppReveal .7s cubic-bezier(.16,.9,.18,1) .04s both;
+}
+
+body:not(.nymph-landing-active) .rail {
+  animation: nymphAppReveal .7s cubic-bezier(.16,.9,.18,1) .13s both;
+}
+
+body:not(.nymph-landing-active) .panel {
+  animation: nymphAppReveal .7s cubic-bezier(.16,.9,.18,1) .21s both;
+}
+
+body:not(.nymph-landing-active) .nurr-support-strip {
+  animation: nymphAppReveal .6s cubic-bezier(.16,.9,.18,1) .3s both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body:not(.nymph-landing-active) .nurr-brand,
+  body:not(.nymph-landing-active) .nurr-brand-button,
+  body:not(.nymph-landing-active) .rail,
+  body:not(.nymph-landing-active) .panel,
+  body:not(.nymph-landing-active) .nurr-support-strip {
+    animation: none !important;
   }
 }

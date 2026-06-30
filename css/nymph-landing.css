@@ -8,6 +8,17 @@
      --nymph-steel        #3e5a66  faded steel
      --nymph-aqua         #bfe6e8  aquatic highlight, used sparingly
      Type: Helvetica Neue for the one piece of copy on the page (the enter label).
+
+   Cleanup pass, 2026-06-30:
+   - The logo now reads --nymph-logo-width/--nymph-logo-left/--nymph-logo-top
+     from css/nymph-brand-skin.css (loaded first), so it renders at the same
+     size and screen position as the in-app header logo. Desktop only — the
+     existing mobile override below is untouched.
+   - Logo entrance (fade-in, liquid emerge, wordmark opacity, draw-line,
+     tagline, enter button) is retimed to resolve in ~1.5s instead of ~4.8s,
+     and the logo's resting opacity is raised so it reads clearly instead of
+     staying faint. The liquid "rising from water" mask effect itself is
+     unchanged, just compressed in time.
 */
 
 .nymph-landing {
@@ -60,6 +71,8 @@
   align-items: flex-start;
   justify-content: flex-start;
   padding: clamp(56px, 9vh, 124px) clamp(40px, 7vw, 132px);
+  padding-top: var(--nymph-logo-top, clamp(54px, 8.5vh, 104px));
+  padding-left: var(--nymph-logo-left, clamp(34px, 4.6vw, 76px));
   pointer-events: none;
   text-align: left;
   opacity: 0;
@@ -79,7 +92,7 @@
   cursor: pointer;
   pointer-events: auto;
   opacity: 0;
-  filter: brightness(1.2) invert(1) drop-shadow(0 0 0 rgba(0,0,0,0));
+  filter: brightness(1.3) invert(1) drop-shadow(0 0 26px rgba(191,230,232,.16));
   mix-blend-mode: screen;
   -webkit-mask-image: linear-gradient(to top, transparent 0%, transparent 46%, #000 64%, #000 100%);
           mask-image: linear-gradient(to top, transparent 0%, transparent 46%, #000 64%, #000 100%);
@@ -91,9 +104,9 @@
           mask-position: 0 100%;
   transform: translateZ(0);
   animation:
-    nymphLogoFadeIn .45s ease-out .3s forwards,
-    nymphEmerge 2.6s cubic-bezier(.19,.85,.22,1) 1.0s forwards,
-    nymphLap 6.5s ease-in-out 3.7s infinite;
+    nymphLogoFadeIn .4s ease-out .15s forwards,
+    nymphEmerge 1.15s cubic-bezier(.19,.85,.22,1) .35s forwards,
+    nymphLap 6.5s ease-in-out 1.6s infinite;
   transition: transform .5s cubic-bezier(.2,.9,.2,1);
 }
 
@@ -106,13 +119,13 @@
 /* Wordmark — secondary, a placard beneath the mark, not a second hero. */
 .nymph-landing-full-logo {
   display: block;
-  width: clamp(150px, 15vw, 220px);
+  width: var(--nymph-logo-width, clamp(230px, 22vw, 340px));
   height: auto;
   opacity: 0;
-  filter: grayscale(.2) brightness(1.05);
+  filter: brightness(1.05);
   position: relative;
   padding-top: clamp(14px, 1.8vh, 22px);
-  animation: nymphWordmarkIn 1s ease-out 3.0s forwards;
+  animation: nymphWordmarkIn .65s ease-out .45s forwards;
 }
 
 .nymph-landing-full-logo::before {
@@ -123,7 +136,7 @@
   height: 1px;
   width: 0;
   background: linear-gradient(90deg, rgba(191,230,232,.55), transparent);
-  animation: nymphDrawLine 1.2s ease-out 3.1s forwards;
+  animation: nymphDrawLine .9s ease-out .55s forwards;
 }
 
 /* Tagline — the one line of copy on the page. Generated here rather than in markup
@@ -139,7 +152,7 @@
   color: rgba(255,255,255,.38);
   opacity: 0;
   transform: translateY(6px);
-  animation: nymphRise 1s cubic-bezier(.16,.9,.18,1) 3.8s forwards;
+  animation: nymphRise .85s cubic-bezier(.16,.9,.18,1) 1.3s forwards;
 }
 
 /* Enter — a precise instrument, not a button. A hairline ring with one slow-turning mark,
@@ -165,8 +178,8 @@
   opacity: 0;
   box-shadow: 0 0 0 0 rgba(191,230,232,0);
   animation:
-    nymphRise 1s cubic-bezier(.16,.9,.18,1) 3.0s forwards,
-    nymphEnterPulse 4.2s ease-in-out 4.2s infinite;
+    nymphRise .9s cubic-bezier(.16,.9,.18,1) 1.0s forwards,
+    nymphEnterPulse 4.2s ease-in-out 1.9s infinite;
   transition: background .3s ease, border-color .3s ease, color .3s ease, transform .35s cubic-bezier(.2,.9,.2,1);
 }
 
@@ -255,7 +268,7 @@ body.nymph-landing-active .nurr-kofi-modal {
 }
 
 @keyframes nymphWordmarkIn {
-  to { opacity: .42; }
+  to { opacity: .94; }
 }
 
 @keyframes nymphSpin {
@@ -284,7 +297,7 @@ body.nymph-landing-active .nurr-kofi-modal {
             mask-position: 0 50% !important;
   }
   .nymph-landing-full-logo {
-    opacity: .42 !important;
+    opacity: .94 !important;
   }
   .nymph-landing-full-logo::before {
     width: 100% !important;
