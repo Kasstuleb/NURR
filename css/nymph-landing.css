@@ -313,3 +313,9 @@ body.nymph-landing-active .nurr-kofi-modal {
   .nymph-enter { right: 24px; bottom: 28px; }
   .nymph-enter::after { display: none; }
 }
+
+/* Stabilization fallback: do not leave landing invisible if animation is delayed/blocked. */
+.nymph-landing-content { opacity: 1; transform: translateY(0); }
+.nymph-landing-logo { opacity: 1; }
+.nymph-landing-full-logo { opacity: .94; }
+.nymph-enter { opacity: 1; }

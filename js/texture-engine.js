@@ -9,9 +9,11 @@
     return Math.max(0, Math.min(1, n));
   }
   function list(){ return window.NURR_TEXTURE_PRESETS || []; }
-  function byId(id){ return list().find(p => p.id === id) || list()[0] || null; }
+  function byId(id){ return list().find(p => p.id === id) || list().find(p => p.id === 'clean') || list()[0] || null; }
+  function isKnownSurface(id){ return !!list().find(p => p.id === id); }
   function toUniforms(tweaks){
-    const presetId = (tweaks && tweaks.texturePreset) || 'clean';
+    const requestedPresetId = (tweaks && tweaks.texturePreset) || 'clean';
+    const presetId = isKnownSurface(requestedPresetId) ? requestedPresetId : 'clean';
     const preset = byId(presetId) || { id:'clean', mode:0, amount:0, scale:0.45, softness:0.5, distortion:0 };
     const seed = Number.isFinite(+tweaks?.textureSeed) ? +tweaks.textureSeed : 0.413;
     const rawAmount = Number.isFinite(+tweaks?.textureAmount) ? +tweaks.textureAmount : preset.amount;
@@ -34,7 +36,9 @@
       pixelateAmount: isPixelate ? clamp01(rawAmount, preset.amount || 0.44) : 0,
       pixelateScale: isPixelate ? (Number.isFinite(+tweaks?.textureScale) ? +tweaks.textureScale : (preset.scale ?? 0.62)) : 0.62,
       chromaEnabled: isChroma ? 1 : 0,
-      chromaAmount: isChroma ? clamp01(rawAmount, preset.amount || 0.72) : 0,
+      // Cap chroma below full strength. Above this range the prism pass can
+      // posterize on some WebGL/GPU combinations and look like broken blocks.
+      chromaAmount: isChroma ? Math.min(0.62, clamp01(rawAmount, preset.amount || 0.56)) : 0,
       chromaSeed: seed,
       image: preset.image || null,
       blend: preset.blend || null
@@ -45,7 +49,7 @@
     const id = preset.id;
     return {
       texturePreset: id,
-      textureAmount: id === 'clean' ? 0 : (id === 'chromatic-haze' ? (preset.amount ?? 0.78) : (id === 'print-noise' ? (preset.amount ?? 0.44) : preset.amount)),
+      textureAmount: id === 'clean' ? 0 : (id === 'chromatic-haze' ? Math.min(0.56, preset.amount ?? 0.56) : (id === 'print-noise' ? (preset.amount ?? 0.44) : preset.amount)),
       // Reset scale on every surface switch. Pixelate is the only preset that
       // uses scale as grid size; chroma uses its own uniforms and must never
       // inherit a previous pixel-grid value.
@@ -53,5 +57,5 @@
       textureSeed: Math.random()
     };
   }
-  window.NurrTextureEngine = { list, byId, toUniforms, applyPresetToTweaks };
+  window.NurrTextureEngine = { list, byId, toUniforms, applyPresetToTweaks, isKnownSurface };
 })();

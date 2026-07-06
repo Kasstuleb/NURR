@@ -520,7 +520,11 @@ void main() {
   // ── Vignette ──────────────────────────────────────────────────────────────
   if (u_vignette > 0.01) {
     vec2 vigUV = uv - 0.5;
-    vigUV.x *= u_res.x / u_res.y;
+    // Portrait-fair: stretch the shorter axis so the vignette stays circular
+    // in both orientations instead of pinching horizontally on mobile.
+    float vAR = u_res.x / max(u_res.y, 1.0);
+    if (vAR >= 1.0) vigUV.x *= vAR;
+    else            vigUV.y /= max(vAR, 0.0001);
     col *= 1.0 - smoothstep(0.28, 0.82, length(vigUV)) * u_vignette * 0.92;
   }
 

@@ -1,5 +1,5 @@
 // app.js — NURR v4.
-// Modes: gradient | geometric | glass3d | nature | abstract
+// Active modes: gradient | abstract | geometric | nature/photo. Dormant legacy modes are intentionally not loaded in public build.
 // Panel: Create / Library + restored Export panel with Still / Motion / Web / Recipe.
 // Layer capture: every save stores type, module, hasAlpha, alphaPreview, tweaks snapshot.
 
@@ -7,9 +7,9 @@ const { useEffect, useRef, useState, useCallback } = React;
 
 const MODULE_LAYER_TYPE = {
   gradient: 'background', abstract: 'background',
-  nature: 'background', glass3d: 'object', geometric: 'object',
+  nature: 'background', geometric: 'object',
 };
-const MODULE_HAS_ALPHA = { glass3d: true, geometric: true };
+const MODULE_HAS_ALPHA = { geometric: true };
 
 const EXPORT_SIZES = {
   square:   { label: '1×1',   w: 1080, h: 1080, ratio: '1:1' },
@@ -286,10 +286,8 @@ function App() {
 
   const [gradientTweaks,  setGradientTweaks]  = useState(window.GRADIENT_DEFAULTS);
   const [geometricTweaks, setGeometricTweaks] = useState(window.GEOMETRIC_DEFAULTS);
-  const [glass3dTweaks,   setGlass3dTweaks]   = useState(window.GLASS3D_DEFAULTS);
   const [natureTweaks,    setNatureTweaks]    = useState(window.NATURE_DEFAULTS);
   const [abstractTweaks,  setAbstractTweaks]  = useState(window.ABSTRACT_DEFAULTS);
-  const [paletteTweaks,   setPaletteTweaks]   = useState(window.PALETTE_DEFAULTS);
 
   const [natureImages, setNatureImages] = useState([]);
   const [currentImg,   setCurrentImg]   = useState(null);
@@ -305,7 +303,7 @@ function App() {
   // History
   const [history, setHistory] = useState([]);
   const suppressHistory = useRef(false);
-  const currentState = () => ({ mode, gradientTweaks, geometricTweaks, glass3dTweaks, natureTweaks, abstractTweaks, paletteTweaks, currentImg });
+  const currentState = () => ({ mode, gradientTweaks, geometricTweaks, natureTweaks, abstractTweaks, currentImg });
   const pushHistory = () => { if (suppressHistory.current) return; setHistory(h => [...h.slice(-11), currentState()]); };
 
   const changeMode = (next) => {
@@ -314,10 +312,8 @@ function App() {
 
   const patchGradient  = (p) => { pushHistory(); setGradientTweaks(s  => ({ ...s, ...p })); };
   const patchGeometric = (p) => { pushHistory(); setGeometricTweaks(s => ({ ...s, ...p })); };
-  const patchGlass3D   = (p) => { pushHistory(); setGlass3dTweaks(s   => ({ ...s, ...p })); };
   const patchNature    = (p) => { pushHistory(); setNatureTweaks(s    => ({ ...s, ...p })); };
   const patchAbstract  = (p) => { pushHistory(); setAbstractTweaks(s  => ({ ...s, ...p })); };
-  const patchPalette   = (p) => { pushHistory(); setPaletteTweaks(s   => ({ ...s, ...p })); };
 
   const undo = () => {
     setHistory(h => {
@@ -326,10 +322,8 @@ function App() {
       setMode(prev.mode);
       setGradientTweaks(prev.gradientTweaks);
       setGeometricTweaks(prev.geometricTweaks);
-      if (prev.glass3dTweaks)  setGlass3dTweaks(prev.glass3dTweaks);
       setNatureTweaks(prev.natureTweaks);
       setAbstractTweaks(prev.abstractTweaks);
-      if (prev.paletteTweaks)  setPaletteTweaks(prev.paletteTweaks);
       if (prev.currentImg != null) setCurrentImg(prev.currentImg);
       setTimeout(() => { suppressHistory.current = false; }, 0);
       return h.slice(0, -1);
@@ -359,10 +353,19 @@ function App() {
     ref.current({ width: size.w, height: size.h, filename: `nurr-${mode}-${size.label}-${Date.now()}.png` });
   };
 
-  const doTransparentSnapshot = (sizeKey = 'hd') => {
+  const doTransparentSnapshot = (sizeKey = 'wide') => {
     if (!snapshotRef.current) return;
-    const size = EXPORT_SIZES[sizeKey] || EXPORT_SIZES.hd;
+    const size = EXPORT_SIZES[sizeKey] || EXPORT_SIZES.wide;
     snapshotRef.current({ width: size.w, height: size.h, transparent: true, filename: `nurr-${mode}-layer-${size.label}-${Date.now()}.png` });
+  };
+
+  // Mobile export: render at the exact requested size and hand back a PNG data
+  // URL so the mobile UI can offer Download + Open-image (iOS long-press save).
+  const mobileGetImage = (sizeKey = 'wide') => {
+    if (!snapshotRef.current) return null;
+    const size = EXPORT_SIZES[sizeKey] || EXPORT_SIZES.wide;
+    const r = snapshotRef.current({ width: size.w, height: size.h, returnDataUrl: true });
+    return typeof r === 'string' ? r : (r && r.dataUrl) || null;
   };
 
   const captureCurrent = () => {
@@ -385,7 +388,7 @@ function App() {
       if (hasAlpha && snapshotRef.current) {
         alphaPreview = snapshotRef.current({ width: 960, height: 540, returnDataUrl: true, transparent: true });
       }
-      const tweaksSnap = { gradient: gradientTweaks, geometric: geometricTweaks, glass3d: glass3dTweaks, nature: natureTweaks, abstract: abstractTweaks, palette: paletteTweaks };
+      const tweaksSnap = { gradient: gradientTweaks, geometric: geometricTweaks, nature: natureTweaks, abstract: abstractTweaks };
       setLibrary(items => [...items, {
         id, type, module: mode, hasAlpha,
         preview, alphaPreview, renderState,
@@ -473,7 +476,7 @@ function App() {
   // of stretching that small bitmap up to 2K/4K — is what keeps Grain
   // looking like grain instead of square blocks, and keeps every aspect
   // ratio sharp and faithful to what was saved. Modules without a
-  // high-res renderer (geometric, glass3d, nature, palette) keep the
+  // high-res renderer (geometric, nature) keeps the
   // existing preview-resample behaviour unchanged.
   const highResExportSource = async (item, size) => {
     const moduleTweaks = item.tweaks ? item.tweaks[item.module] : null;
@@ -602,14 +605,6 @@ function App() {
       return;
     }
     if (mode === 'geometric') { setGeometricTweaks(s => ({ ...s, compositionIdx: Math.floor(Math.random() * (window.GEOMETRIC_COMPOSITIONS_LEN || 12)), colors: pickPalette(3).slice(0, 3), grain: Math.min(0.32, Math.max(0.04, (s.grain ?? 0.1) + (Math.random() - 0.5) * 0.08)) })); return; }
-    if (mode === 'glass3d') {
-      const objects = ['sphere','cube','soap','pebble','tablet','capsule','torus'];
-      const materialTones = { glass: ['clear','smoke'], opal: ['milk','dusk'], water: ['aqua','deep'], metal: ['silver','gold','titanium','blackChrome'], holo: ['pearl','night'], crystal: ['ice','violet'] };
-      const materials = Object.keys(materialTones); const material = materials[Math.floor(Math.random() * materials.length)];
-      const tones = materialTones[material];
-      setGlass3dTweaks(s => ({ ...s, object: objects[Math.floor(Math.random() * objects.length)], material, tone: tones[Math.floor(Math.random() * tones.length)], customTone: false, bgMode: 'gradient', bgSeed: Math.random(), scale: 0.82 + Math.random() * 0.50, translucency: material === 'metal' ? 0 : 0.48 + Math.random() * 0.42, depth: 0.72 + Math.random() * 0.85, edge: material === 'crystal' ? 0.62 + Math.random() * 0.35 : Math.random() * 0.72, surface: Math.random() * 0.34, light: 0.58 + Math.random() * 0.36, motion: 0.10 + Math.random() * 0.28, rotationSpeed: 0.02 + Math.random() * 0.22, turnY: Math.round(-55 + Math.random() * 110), tiltX: Math.round(-45 + Math.random() * 60), grain: Math.min(0.18, Math.max(0.025, (s.grain ?? 0.055) + (Math.random() - 0.5) * 0.05)), seed: Math.random() }));
-      return;
-    }
     if (mode === 'nature') { const effects = ['warp','blur','split','melt','nodes']; setNatureTweaks(s => ({ ...s, effect: effects[Math.floor(Math.random() * effects.length)], warp: 0.28 + Math.random() * 0.52, blur: 0.22 + Math.random() * 0.58, split: 0.24 + Math.random() * 0.62, hue: (Math.random() - 0.5) * 0.22, sat: 0.78 + Math.random() * 0.72, contrast: 0.78 + Math.random() * 0.62, grain: Math.random() * 0.18, vignette: 0.08 + Math.random() * 0.38 })); if (natureImages.length) setCurrentImg(natureImages[Math.floor(Math.random() * natureImages.length)]); return; }
     if (mode === 'abstract') { setAbstractTweaks(s => ({ ...s, colors: pickPalette(4), seed: Math.random(), variant: Math.floor(Math.random() * 8), gradientSource: Math.random() > 0.5 ? 'blob' : 'smooth' })); return; }
   };
@@ -820,6 +815,7 @@ function App() {
   const panelStyle   = panelPos ? { '--panel-x':panelPos.x + 'px', '--panel-y':panelPos.y + 'px', position:'fixed', left:panelPos.x + 'px', top:panelPos.y + 'px', right:'auto', bottom:'auto' } : {}; // free XY drag
   const hasAlphaMode = MODULE_HAS_ALPHA[mode] || false;
   const MotionPanel = window.MotionExportControls;
+  const MobileUIComp = window.NymphMobileUI;
 
   const modes = [
     { id: 'gradient',  label: 'Gradient',   num: 'i.'   },
@@ -833,7 +829,6 @@ function App() {
       {showLanding && <NymphLanding onEnter={() => setShowLanding(false)} />}
       {mode === 'gradient'  && <GradientMode  tweaks={gradientTweaks}  registerSnapshot={registerSnapshot}  mouseRef={mouseRef} />}
       {mode === 'geometric' && <GeometricMode tweaks={geometricTweaks} registerSnapshot={registerSnapshot}  mouseRef={mouseRef} />}
-      {mode === 'glass3d'   && <Glass3DMode   tweaks={glass3dTweaks}   registerSnapshot={registerSnapshot}  mouseRef={mouseRef} />}
       {mode === 'nature' && (<>
         <NatureMode tweaks={natureTweaks} registerSnapshot={registerSnapshot} mouseRef={mouseRef} currentImg={currentImg} />
         {!currentImg && <NaturePlaceholder onFiles={onFiles} />}
@@ -893,7 +888,6 @@ function App() {
             <div className="panel-body">
               {mode === 'gradient'  && <GradientControls  tweaks={gradientTweaks}  setTweaks={patchGradient}  />}
               {mode === 'geometric' && <GeometricControls tweaks={geometricTweaks} setTweaks={patchGeometric} />}
-              {mode === 'glass3d'   && <Glass3DControls   tweaks={glass3dTweaks}   setTweaks={patchGlass3D}   />}
               {mode === 'nature'    && <NatureControls tweaks={natureTweaks} setTweaks={patchNature} natureImages={natureImages} currentImg={currentImg} setCurrentImg={(img) => { pushHistory(); setCurrentImg(img); }} onFiles={onFiles} />}
               {mode === 'abstract'  && <AbstractControls  tweaks={abstractTweaks}  setTweaks={patchAbstract}  />}
               <>
@@ -944,6 +938,31 @@ function App() {
       )}
 
       <div className={'snapshot-toast' + (toast.show ? ' show' : '')}>{toast.text}</div>
+
+      {/* Separate mobile UI — its own component + stylesheet. Always mounted;
+          shown only under the mobile breakpoint (CSS), where the desktop panel
+          and rail are hidden. Shares state + renderers, never desktop markup. */}
+      {MobileUIComp && (
+        <MobileUIComp
+          mode={mode}
+          modules={modes}
+          onMode={changeMode}
+          onHome={() => setShowLanding(true)}
+          gradientTweaks={gradientTweaks}   patchGradient={patchGradient}
+          geometricTweaks={geometricTweaks} patchGeometric={patchGeometric}
+          natureTweaks={natureTweaks}       patchNature={patchNature}
+          abstractTweaks={abstractTweaks}   patchAbstract={patchAbstract}
+          onShuffle={generateNew}
+          onUndo={undo} canUndo={history.length > 0}
+          onSnap={captureCurrent}
+          getImage={mobileGetImage}
+          natureImages={natureImages}
+          currentImg={currentImg}
+          onPickImage={(img) => { pushHistory(); setCurrentImg(img); }}
+          onFiles={onFiles}
+          libraryCount={library.length}
+        />
+      )}
 
       {/* Export overlay — restored matrix: snapshots × sizes + Layer column */}
       {page === 'export' && (

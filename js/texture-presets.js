@@ -3,7 +3,7 @@
 (function(){
   window.NURR_TEXTURE_PRESETS = [
     { id:'clean', name:'Clean', mode:0, amount:0.0, scale:0.45, softness:0.45, distortion:0.0, access:'free' },
-    { id:'chromatic-haze', name:'Chromatic haze', mode:0, amount:0.72, scale:0.45, softness:0.82, distortion:0.0, access:'experimental' },
+    { id:'chromatic-haze', name:'Chromatic haze', mode:0, amount:0.56, scale:0.45, softness:0.86, distortion:0.0, access:'experimental' },
     { id:'print-noise', name:'Pixelate', mode:5, amount:0.44, scale:0.62, softness:0.88, distortion:0.0, access:'experimental' }
   ];
 })();

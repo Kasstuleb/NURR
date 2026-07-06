@@ -204,28 +204,43 @@ vec3 recoverBody(vec3 c, float blend){
 
 
 vec3 applyChromaticHazeFinal(vec3 col, vec2 uv, float time){
-  float amount = clamp(u_chromaAmount, 0.0, 1.0);
+  float amount = clamp(u_chromaAmount, 0.0, 0.62);
   if(u_chromaEnabled == 0 || amount <= 0.001) return col;
 
-  // Chromatic haze reference pass: same visual logic as the stable gradient.js
-  // haze, but isolated from the texture mode system and applied after the base
-  // gradient. It never quantizes UVs and never enters Pixelate.
-  vec2 q = uv + vec2(
-    fbm(uv*3.0 + vec2(time*0.004 + u_chromaSeed)),
-    fbm(uv*3.0 + vec2(-time*0.003 + u_chromaSeed*1.7))
-  ) * 0.018;
+  // Aspect-corrected coord so noise cells stay square instead of stretching
+  // into long horizontal bands on wide canvases. The previous version stacked
+  // three sin() channels ALL phase-locked to the same low-frequency haze
+  // fbm: when that fbm dipped into a coherent cell (a few pixels wide on
+  // screen), the sinusoids shifted together and produced visible solid-colour
+  // patches that read as "large blocks like large pixels." Root-cause fix.
+  vec2 aspect = vec2(u_resolution.x / max(u_resolution.y, 1.0), 1.0);
+  vec2 nuv = (uv - 0.5) * aspect;
 
-  float haze = fbm(q*6.0 + vec2(time*0.006, 0.0));
-  vec3 prism = vec3(
-    sin((q.x+haze)*8.0 + 0.0),
-    sin((q.x+haze)*8.0 + 2.1),
-    sin((q.x+haze)*8.0 + 4.2)
-  ) * 0.5 + 0.5;
+  // Very slow drift keeps the haze alive without ever crawling visibly.
+  float t = time * 0.010;
 
-  col = mix(col, col + (prism-0.5)*0.16 + vec3(haze-0.5)*0.08, amount*0.72);
-  float fine = hash(uv * u_resolution + vec2(u_chromaSeed*997.0)) - 0.5;
-  col += fine * amount * 0.022;
-  return clamp(col, 0.0, 1.0);
+  // Three UNcorrelated fine-grain noise fields — one per channel, each with
+  // a distinct offset AND time direction. High enough frequency (~24 cells
+  // across a 1920px canvas) that individual noise cells fall below what the
+  // eye reads as structure; they become film-grade dispersion instead.
+  vec3 disp = vec3(
+    fbm(nuv * 24.0 + vec2( 1.7  + t,      0.3  + u_chromaSeed * 5.13)),
+    fbm(nuv * 24.0 + vec2( 4.9  - t,      2.1  + u_chromaSeed * 3.71)),
+    fbm(nuv * 24.0 + vec2(-2.3,          -1.4  + t + u_chromaSeed * 8.42))
+  );
+
+  // Wide, gentle luminance veil at a completely different scale — this is
+  // what gives the effect its "haze" character: a slow atmospheric wash.
+  // It's uniform across channels, so it can't produce chromatic blocks.
+  float veil = fbm(nuv * 1.6 + vec2(t * 0.4, -t * 0.35)) - 0.5;
+
+  // Additive chromatic tint + monochrome veil. Additive (not multiplicative
+  // through mix()) so there are no channel-crossing seams. Small overall
+  // scale keeps the underlying gradient dominant.
+  vec3 tint = (disp - 0.5) * 0.16 * amount
+            + vec3(veil)   * 0.04 * amount;
+
+  return clamp(col + tint, 0.0, 1.0);
 }
 
 vec3 weightedDirectionalRamp(float t, float distance, float blend, float spread, float cnt){
@@ -310,7 +325,16 @@ void main(){
     vec2 pixelSize = vec2(pxGrid * aspectFix.x, pxGrid);
     uv = (floor((uv + drift) * pixelSize) + 0.5) / pixelSize - drift;
   }
-  vec2 aspect = vec2(u_resolution.x / u_resolution.y, 1.0);
+  // Portrait-fair aspect. Previously aspect = (w/h, 1.0), which was fine on
+  // landscape but collapsed p.x to a tiny range on portrait: the warp orbits,
+  // sharpness scale and anchor radii were all calibrated for landscape and
+  // read as "pinched" on mobile. Using max/min keeps the shorter axis at 1
+  // and the longer axis at the ratio, so the anchors always orbit inside a
+  // full unit box in the longer direction, regardless of orientation.
+  float aspectRatio = u_resolution.x / max(u_resolution.y, 1.0);
+  vec2 aspect = aspectRatio >= 1.0
+    ? vec2(aspectRatio, 1.0)
+    : vec2(1.0, 1.0 / max(aspectRatio, 0.0001));
   vec2 p = (uv - 0.5) * aspect;
   vec2 m = (u_mouse - 0.5) * aspect * 1.8;
   vec2 mr = (u_mouseRaw - 0.5) * aspect;
@@ -789,7 +813,7 @@ function applyGradientFrame(gl, prog, targetW, targetH, tweaks, time, mouse, pul
     gl.uniform1f(u('u_pixelateAmount'), 0);
     gl.uniform1f(u('u_pixelateScale'), 0.62);
     gl.uniform1i(u('u_chromaEnabled'), 1);
-    gl.uniform1f(u('u_chromaAmount'), tex.chromaAmount || tweaks.textureAmount || 0.72);
+    gl.uniform1f(u('u_chromaAmount'), Math.min(0.62, tex.chromaAmount || tweaks.textureAmount || 0.56));
     gl.uniform1f(u('u_chromaSeed'), tex.chromaSeed || tex.seed || 0.413);
   } else {
     gl.uniform1i(u('u_textureMode'), tex.mode);
@@ -845,6 +869,10 @@ function renderGradientOffscreen(tweaks, renderState, width, height) {
   return dataUrl;
 }
 window.NurrGradientRenderToDataURL = renderGradientOffscreen;
+// Exposed for the mobile UI so its palette edits go through the exact same
+// path as the desktop palette editor (keeps swatches, picker and canvas in sync).
+window.NURR_manualGradientPatch = manualGradientPatch;
+window.NURR_adjustGradientHex   = adjustGradientHex;
 
 function GradientMode({ tweaks, registerSnapshot, mouseRef }) {
   const canvasRef = gmUR(null);

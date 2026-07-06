@@ -79,6 +79,8 @@ const GEOMETRIC_COMPOSITIONS = [
   ]},
 ];
 window.GEOMETRIC_COMPOSITIONS_LEN = GEOMETRIC_COMPOSITIONS.length;
+// Exposed so the mobile UI can render the composition picker (count + selection).
+window.NURR_GEOMETRIC_COMPOSITIONS = GEOMETRIC_COMPOSITIONS;
 
 // ─── Tiny preview SVG ─────────────────────────────────────────────────────────
 function CompositionPreview({ comp, palette }) {

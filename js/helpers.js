@@ -202,14 +202,28 @@ function useStageSize(canvasRef) {
     const resize = () => {
       const c = canvasRef.current; if (!c) return;
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      const w = window.innerWidth, h = window.innerHeight;
+      // Size from the canvas's own rendered box, not raw window dimensions.
+      // The canvas fills #root (inset:0), so on desktop this equals the viewport
+      // exactly — no visual change. On mobile it uses the real visible box, which
+      // stays stable through the iOS URL-bar show/hide that otherwise stretched
+      // the gradient into flat vertical bands via a jumping window.innerHeight.
+      const rect = c.getBoundingClientRect();
+      const w = Math.round(rect.width)  || window.innerWidth;
+      const h = Math.round(rect.height) || window.innerHeight;
       c.width = Math.round(w*dpr); c.height = Math.round(h*dpr);
       c.style.width = w+'px'; c.style.height = h+'px';
       sizeRef.current = { w, h, dpr };
     };
+    // Two rAFs so the first measure happens after layout settles.
     resize();
+    requestAnimationFrame(() => requestAnimationFrame(resize));
     window.addEventListener('resize', resize);
-    return () => window.removeEventListener('resize', resize);
+    const vv = window.visualViewport;
+    if (vv) vv.addEventListener('resize', resize);
+    return () => {
+      window.removeEventListener('resize', resize);
+      if (vv) vv.removeEventListener('resize', resize);
+    };
   }, []);
   return sizeRef;
 }
