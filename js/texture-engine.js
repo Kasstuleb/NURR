@@ -33,12 +33,12 @@
       distortion: preset.distortion ?? 0,
       seed,
       pixelateEnabled: isPixelate ? 1 : 0,
-      pixelateAmount: isPixelate ? clamp01(rawAmount, preset.amount || 0.44) : 0,
+      pixelateAmount: isPixelate ? clamp01(rawAmount, preset.amount || 0.50) : 0,
       pixelateScale: isPixelate ? (Number.isFinite(+tweaks?.textureScale) ? +tweaks.textureScale : (preset.scale ?? 0.62)) : 0.62,
       chromaEnabled: isChroma ? 1 : 0,
-      // Cap chroma below full strength. Above this range the prism pass can
-      // posterize on some WebGL/GPU combinations and look like broken blocks.
-      chromaAmount: isChroma ? Math.min(0.62, clamp01(rawAmount, preset.amount || 0.56)) : 0,
+      // Keep chroma in a restrained range. Above this it starts repainting
+      // the full field and can look like broken posterized blocks on some GPUs.
+      chromaAmount: isChroma ? Math.min(0.82, clamp01(rawAmount, preset.amount || 0.72)) : 0,
       chromaSeed: seed,
       image: preset.image || null,
       blend: preset.blend || null
@@ -49,7 +49,7 @@
     const id = preset.id;
     return {
       texturePreset: id,
-      textureAmount: id === 'clean' ? 0 : (id === 'chromatic-haze' ? Math.min(0.56, preset.amount ?? 0.56) : (id === 'print-noise' ? (preset.amount ?? 0.44) : preset.amount)),
+      textureAmount: id === 'clean' ? 0 : (id === 'chromatic-haze' ? Math.min(0.72, preset.amount ?? 0.72) : (id === 'print-noise' ? (preset.amount ?? 0.50) : preset.amount)),
       // Reset scale on every surface switch. Pixelate is the only preset that
       // uses scale as grid size; chroma uses its own uniforms and must never
       // inherit a previous pixel-grid value.

@@ -1,0 +1,1317 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   nymph-swiss.css — NYMPH liquid skin, 2026-07
+   One authoritative visual layer. Loads LAST, overrides every earlier sheet.
+
+   What changed from the ink/paper pass:
+
+     · GLASS, not paper. The panel no longer bleaches the artwork behind it into
+       a white slab. It is a real refractive surface: a low-alpha veil, a heavy
+       backdrop blur with saturation lift, a specular sweep across the top-left
+       shoulder, and an inner rim light that reads as a moulded lip. You can see
+       your work through it, tinted by it.
+
+     · ADAPTIVE INK, not forced black. Because the glass is now transparent, ink
+       can no longer be pinned to one colour. `js/mobile.js` probes the artwork
+       under each surface and writes `data-panel-ink` on <body>. Every glass
+       surface reads two channels from it — `--ink-rgb` and `--veil-rgb` — and
+       derives its whole palette. One switch, no per-surface guessing.
+
+     · SOFT STATES, not black boxes. An active control is a frosted chip: a
+       translucent lift of the surface's own ink, a hairline that firms up, a
+       specular top edge, and one antique-gold rule to say "this one". Nothing
+       stamps a solid black rectangle into the glass any more.
+
+     · SOFT SLIDERS. Rounded 4px track, pearl thumb with a gold ring, generous
+       34px hit area. The old 1px hairline and hard ink dot are gone.
+
+   Colour geometry:
+     --ink-rgb   channels for type, hairlines and fills, as a space list
+     --veil-rgb  channels for the glass veil itself
+     --veil-a    veil opacity — the single knob for "how see-through"
+     --edge-a    strength of the specular border
+
+   Chrome (logo + module rail) sits directly on the canvas with no plate. It
+   takes per-element ink and a `--halo` counter-glow, both written by the
+   sampler in js/mobile.js, so it stays legible over any backdrop without a
+   background.
+
+   CACHE NOTE: every stylesheet and script in index.html is versioned with a
+   `?v=` query string. If you edit this file, bump that string, or browsers —
+   and GitHub Pages — will keep serving the previous build.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  --nx-font: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --nx-serif: "Instrument Serif", Georgia, serif;
+
+  /* antique gold — the one accent, used sparingly */
+  --nx-accent:      #C9A56B;
+  --nx-accent-soft: rgba(201, 165, 107, 0.16);
+  --nx-accent-line: rgba(201, 165, 107, 0.62);
+  --nx-accent-glow: rgba(201, 165, 107, 0.28);
+
+  /* radii — nothing is square any more */
+  --nx-r:   26px;   /* glass shells      */
+  --nx-r-m: 14px;   /* grouped controls  */
+  --nx-r-s: 10px;   /* single controls   */
+
+  --nx-ease: cubic-bezier(.32, .72, 0, 1);
+  --nx-ink-fade: color .45s ease, background-color .45s ease,
+                 border-color .45s ease, box-shadow .45s ease;
+
+  /* chrome geometry */
+  --nx-x: 42px;             /* page margin       */
+  --nx-logo-w: 116px;       /* header logo width */
+  --nx-rule-top: 74px;      /* top rule baseline */
+
+  /* retire the teal accent everywhere it is still referenced */
+  --accent: #C9A56B;
+  --accent-soft: rgba(201, 165, 107, 0.14);
+  --nurr-blue: #C9A56B;
+}
+
+/* ══════════════════════════════════════════════ 0 · ADAPTIVE INK CHANNELS */
+
+/* Default: light ink floating on a dark veil. This is the safe state — it is
+   what you want over the majority of NYMPH artwork, and it is what you get if
+   the sampler never boots. */
+html body {
+  --ink-rgb:  255 255 255;
+  --veil-rgb:  14  12  24;
+  --veil-a: 0.30;
+  --edge-a: 0.30;
+}
+
+/* Dark ink on a bright veil, for pale artwork. */
+html body[data-panel-ink="dark"] {
+  --ink-rgb:  12  11  18;
+  --veil-rgb: 255 255 255;
+  --veil-a: 0.40;
+  --edge-a: 0.62;
+}
+
+/* Belt and braces: if js/mobile.js is unavailable, fall back to the tone class
+   App already writes onto the panel. */
+html body:not([data-panel-ink]):has(.panel.tone-light) {
+  --ink-rgb:  12  11  18;
+  --veil-rgb: 255 255 255;
+  --veil-a: 0.40;
+  --edge-a: 0.62;
+}
+
+/* Everything downstream derives from those four values. Declared on <body> so
+   panel-controls.css, palette.css, gradient.css, abstract.css, color-picker.css
+   and export-panel-isolated.css all inherit them without edits. */
+html body {
+  --nx-ink:       rgb(var(--ink-rgb) / 0.95);
+  --nx-ink-soft:  rgb(var(--ink-rgb) / 0.64);
+  --nx-ink-faint: rgb(var(--ink-rgb) / 0.40);
+
+  --nx-line:       rgb(var(--ink-rgb) / 0.20);
+  --nx-line-soft:  rgb(var(--ink-rgb) / 0.13);
+  --nx-line-faint: rgb(var(--ink-rgb) / 0.07);
+
+  --nx-fill:    rgb(var(--ink-rgb) / 0.07);
+  --nx-fill-2:  rgb(var(--ink-rgb) / 0.13);
+  --nx-fill-3:  rgb(var(--ink-rgb) / 0.19);
+
+  --nx-edge:  rgb(255 255 255 / var(--edge-a));
+  --nx-blur:  blur(34px) saturate(1.9) contrast(1.02);
+  --nx-blur-strong: blur(44px) saturate(2.05) contrast(1.03);
+
+  --nx-lift:
+    0 30px 80px rgb(0 0 0 / 0.26),
+    0 3px 14px rgb(0 0 0 / 0.10),
+    inset 0 1px 0 rgb(255 255 255 / calc(var(--edge-a) * 1.05)),
+    inset 0 -1px 0 rgb(255 255 255 / calc(var(--edge-a) * 0.30));
+
+  /* the veil itself: two soft speculars over a directional wash */
+  --nx-glass:
+    radial-gradient(140% 105% at 6% -12%,
+      rgb(255 255 255 / calc(var(--edge-a) * 0.62)),
+      rgb(255 255 255 / 0) 58%),
+    radial-gradient(100% 90% at 112% 2%,
+      rgb(255 255 255 / calc(var(--edge-a) * 0.30)),
+      rgb(255 255 255 / 0) 52%),
+    linear-gradient(168deg,
+      rgb(var(--veil-rgb) / calc(var(--veil-a) * 0.74)),
+      rgb(var(--veil-rgb) / var(--veil-a)) 52%,
+      rgb(var(--veil-rgb) / calc(var(--veil-a) * 0.90)));
+}
+
+::selection { background: rgb(var(--ink-rgb) / 0.82); color: rgb(var(--veil-rgb) / 1); }
+
+/* ═════════════════════════════════════════════════════════════ 1 · CHROME */
+
+@media (min-width: 821px) {
+
+  .nurr-brand,
+  .nurr-brand-button {
+    left: var(--nx-x) !important;
+    top: 26px !important;
+    width: var(--nx-logo-w) !important;
+    z-index: 61 !important;
+  }
+  .nurr-brand img,
+  .nurr-brand-button img {
+    content: url('../assets/logos/nymph-2026-full.svg') !important;
+    mix-blend-mode: normal !important;
+    opacity: 1 !important;
+    filter: drop-shadow(0 1px 5px rgb(255 255 255 / 0.25)) !important;
+    transition: opacity .3s var(--nx-ease), filter .5s ease !important;
+  }
+
+  /* Dark glyphs over a bright backdrop: keep them dark, and lift them off the
+     artwork with a white counter-glow scaled by local busyness. */
+  .nurr-brand[data-ink="dark"] img,
+  .nurr-brand-button[data-ink="dark"] img {
+    filter:
+      drop-shadow(0 0 calc(3px + var(--halo, .3) * 9px)
+        rgb(255 255 255 / calc(0.30 + var(--halo, .3) * 0.48)))
+      drop-shadow(0 1px 2px rgb(255 255 255 / 0.5)) !important;
+  }
+  /* Light glyphs over a dark backdrop: invert the mark, glow black. */
+  .nurr-brand[data-ink="light"] img,
+  .nurr-brand-button[data-ink="light"] img {
+    filter:
+      invert(1)
+      drop-shadow(0 0 calc(3px + var(--halo, .3) * 9px)
+        rgb(0 0 0 / calc(0.22 + var(--halo, .3) * 0.46)))
+      drop-shadow(0 1px 2px rgb(0 0 0 / 0.35)) !important;
+  }
+
+  .nurr-brand:hover,
+  .nurr-brand-button:hover { transform: translateY(-1px) !important; }
+  .nurr-brand:hover img,
+  .nurr-brand-button:hover img { opacity: .78 !important; }
+
+  /* Module rail — no pill, no plate. Uppercase glyphs on one hairline. */
+  .rail {
+    top: 0 !important;
+    left: calc(var(--nx-x) + var(--nx-logo-w) + 56px) !important;
+    right: var(--nx-x) !important;
+    width: auto !important;
+    min-width: 0 !important;
+    height: var(--nx-rule-top) !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    border: 0 !important;
+    border-bottom: 1px solid rgb(255 255 255 / 0.42) !important;
+    box-shadow: 0 1px 0 rgb(0 0 0 / 0.16) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    display: flex !important;
+    align-items: flex-end !important;
+    justify-content: flex-end !important;
+    transition: border-color .5s ease, box-shadow .5s ease !important;
+  }
+  .rail[data-ink="dark"] {
+    border-bottom-color: rgb(10 10 10 / 0.42) !important;
+    box-shadow: 0 1px 0 rgb(255 255 255 / 0.42) !important;
+  }
+  .rail[data-ink="light"] {
+    border-bottom-color: rgb(255 255 255 / 0.52) !important;
+    box-shadow: 0 1px 0 rgb(0 0 0 / 0.24) !important;
+  }
+
+  .rail-group {
+    width: auto !important;
+    display: flex !important;
+    grid-template-columns: none !important;
+    gap: clamp(30px, 4.2vw, 72px) !important;
+    align-items: flex-end !important;
+  }
+  .rail-item {
+    height: 46px !important;
+    padding: 0 2px !important;
+    font-size: 10.5px !important;
+    font-weight: 500 !important;
+    letter-spacing: .17em !important;
+    color: rgb(255 255 255 / 0.48) !important;
+    transition: color .35s var(--nx-ease), text-shadow .5s ease !important;
+  }
+  .rail-item[data-ink="light"] {
+    color: rgb(255 255 255 / 0.50) !important;
+    text-shadow:
+      0 0 calc(3px + var(--halo, .3) * 10px) rgb(0 0 0 / calc(0.20 + var(--halo, .3) * 0.44)),
+      0 1px 2px rgb(0 0 0 / 0.30) !important;
+  }
+  .rail-item[data-ink="light"]:hover  { color: rgb(255 255 255 / 0.78) !important; }
+  .rail-item[data-ink="light"].active { color: rgb(255 255 255 / 0.98) !important; }
+
+  .rail-item[data-ink="dark"] {
+    color: rgb(10 10 10 / 0.44) !important;
+    text-shadow:
+      0 0 calc(3px + var(--halo, .3) * 10px) rgb(255 255 255 / calc(0.32 + var(--halo, .3) * 0.52)),
+      0 1px 2px rgb(255 255 255 / 0.45) !important;
+  }
+  .rail-item[data-ink="dark"]:hover  { color: rgb(10 10 10 / 0.72) !important; }
+  .rail-item[data-ink="dark"].active { color: rgb(10 10 10 / 0.96) !important; }
+
+  .rail-item::after {
+    left: 0 !important;
+    bottom: 12px !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: 1px !important;
+    background: currentColor !important;
+    opacity: 1 !important;
+    box-shadow: none !important;
+    transform: scaleX(0) !important;
+    transform-origin: left center !important;
+    transition: transform .42s var(--nx-ease) !important;
+  }
+  .rail-item:hover::after  { transform: scaleX(.34) !important; opacity: 1 !important; }
+  .rail-item.active::after,
+  .rail-item.active:hover::after { transform: scaleX(1) !important; opacity: 1 !important; }
+
+  /* The active module gets one gold tick — the only chrome colour in the app. */
+  .rail-item.active { position: relative !important; }
+  .rail-item.active::before {
+    content: "" !important;
+    position: absolute !important;
+    left: 0 !important;
+    bottom: 12px !important;
+    width: 14px !important;
+    height: 1px !important;
+    background: var(--nx-accent) !important;
+    opacity: .9 !important;
+  }
+}
+
+/* Footer strip — quiet, typographic */
+.nurr-support-strip {
+  background: #000 !important;
+  gap: 14px !important;
+}
+.nurr-support-strip span {
+  font: 500 9px/1 var(--nx-font) !important;
+  letter-spacing: .14em !important;
+  text-transform: uppercase !important;
+  color: rgba(255,255,255,.55) !important;
+}
+.nurr-support-strip a {
+  font: 500 9px/1 var(--nx-font) !important;
+  letter-spacing: .14em !important;
+  text-transform: uppercase !important;
+  color: #fff !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--nx-accent-line) !important;
+  border-radius: 0 !important;
+  padding: 2px 0 3px !important;
+  transition: border-color .25s ease, color .25s ease !important;
+}
+.nurr-support-strip a:hover { border-color: var(--nx-accent) !important; color: var(--nx-accent) !important; }
+
+/* ═══════════════════════════════════════════════════════ 2 · PANEL SHELL */
+
+@media (min-width: 821px) {
+  .panel:not(.collapsed) {
+    top: 104px !important;
+    right: var(--nx-x) !important;
+    width: min(384px, calc(100vw - 2 * var(--nx-x))) !important;
+    min-width: 0 !important;
+    border-radius: var(--nx-r) !important;
+    background: var(--nx-glass) !important;
+    border: 1px solid var(--nx-edge) !important;
+    box-shadow: var(--nx-lift) !important;
+    backdrop-filter: var(--nx-blur) !important;
+    -webkit-backdrop-filter: var(--nx-blur) !important;
+    color: var(--nx-ink) !important;
+    overflow: hidden !important;
+    transition: background-color .45s ease, border-color .45s ease !important;
+  }
+
+  .panel.collapsed {
+    top: 104px !important;
+    right: var(--nx-x) !important;
+    width: 252px !important;
+    min-width: 252px !important;
+    height: 64px !important;
+    min-height: 64px !important;
+    border-radius: 22px !important;
+    background: var(--nx-glass) !important;
+    border: 1px solid var(--nx-edge) !important;
+    box-shadow: var(--nx-lift) !important;
+    backdrop-filter: var(--nx-blur) !important;
+    -webkit-backdrop-filter: var(--nx-blur) !important;
+    color: var(--nx-ink) !important;
+  }
+  .panel.collapsed .panel-header { height: 64px !important; min-height: 64px !important; padding: 0 20px !important; }
+  .panel.collapsed .panel-title-nymph { width: 42px !important; min-width: 42px !important; }
+  .panel.collapsed .panel-title-nymph img {
+    content: url('../assets/logos/nymph-2026-mark.svg') !important;
+    width: 34px !important;
+    height: 30px !important;
+    max-height: 30px !important;
+  }
+}
+
+/* Morphed glass: a specular sweep across the shoulder, and an inner rim light
+   that gives the shell a moulded lip rather than a flat cut edge. */
+html body .panel.panel.panel.panel.panel.panel:not(.collapsed)::before,
+html body .panel.panel.panel.panel.panel.panel:not(.collapsed)::after {
+  content: "" !important;
+  display: block !important;
+  position: absolute !important;
+  inset: 0 !important;
+  pointer-events: none !important;
+  border-radius: inherit !important;
+  z-index: 0 !important;
+}
+html body .panel.panel.panel.panel.panel.panel:not(.collapsed)::before {
+  background:
+    radial-gradient(120% 60% at 18% -6%,
+      rgb(255 255 255 / calc(var(--edge-a) * 0.75)),
+      rgb(255 255 255 / 0) 62%),
+    linear-gradient(112deg,
+      rgb(255 255 255 / 0) 32%,
+      rgb(255 255 255 / calc(var(--edge-a) * 0.22)) 47%,
+      rgb(255 255 255 / 0) 58%) !important;
+  mix-blend-mode: screen !important;
+  opacity: .8 !important;
+}
+html body .panel.panel.panel.panel.panel.panel:not(.collapsed)::after {
+  inset: 0 !important;
+  border: 0 !important;
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / calc(var(--edge-a) * 0.42)),
+    inset 0 22px 40px -34px rgb(255 255 255 / calc(var(--edge-a) * 1.1)),
+    inset 0 -26px 44px -38px rgb(255 255 255 / calc(var(--edge-a) * 0.7)) !important;
+}
+html body .panel.panel.panel.panel.panel.panel:not(.collapsed) > * {
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+/* Panel-scoped token bridge. Every legacy variable name the module sheets read
+   is remapped onto the adaptive ink so nothing has to be edited downstream. */
+html body .panel.panel.panel.panel.panel.panel.tone-dark:not(.collapsed),
+html body .panel.panel.panel.panel.panel.panel.tone-light:not(.collapsed),
+html body .panel.panel.panel.panel.panel.panel:not(.collapsed) {
+  --nx-ink:       rgb(var(--ink-rgb) / 0.95);
+  --nx-ink-soft:  rgb(var(--ink-rgb) / 0.64);
+  --nx-ink-faint: rgb(var(--ink-rgb) / 0.40);
+  --nx-line:       rgb(var(--ink-rgb) / 0.20);
+  --nx-line-soft:  rgb(var(--ink-rgb) / 0.13);
+  --nx-line-faint: rgb(var(--ink-rgb) / 0.07);
+  --ink:      rgb(var(--ink-rgb) / 0.95);
+  --ink-2:    rgb(var(--ink-rgb) / 0.95);
+  --ink-dim:  rgb(var(--ink-rgb) / 0.55);
+  --ink-faint:rgb(var(--ink-rgb) / 0.38);
+  --rule:      rgb(var(--ink-rgb) / 0.18);
+  --rule-soft: rgb(var(--ink-rgb) / 0.09);
+  --panel: rgb(var(--veil-rgb) / 1);
+  color: var(--nx-ink) !important;
+  /* nurr-panels.css stamps `text-shadow: 0 1px 1px rgba(255,255,255,.34)` onto
+     the panel — a paper-era trick that now smears a white halo under white ink.
+     Kill it here; the glass carries the contrast. */
+  text-shadow: none !important;
+}
+html body .panel.panel.panel.panel.panel.panel:not(.collapsed) * {
+  text-shadow: none !important;
+}
+
+/* Header: mark left, bare glyphs right, one hairline below */
+html body .panel.panel.panel.panel.panel.panel:not(.collapsed) .panel-header {
+  height: 64px !important;
+  min-height: 64px !important;
+  padding: 0 22px !important;
+  border-bottom: 1px solid var(--nx-line-soft) !important;
+  background: transparent !important;
+}
+.panel-title-nymph img {
+  content: url('../assets/logos/nymph-2026-mark.svg') !important;
+  width: 38px !important;
+  height: 32px !important;
+  max-height: 32px !important;
+  opacity: .95 !important;
+  transition: filter .45s ease !important;
+}
+html body[data-panel-ink="dark"] .panel-title-nymph img { filter: none !important; }
+html body[data-panel-ink="light"] .panel-title-nymph img,
+html body:not([data-panel-ink]) .panel-title-nymph img { filter: invert(1) !important; }
+
+html body .panel.panel.panel.panel.panel.panel .icon-btn,
+.header-actions .icon-btn {
+  width: 30px !important;
+  height: 30px !important;
+  min-width: 30px !important;
+  color: var(--nx-ink-soft) !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 50% !important;
+  box-shadow: none !important;
+  transition: color .25s var(--nx-ease), background .25s var(--nx-ease),
+              transform .25s var(--nx-ease), opacity .25s ease !important;
+}
+html body .panel.panel.panel.panel.panel.panel .icon-btn svg,
+.header-actions .icon-btn svg { width: 15px !important; height: 15px !important; stroke-width: 1.5 !important; }
+html body .panel.panel.panel.panel.panel.panel .icon-btn:hover,
+.header-actions .icon-btn:hover {
+  color: var(--nx-ink) !important;
+  background: var(--nx-fill) !important;
+  transform: translateY(-1px) !important;
+}
+html body .panel.panel.panel.panel.panel.panel .icon-btn:active { transform: scale(.9) !important; }
+html body .panel.panel.panel.panel.panel.panel .icon-btn[disabled] { opacity: .26 !important; }
+html body .panel.panel.panel.panel.panel.panel:not(.collapsed) .header-actions { gap: 10px !important; }
+
+/* Tabs: a typographic band, active cell lifted in frosted ink + gold rule */
+html body .panel.panel.panel.panel.panel.panel:not(.collapsed) .panel-tabs {
+  height: 46px !important;
+  min-height: 46px !important;
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  border-bottom: 1px solid var(--nx-line-soft) !important;
+  background: transparent !important;
+}
+html body .panel.panel.panel.panel.panel.panel:not(.collapsed) .panel-tab {
+  position: relative !important;
+  height: 46px !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  color: var(--nx-ink-faint) !important;
+  font: 500 10px/46px var(--nx-font) !important;
+  letter-spacing: .2em !important;
+  text-transform: uppercase !important;
+  transition: var(--nx-ink-fade) !important;
+}
+html body .panel.panel.panel.panel.panel.panel:not(.collapsed) .panel-tab + .panel-tab { border-left: 1px solid var(--nx-line-faint) !important; }
+html body .panel.panel.panel.panel.panel.panel:not(.collapsed) .panel-tab:hover {
+  color: var(--nx-ink-soft) !important;
+  background: var(--nx-fill) !important;
+}
+html body .panel.panel.panel.panel.panel.panel:not(.collapsed) .panel-tab.active {
+  color: var(--nx-ink) !important;
+  background: var(--nx-fill) !important;
+  box-shadow: inset 0 -2px 0 var(--nx-accent) !important;
+}
+html body .panel.panel.panel.panel.panel.panel .tab-count {
+  display: inline-block !important;
+  margin-left: 7px !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  color: inherit !important;
+  opacity: .55 !important;
+  font: 500 8.5px/1 var(--nx-font) !important;
+  letter-spacing: .08em !important;
+  vertical-align: 1px !important;
+}
+
+/* Body + sections */
+html body .panel.panel.panel.panel.panel.panel:not(.collapsed) .panel-body {
+  padding: 0 !important;
+  overflow-x: hidden !important;
+  background: transparent !important;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--ink-rgb) / 0.22) transparent;
+}
+html body .panel.panel.panel.panel.panel.panel:not(.collapsed) .panel-body::-webkit-scrollbar { width: 6px !important; }
+html body .panel.panel.panel.panel.panel.panel:not(.collapsed) .panel-body::-webkit-scrollbar-track { background: transparent !important; }
+html body .panel.panel.panel.panel.panel.panel:not(.collapsed) .panel-body::-webkit-scrollbar-thumb {
+  background: rgb(var(--ink-rgb) / 0.20) !important;
+  border-radius: 999px !important;
+}
+html body .panel.panel.panel.panel.panel.panel:not(.collapsed) .section {
+  padding: 20px 22px 22px !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--nx-line-faint) !important;
+  background: transparent !important;
+}
+html body .panel.panel.panel.panel.panel.panel .section-label {
+  border-bottom: 0 !important;
+  padding-bottom: 0 !important;
+  margin-bottom: 15px !important;
+  align-items: baseline !important;
+}
+html body .panel.panel.panel.panel.panel.panel .section-label .name {
+  font: 600 9px/1 var(--nx-font) !important;
+  letter-spacing: .19em !important;
+  text-transform: uppercase !important;
+  color: var(--nx-ink) !important;
+}
+html body .panel.panel.panel.panel.panel.panel .section-label .value {
+  font: 400 9px/1 var(--nx-font) !important;
+  letter-spacing: .12em !important;
+  text-transform: uppercase !important;
+  color: var(--nx-ink-faint) !important;
+  font-variant-numeric: tabular-nums !important;
+}
+html body .panel.panel.panel.panel.panel.panel .help,
+html body .panel.panel.panel.panel.panel.panel .compact-help,
+html body .panel.panel.panel.panel.panel.panel .geo-note {
+  font: 400 9.5px/1.6 var(--nx-font) !important;
+  letter-spacing: .02em !important;
+  color: var(--nx-ink-faint) !important;
+}
+
+/* ══════════════════════════════════════════════════════════ 3 · CONTROLS */
+
+/* One button voice: rounded hairline capsule that frosts over when chosen. */
+html body .panel.panel.panel.panel.panel.panel .btn {
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 14px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: var(--nx-fill) !important;
+  border: 1px solid var(--nx-line-soft) !important;
+  border-radius: var(--nx-r-s) !important;
+  color: var(--nx-ink-soft) !important;
+  font: 500 9px/1 var(--nx-font) !important;
+  letter-spacing: .16em !important;
+  text-transform: uppercase !important;
+  font-style: normal !important;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / calc(var(--edge-a) * 0.30)) !important;
+  transition: var(--nx-ink-fade), transform .2s var(--nx-ease) !important;
+}
+html body .panel.panel.panel.panel.panel.panel .btn:hover {
+  background: var(--nx-fill-2) !important;
+  border-color: var(--nx-line) !important;
+  color: var(--nx-ink) !important;
+}
+html body .panel.panel.panel.panel.panel.panel .btn:active { transform: scale(.97) !important; }
+html body .panel.panel.panel.panel.panel.panel .btn.primary,
+html body .panel.panel.panel.panel.panel.panel .btn.active {
+  background: var(--nx-fill-3) !important;
+  border-color: var(--nx-accent-line) !important;
+  color: var(--nx-ink) !important;
+  font-weight: 500 !important;
+  font-size: 9px !important;
+  letter-spacing: .16em !important;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / calc(var(--edge-a) * 0.5)),
+    0 0 0 1px var(--nx-accent-glow),
+    0 6px 18px -12px rgb(0 0 0 / 0.5) !important;
+}
+html body .panel.panel.panel.panel.panel.panel .btn.primary:hover,
+html body .panel.panel.panel.panel.panel.panel .btn.active:hover {
+  background: rgb(var(--ink-rgb) / 0.24) !important;
+  border-color: var(--nx-accent) !important;
+  color: var(--nx-ink) !important;
+}
+html body .panel.panel.panel.panel.panel.panel .btn[disabled] { opacity: .3 !important; }
+html body .panel.panel.panel.panel.panel.panel .btn-row { gap: 6px !important; margin-top: 14px !important; }
+html body .panel.panel.panel.panel.panel.panel .btn-row.compact-row { margin-top: 16px !important; }
+
+/* Segmented rows: one soft frame, faint dividers, frosted active cell. */
+html body .panel.panel.panel.panel.panel.panel .seg,
+html body .panel.panel.panel.panel.panel.panel .nurr-segment-row,
+html body .panel.panel.panel.panel.panel.panel .gradient-segment-row,
+html body .panel.panel.panel.panel.panel.panel .material-toggle,
+html body .panel.panel.panel.panel.panel.panel .segment {
+  display: flex !important;
+  border: 1px solid var(--nx-line-soft) !important;
+  border-radius: var(--nx-r-m) !important;
+  overflow: hidden !important;
+  background: var(--nx-fill) !important;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / calc(var(--edge-a) * 0.24)) !important;
+}
+html body .panel.panel.panel.panel.panel.panel .seg-opt,
+html body .panel.panel.panel.panel.panel.panel .nurr-segment,
+html body .panel.panel.panel.panel.panel.panel .segment button,
+html body .panel.panel.panel.panel.panel.panel .material-toggle button {
+  flex: 1 1 0 !important;
+  height: 34px !important;
+  padding: 0 6px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  color: var(--nx-ink-faint) !important;
+  font: 500 8.5px/1 var(--nx-font) !important;
+  letter-spacing: .14em !important;
+  text-transform: uppercase !important;
+  transition: var(--nx-ink-fade) !important;
+}
+html body .panel.panel.panel.panel.panel.panel .seg-opt + .seg-opt,
+html body .panel.panel.panel.panel.panel.panel .nurr-segment + .nurr-segment,
+html body .panel.panel.panel.panel.panel.panel .segment button + button,
+html body .panel.panel.panel.panel.panel.panel .material-toggle button + button { border-left: 1px solid var(--nx-line-faint) !important; }
+html body .panel.panel.panel.panel.panel.panel .seg-opt:hover,
+html body .panel.panel.panel.panel.panel.panel .nurr-segment:hover,
+html body .panel.panel.panel.panel.panel.panel .segment button:hover,
+html body .panel.panel.panel.panel.panel.panel .material-toggle button:hover {
+  color: var(--nx-ink) !important;
+  background: var(--nx-fill) !important;
+}
+html body .panel.panel.panel.panel.panel.panel .seg-opt.active,
+html body .panel.panel.panel.panel.panel.panel .nurr-segment.active,
+html body .panel.panel.panel.panel.panel.panel .segment button.active,
+html body .panel.panel.panel.panel.panel.panel .material-toggle button.active,
+html body .panel.panel.panel.panel.panel.panel.mode-geometric .material-toggle button.active {
+  background: var(--nx-fill-3) !important;
+  color: var(--nx-ink) !important;
+  border-color: transparent !important;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / calc(var(--edge-a) * 0.5)),
+    inset 0 -2px 0 var(--nx-accent) !important;
+}
+
+/* Card grids (surfaces, shapes, render styles, palette presets) */
+html body .panel.panel.panel.panel.panel.panel:not(.collapsed) .surface-card,
+html body .panel.panel.panel.panel.panel.panel.mode-gradient .surface-card,
+html body .panel.panel.panel.panel.panel.panel .geo-shape-card,
+html body .panel.panel.panel.panel.panel.panel .geo-render-chip,
+html body .panel.panel.panel.panel.panel.panel .palette-card,
+html body .panel.panel.panel.panel.panel.panel .geo-action-btn,
+html body .panel.panel.panel.panel.panel.panel .glass-type-btn,
+html body .panel.panel.panel.panel.panel.panel .layout-card {
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0 6px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: var(--nx-fill) !important;
+  border: 1px solid var(--nx-line-soft) !important;
+  border-radius: var(--nx-r-s) !important;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / calc(var(--edge-a) * 0.26)) !important;
+  color: var(--nx-ink-soft) !important;
+  transition: var(--nx-ink-fade), transform .2s var(--nx-ease) !important;
+}
+html body .panel.panel.panel.panel.panel.panel:not(.collapsed) .surface-card:hover,
+html body .panel.panel.panel.panel.panel.panel.mode-gradient .surface-card:hover,
+html body .panel.panel.panel.panel.panel.panel .geo-shape-card:hover,
+html body .panel.panel.panel.panel.panel.panel .geo-render-chip:hover,
+html body .panel.panel.panel.panel.panel.panel .palette-card:hover,
+html body .panel.panel.panel.panel.panel.panel .geo-action-btn:hover,
+html body .panel.panel.panel.panel.panel.panel .glass-type-btn:hover,
+html body .panel.panel.panel.panel.panel.panel .layout-card:hover {
+  background: var(--nx-fill-2) !important;
+  border-color: var(--nx-line) !important;
+  color: var(--nx-ink) !important;
+  transform: translateY(-1px) !important;
+}
+html body .panel.panel.panel.panel.panel.panel:not(.collapsed) .surface-card.active,
+html body .panel.panel.panel.panel.panel.panel.mode-gradient .surface-card.active,
+html body .panel.panel.panel.panel.panel.panel .geo-shape-card.active,
+html body .panel.panel.panel.panel.panel.panel .geo-render-chip.active,
+html body .panel.panel.panel.panel.panel.panel .palette-card.active,
+html body .panel.panel.panel.panel.panel.panel .glass-type-btn.active,
+html body .panel.panel.panel.panel.panel.panel .layout-card.active {
+  background: var(--nx-fill-3) !important;
+  border-color: var(--nx-accent-line) !important;
+  color: var(--nx-ink) !important;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / calc(var(--edge-a) * 0.5)),
+    0 0 0 1px var(--nx-accent-glow) !important;
+}
+html body .panel.panel.panel.panel.panel.panel .surface-name,
+html body .panel.panel.panel.panel.panel.panel.mode-gradient .surface-card .label,
+html body .panel.panel.panel.panel.panel.panel.mode-gradient .surface-card span {
+  font: 500 8px/1 var(--nx-font) !important;
+  letter-spacing: .14em !important;
+  text-transform: uppercase !important;
+  color: inherit !important;
+}
+
+/* Slider: soft rounded track, pearl thumb ringed in gold. */
+html body .panel.panel.panel.panel.panel.panel:not(.collapsed) .slider,
+html body .panel.panel.panel.panel.panel.panel:not(.collapsed) input[type="range"] {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  height: 34px !important;
+  background: transparent !important;
+  accent-color: var(--nx-accent) !important;
+  border-radius: 0 !important;
+  margin: 2px 0 !important;
+}
+html body .panel.panel.panel.panel.panel.panel:not(.collapsed) input[type="range"]::-webkit-slider-runnable-track,
+html body .panel.panel.panel.panel.panel.panel:not(.collapsed) .slider::-webkit-slider-runnable-track {
+  height: 4px !important;
+  background: rgb(var(--ink-rgb) / 0.16) !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.12) !important;
+}
+html body .panel.panel.panel.panel.panel.panel:not(.collapsed) input[type="range"]::-webkit-slider-thumb,
+html body .panel.panel.panel.panel.panel.panel:not(.collapsed) .slider::-webkit-slider-thumb {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  width: 16px !important;
+  height: 16px !important;
+  margin-top: -6px !important;
+  border-radius: 50% !important;
+  background: rgb(var(--ink-rgb) / 0.72) !important;
+  border: 2px solid rgb(var(--veil-rgb) / 0.88) !important;
+  box-shadow:
+    0 0 0 1px var(--nx-accent-glow),
+    0 2px 8px rgb(0 0 0 / 0.22) !important;
+  transition: transform .2s var(--nx-ease), box-shadow .2s var(--nx-ease) !important;
+}
+html body .panel.panel.panel.panel.panel.panel:not(.collapsed) input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.18) !important;
+  box-shadow: 0 0 0 1px var(--nx-accent), 0 3px 12px rgb(0 0 0 / 0.28) !important;
+}
+html body .panel.panel.panel.panel.panel.panel:not(.collapsed) input[type="range"]::-moz-range-track,
+html body .panel.panel.panel.panel.panel.panel:not(.collapsed) .slider::-moz-range-track {
+  height: 4px !important;
+  background: rgb(var(--ink-rgb) / 0.16) !important;
+  border-radius: 999px !important;
+}
+html body .panel.panel.panel.panel.panel.panel:not(.collapsed) input[type="range"]::-moz-range-progress,
+html body .panel.panel.panel.panel.panel.panel:not(.collapsed) .slider::-moz-range-progress {
+  height: 4px !important;
+  background: var(--nx-accent-line) !important;
+  border-radius: 999px !important;
+}
+html body .panel.panel.panel.panel.panel.panel:not(.collapsed) input[type="range"]::-moz-range-thumb,
+html body .panel.panel.panel.panel.panel.panel:not(.collapsed) .slider::-moz-range-thumb {
+  width: 16px !important;
+  height: 16px !important;
+  border-radius: 50% !important;
+  background: rgb(var(--ink-rgb) / 0.72) !important;
+  border: 2px solid rgb(var(--veil-rgb) / 0.88) !important;
+  box-shadow: 0 0 0 1px var(--nx-accent-glow), 0 2px 8px rgb(0 0 0 / 0.22) !important;
+}
+
+/* Swatches: precise circles, gold ring when open */
+html body .panel.panel.panel.panel.panel.panel .swatches { gap: 12px !important; padding: 2px 0 !important; }
+html body .panel.panel.panel.panel.panel.panel .swatch,
+html body .panel.panel.panel.panel.panel.panel button.swatch {
+  width: 30px !important;
+  height: 30px !important;
+  min-width: 30px !important;
+  min-height: 30px !important;
+  flex: 0 0 30px !important;
+  border: 0 !important;
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.30),
+    0 2px 8px rgb(0 0 0 / 0.18) !important;
+  transition: transform .25s var(--nx-ease), outline-color .2s ease !important;
+  outline: 1.5px solid transparent !important;
+  outline-offset: 3px !important;
+}
+html body .panel.panel.panel.panel.panel.panel .swatch:hover { transform: translateY(-2px) !important; }
+html body .panel.panel.panel.panel.panel.panel .swatch.active {
+  outline: 1.5px solid var(--nx-accent) !important;
+  outline-offset: 3px !important;
+}
+html body .panel.panel.panel.panel.panel.panel .swatch.add {
+  background: var(--nx-fill) !important;
+  border: 1px dashed var(--nx-line) !important;
+  box-shadow: none !important;
+  color: var(--nx-ink-faint) !important;
+  font-size: 15px !important;
+  font-weight: 300 !important;
+}
+html body .panel.panel.panel.panel.panel.panel .swatch.add:hover { border-color: var(--nx-accent) !important; color: var(--nx-ink) !important; }
+html body .panel.panel.panel.panel.panel.panel .swatch-remove,
+html body .panel.panel.panel.panel.panel.panel button.swatch-remove {
+  width: 15px !important;
+  height: 15px !important;
+  top: -4px !important;
+  right: -4px !important;
+  background: rgb(var(--ink-rgb) / 0.9) !important;
+  color: rgb(var(--veil-rgb) / 1) !important;
+  border: 0 !important;
+  box-shadow: 0 0 0 2px rgb(var(--veil-rgb) / 0.7) !important;
+  font-size: 9px !important;
+  line-height: 15px !important;
+}
+html body .panel.panel.panel.panel.panel.panel .swatch.remove-target:hover::after { display: none !important; }
+
+/* Photo thumbnails + drop zone */
+html body .panel.panel.panel.panel.panel.panel .nature-grid { gap: 6px !important; }
+html body .panel.panel.panel.panel.panel.panel .nature-thumb {
+  border-radius: var(--nx-r-s) !important;
+  border: 1px solid var(--nx-line-faint) !important;
+  box-shadow: none !important;
+  overflow: hidden !important;
+}
+html body .panel.panel.panel.panel.panel.panel .nature-thumb.active {
+  border: 1px solid transparent !important;
+  outline: 1.5px solid var(--nx-accent) !important;
+  outline-offset: 2px !important;
+}
+html body .panel.panel.panel.panel.panel.panel .drop-zone {
+  border: 1px dashed var(--nx-line) !important;
+  border-radius: var(--nx-r-m) !important;
+  background: var(--nx-fill) !important;
+  color: var(--nx-ink-faint) !important;
+  font: 400 9.5px/1.5 var(--nx-font) !important;
+  letter-spacing: .04em !important;
+}
+html body .panel.panel.panel.panel.panel.panel .drop-zone:hover {
+  background: var(--nx-fill-2) !important;
+  border-color: var(--nx-accent-line) !important;
+  color: var(--nx-ink-soft) !important;
+}
+
+/* Presets folder toggle */
+html body .panel.panel.panel.panel.panel.panel .presets-toggle,
+html body .panel.panel.panel.panel.panel.panel .folder-title {
+  color: var(--nx-ink-soft) !important;
+  font: 500 9px/1 var(--nx-font) !important;
+  letter-spacing: .16em !important;
+  text-transform: uppercase !important;
+}
+html body .panel.panel.panel.panel.panel.panel .preset-arrow { color: var(--nx-ink-faint) !important; }
+
+/* Download rows */
+html body .panel.panel.panel.panel.panel.panel:not(.collapsed) .create-dl-row { padding: 0 22px !important; gap: 6px !important; margin: 16px 0 0 !important; }
+html body .panel.panel.panel.panel.panel.panel:not(.collapsed) .create-secondary-row { padding: 0 22px 20px !important; margin: 8px 0 0 !important; }
+html body .panel.panel.panel.panel.panel.panel .create-alpha-btn { font-size: 8.5px !important; letter-spacing: .12em !important; }
+
+/* ═══════════════════════════════════════════════════════════ 4 · LIBRARY */
+
+html body .panel.panel.panel.panel.panel.panel .lib-sect-label {
+  font: 600 9px/1 var(--nx-font) !important;
+  letter-spacing: .19em !important;
+  text-transform: uppercase !important;
+  color: var(--nx-ink) !important;
+  border-bottom: 0 !important;
+}
+html body .panel.panel.panel.panel.panel.panel .lib-sect-hint { color: var(--nx-ink-faint) !important; font-weight: 400 !important; letter-spacing: .1em !important; }
+html body .panel.panel.panel.panel.panel.panel .lib-tile { border-radius: var(--nx-r-s) !important; }
+html body .panel.panel.panel.panel.panel.panel .lib-thumb {
+  border-radius: var(--nx-r-s) !important;
+  border: 1px solid var(--nx-line-faint) !important;
+  box-shadow: none !important;
+}
+html body .panel.panel.panel.panel.panel.panel .lib-type-badge,
+html body .panel.panel.panel.panel.panel.panel .lib-mod-badge,
+html body .panel.panel.panel.panel.panel.panel .lib-alpha-badge {
+  background: rgb(0 0 0 / 0.42) !important;
+  color: rgb(255 255 255 / 0.94) !important;
+  border: 0 !important;
+  border-radius: 4px !important;
+  font: 600 7px/1 var(--nx-font) !important;
+  letter-spacing: .12em !important;
+  text-transform: uppercase !important;
+  padding: 3px 5px !important;
+  box-shadow: none !important;
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
+}
+html body .panel.panel.panel.panel.panel.panel .lib-delete {
+  background: rgb(var(--ink-rgb) / 0.9) !important;
+  color: rgb(var(--veil-rgb) / 1) !important;
+  border: 0 !important;
+  box-shadow: 0 0 0 2px rgb(var(--veil-rgb) / 0.7) !important;
+}
+html body .panel.panel.panel.panel.panel.panel .lib-empty { color: var(--nx-ink-faint) !important; }
+html body .panel.panel.panel.panel.panel.panel .lib-empty-hint { color: var(--nx-ink-faint) !important; font: 400 9.5px/1.6 var(--nx-font) !important; }
+html body .panel.panel.panel.panel.panel.panel .lib-empty-hint kbd {
+  border: 1px solid var(--nx-line) !important;
+  border-radius: 5px !important;
+  background: var(--nx-fill) !important;
+  color: var(--nx-ink-soft) !important;
+}
+html body .panel.panel.panel.panel.panel.panel .lib-footer { border-top: 1px solid var(--nx-line-faint) !important; gap: 6px !important; }
+
+/* ══════════════════════════════════════════════════════ 5 · MOTION EXPORT */
+
+.vid-recorder { border-top: 1px solid var(--nx-line-faint) !important; }
+.vid-label {
+  font: 600 9px/1 var(--nx-font) !important;
+  letter-spacing: .19em !important;
+  text-transform: uppercase !important;
+  color: var(--nx-ink) !important;
+}
+.vid-sublabel {
+  font: 400 8.5px/1 var(--nx-font) !important;
+  letter-spacing: .14em !important;
+  text-transform: uppercase !important;
+  color: var(--nx-ink-faint) !important;
+}
+.vid-chip {
+  background: var(--nx-fill) !important;
+  border: 1px solid var(--nx-line-soft) !important;
+  border-radius: var(--nx-r-s) !important;
+  color: var(--nx-ink-soft) !important;
+  font: 500 8.5px/1 var(--nx-font) !important;
+  letter-spacing: .12em !important;
+  text-transform: uppercase !important;
+  box-shadow: none !important;
+  transition: var(--nx-ink-fade) !important;
+}
+.vid-chip:hover { border-color: var(--nx-line) !important; color: var(--nx-ink) !important; background: var(--nx-fill-2) !important; }
+.vid-chip.active {
+  background: var(--nx-fill-3) !important;
+  border-color: var(--nx-accent-line) !important;
+  color: var(--nx-ink) !important;
+  box-shadow: 0 0 0 1px var(--nx-accent-glow) !important;
+}
+.vid-progress-track { height: 4px !important; background: rgb(var(--ink-rgb) / 0.16) !important; border-radius: 999px !important; }
+.vid-progress-bar { background: var(--nx-accent) !important; border-radius: 999px !important; }
+.vid-progress-label, .vid-hint, .vid-done { color: var(--nx-ink-faint) !important; font-family: var(--nx-font) !important; }
+.vid-error {
+  background: rgba(178, 60, 44, .10) !important;
+  border: 1px solid rgba(178, 60, 44, .45) !important;
+  border-radius: var(--nx-r-s) !important;
+  color: #d4705f !important;
+}
+
+/* ═══════════════════════════════════════════════════════ 6 · EXPORT PANEL */
+
+:root {
+  --export-ink: var(--nx-ink);
+  --export-muted: var(--nx-ink-faint);
+  --export-line: var(--nx-line-faint);
+  --export-hair: rgb(255 255 255 / 0.5);
+}
+.export-overlay-backdrop {
+  background: rgb(6 6 10 / 0.34) !important;
+  backdrop-filter: blur(10px) saturate(1.1) !important;
+  -webkit-backdrop-filter: blur(10px) saturate(1.1) !important;
+}
+.export-window {
+  border-radius: var(--nx-r) !important;
+  border: 1px solid var(--nx-edge) !important;
+  background: var(--nx-glass) !important;
+  box-shadow: var(--nx-lift) !important;
+  backdrop-filter: var(--nx-blur-strong) !important;
+  -webkit-backdrop-filter: var(--nx-blur-strong) !important;
+  color: var(--nx-ink) !important;
+  overflow: hidden !important;
+}
+.export-window-header { border-bottom: 1px solid var(--nx-line-soft) !important; }
+.export-window-header .panel-eyebrow {
+  display: block !important;
+  font: 600 8.5px/1 var(--nx-font) !important;
+  letter-spacing: .22em !important;
+  text-transform: uppercase !important;
+  color: var(--nx-accent) !important;
+  margin-bottom: 7px !important;
+}
+.export-window-title {
+  font: 400 19px/1.1 var(--nx-serif) !important;
+  letter-spacing: .01em !important;
+  color: var(--nx-ink) !important;
+  text-transform: none !important;
+}
+.export-tabs { border-bottom: 1px solid var(--nx-line-soft) !important; background: transparent !important; }
+.export-tab {
+  background: transparent !important;
+  border: 0 !important;
+  border-right: 1px solid var(--nx-line-faint) !important;
+  box-shadow: none !important;
+  color: var(--nx-ink-faint) !important;
+  font: 500 9.5px/1 var(--nx-font) !important;
+  letter-spacing: .19em !important;
+  text-transform: uppercase !important;
+  transition: var(--nx-ink-fade) !important;
+}
+.export-tab:hover { color: var(--nx-ink-soft) !important; background: var(--nx-fill) !important; }
+.export-tab.active {
+  color: var(--nx-ink) !important;
+  background: var(--nx-fill) !important;
+  box-shadow: inset 0 -2px 0 var(--nx-accent) !important;
+}
+.export-control-title {
+  font: 600 8.5px/1 var(--nx-font) !important;
+  letter-spacing: .19em !important;
+  text-transform: uppercase !important;
+  color: var(--nx-ink) !important;
+}
+.export-control-count {
+  font: 400 9px/1 var(--nx-font) !important;
+  letter-spacing: .12em !important;
+  text-transform: uppercase !important;
+  color: var(--nx-ink-faint) !important;
+  font-variant-numeric: tabular-nums !important;
+}
+.export-window .btn {
+  height: 34px !important;
+  padding: 0 14px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: var(--nx-fill) !important;
+  border: 1px solid var(--nx-line-soft) !important;
+  border-radius: var(--nx-r-s) !important;
+  color: var(--nx-ink-soft) !important;
+  font: 500 9px/1 var(--nx-font) !important;
+  letter-spacing: .16em !important;
+  text-transform: uppercase !important;
+  font-style: normal !important;
+  box-shadow: none !important;
+  transition: var(--nx-ink-fade) !important;
+}
+.export-window .btn:hover { border-color: var(--nx-line) !important; color: var(--nx-ink) !important; background: var(--nx-fill-2) !important; }
+.export-window .btn.primary {
+  background: var(--nx-fill-3) !important;
+  border-color: var(--nx-accent-line) !important;
+  color: var(--nx-ink) !important;
+  box-shadow: 0 0 0 1px var(--nx-accent-glow) !important;
+}
+.export-window .btn.primary:hover { background: rgb(var(--ink-rgb) / 0.24) !important; border-color: var(--nx-accent) !important; }
+.export-window .btn[disabled] { opacity: .3 !important; }
+.export-format-chip {
+  background: var(--nx-fill) !important;
+  border: 1px solid var(--nx-line-soft) !important;
+  border-radius: var(--nx-r-s) !important;
+  box-shadow: none !important;
+  color: var(--nx-ink-soft) !important;
+  font: 500 9px/1 var(--nx-font) !important;
+  letter-spacing: .12em !important;
+  text-transform: uppercase !important;
+  transition: var(--nx-ink-fade) !important;
+}
+.export-format-chip:hover { border-color: var(--nx-line) !important; color: var(--nx-ink) !important; }
+.export-format-chip.active {
+  background: var(--nx-fill-3) !important;
+  border-color: var(--nx-accent-line) !important;
+  color: var(--nx-ink) !important;
+}
+.export-format-chip input,
+.export-col-select input,
+.export-row-select input,
+.export-check input { accent-color: var(--nx-accent) !important; }
+.export-grid-head { border-bottom: 1px solid var(--nx-line-soft) !important; background: transparent !important; }
+.export-col-select { border-right: 1px solid var(--nx-line-faint) !important; }
+.export-col-select span {
+  font: 600 8.5px/1 var(--nx-font) !important;
+  letter-spacing: .14em !important;
+  text-transform: uppercase !important;
+  color: var(--nx-ink) !important;
+}
+.export-col-select small {
+  font: 400 8px/1 var(--nx-font) !important;
+  letter-spacing: .06em !important;
+  color: var(--nx-ink-faint) !important;
+  font-variant-numeric: tabular-nums !important;
+}
+.export-row { border-bottom: 1px solid var(--nx-line-faint) !important; }
+.export-thumb img { border-radius: var(--nx-r-s) !important; border: 1px solid var(--nx-line-faint) !important; }
+.export-thumb-meta { color: var(--nx-ink-faint) !important; font-family: var(--nx-font) !important; }
+.export-alpha-inline {
+  background: var(--nx-fill) !important;
+  border: 1px solid var(--nx-line-soft) !important;
+  border-radius: 6px !important;
+  color: var(--nx-ink-soft) !important;
+  font: 500 7.5px/1 var(--nx-font) !important;
+  letter-spacing: .1em !important;
+  text-transform: uppercase !important;
+}
+.export-alpha-inline:hover { border-color: var(--nx-accent-line) !important; color: var(--nx-ink) !important; }
+.export-actions { border-top: 1px solid var(--nx-line-soft) !important; background: transparent !important; }
+.export-empty { color: var(--nx-ink-faint) !important; font-family: var(--nx-font) !important; }
+.export-window .icon-btn { color: var(--nx-ink-soft) !important; }
+.export-window .icon-btn:hover { color: var(--nx-ink) !important; }
+.export-resize-grip { opacity: .4 !important; }
+
+/* ═══════════════════════════════════════════════════════ 7 · COLOUR PICKER */
+
+body > .color-wheel-card.nurr-wheel-v2,
+.color-wheel-card.nurr-wheel-v2 {
+  border-radius: 22px !important;
+  color: var(--nx-ink) !important;
+  background: var(--nx-glass) !important;
+  border: 1px solid var(--nx-edge) !important;
+  box-shadow: var(--nx-lift) !important;
+  backdrop-filter: var(--nx-blur-strong) !important;
+  -webkit-backdrop-filter: var(--nx-blur-strong) !important;
+  overflow: hidden !important;
+}
+.color-wheel-card.nurr-wheel-v2::before { display: none !important; }
+.color-wheel-card.nurr-wheel-v2 .nurr-picker-title-row {
+  height: 44px !important;
+  padding: 0 18px !important;
+  border-bottom: 1px solid var(--nx-line-soft) !important;
+  background: transparent !important;
+}
+.color-wheel-card.nurr-wheel-v2 .nurr-picker-title-row span {
+  font: 600 9px/1 var(--nx-font) !important;
+  letter-spacing: .22em !important;
+  text-transform: uppercase !important;
+  color: var(--nx-ink) !important;
+}
+.color-wheel-card.nurr-wheel-v2 .nurr-picker-actions { gap: 12px !important; }
+.color-wheel-card.nurr-wheel-v2 .nurr-picker-actions button {
+  width: 24px !important;
+  height: 24px !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 50% !important;
+  box-shadow: none !important;
+  color: var(--nx-ink-faint) !important;
+  font: 300 16px/1 var(--nx-font) !important;
+  transition: color .25s var(--nx-ease), background .25s var(--nx-ease), transform .2s var(--nx-ease) !important;
+}
+.color-wheel-card.nurr-wheel-v2 .nurr-picker-actions button:hover {
+  color: var(--nx-ink) !important;
+  background: var(--nx-fill) !important;
+  transform: translateY(-1px) !important;
+}
+.color-wheel-card.nurr-wheel-v2 .nurr-hue-thumb,
+.color-wheel-card.nurr-wheel-v2 .nurr-sv-thumb {
+  border: 2px solid #fff !important;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.35), 0 2px 8px rgb(0 0 0 / 0.25) !important;
+}
+.color-wheel-card.nurr-wheel-v2 .nurr-lightness-track {
+  background: linear-gradient(90deg, #000, #fff) !important;
+  border-radius: 999px !important;
+  box-shadow: inset 0 0 0 1px rgb(var(--ink-rgb) / 0.16) !important;
+}
+.color-wheel-card.nurr-wheel-v2 .nurr-lightness-thumb {
+  border: 2px solid #fff !important;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.35), 0 2px 6px rgb(0 0 0 / 0.22) !important;
+}
+.color-wheel-card.nurr-wheel-v2 .nurr-active-chip {
+  border-radius: 50% !important;
+  border: 0 !important;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.3), 0 1px 6px rgb(0 0 0 / 0.18) !important;
+}
+.color-wheel-card.nurr-wheel-v2 .nurr-value-row {
+  border-bottom: 1px solid var(--nx-line-faint) !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+}
+.color-wheel-card.nurr-wheel-v2 .nurr-value-row span,
+.color-wheel-card.nurr-wheel-v2 .nurr-value-row label {
+  font: 600 8px/1 var(--nx-font) !important;
+  letter-spacing: .18em !important;
+  text-transform: uppercase !important;
+  color: var(--nx-ink-faint) !important;
+}
+.color-wheel-card.nurr-wheel-v2 .color-input,
+.color-wheel-card.nurr-wheel-v2 input {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  color: var(--nx-ink) !important;
+  font: 400 11px/1 var(--nx-font) !important;
+  letter-spacing: .06em !important;
+  font-variant-numeric: tabular-nums !important;
+}
+.color-wheel-card.nurr-wheel-v2 .color-input:focus { outline: none !important; box-shadow: inset 0 -1px 0 var(--nx-accent) !important; }
+.color-wheel-card.nurr-wheel-v2 .nurr-recent-label {
+  font: 600 8px/1 var(--nx-font) !important;
+  letter-spacing: .18em !important;
+  text-transform: uppercase !important;
+  color: var(--nx-ink-faint) !important;
+}
+.color-wheel-card.nurr-wheel-v2 .nurr-recent-chip {
+  border-radius: 50% !important;
+  border: 0 !important;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.28) !important;
+  transition: transform .2s var(--nx-ease) !important;
+}
+.color-wheel-card.nurr-wheel-v2 .nurr-recent-chip:hover { transform: translateY(-2px) !important; }
+.color-wheel-card.nurr-wheel-v2 .nurr-recent-chip.is-empty {
+  box-shadow: none !important;
+  border: 1px dashed var(--nx-line) !important;
+  background: transparent !important;
+}
+.color-wheel-card.nurr-wheel-v2 .nurr-picker-mini-chip {
+  border-radius: 50% !important;
+  border: 0 !important;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.3), 0 2px 8px rgb(0 0 0 / 0.16) !important;
+}
+
+/* ═══════════════════════════════════════ 8 · LIGHTBOX · TOAST · PLACEHOLDER */
+
+.preview-backdrop {
+  background: rgb(6 6 10 / 0.34) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+}
+.preview-window {
+  border-radius: 16px !important;
+  border: 1px solid var(--nx-edge) !important;
+  box-shadow: 0 30px 90px rgb(0 0 0 / 0.35) !important;
+  overflow: hidden !important;
+}
+.preview-close {
+  background: rgb(var(--ink-rgb) / 0.9) !important;
+  color: rgb(var(--veil-rgb) / 1) !important;
+  border: 0 !important;
+  box-shadow: 0 0 0 2px rgb(var(--veil-rgb) / 0.7) !important;
+}
+.snapshot-toast {
+  background: rgb(10 10 14 / 0.62) !important;
+  color: rgb(255 255 255 / 0.95) !important;
+  border: 1px solid rgb(255 255 255 / 0.16) !important;
+  border-radius: 999px !important;
+  font: 500 9.5px/1 var(--nx-font) !important;
+  letter-spacing: .16em !important;
+  text-transform: uppercase !important;
+  padding: 12px 20px !important;
+  backdrop-filter: blur(20px) saturate(1.6) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(1.6) !important;
+  box-shadow: 0 14px 40px rgb(0 0 0 / 0.28) !important;
+}
+.placeholder-card {
+  border-radius: var(--nx-r) !important;
+  border: 1px solid var(--nx-edge) !important;
+  background: var(--nx-glass) !important;
+  backdrop-filter: var(--nx-blur) !important;
+  -webkit-backdrop-filter: var(--nx-blur) !important;
+  color: var(--nx-ink) !important;
+  box-shadow: var(--nx-lift) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════ 9 · MOTION */
+
+@keyframes swkRise {
+  from { opacity: 0; transform: translateY(7px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes swkRiseA { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes swkRiseB { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes swkRiseC { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes swkRiseD { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
+
+html body .panel.panel.panel.panel.panel.panel:not(.collapsed) .panel-body { animation: swkRise .5s var(--nx-ease) both; }
+html body .panel.panel.panel.panel.panel.panel.mode-gradient:not(.collapsed)  .panel-body { animation-name: swkRiseA; }
+html body .panel.panel.panel.panel.panel.panel.mode-abstract:not(.collapsed)  .panel-body { animation-name: swkRiseB; }
+html body .panel.panel.panel.panel.panel.panel.mode-geometric:not(.collapsed) .panel-body { animation-name: swkRiseC; }
+html body .panel.panel.panel.panel.panel.panel.mode-nature:not(.collapsed)    .panel-body { animation-name: swkRiseD; }
+
+@keyframes swkPop {
+  from { opacity: 0; transform: scale(.6); }
+  to   { opacity: 1; transform: scale(1); }
+}
+html body .panel.panel.panel.panel.panel.panel .swatch-wrap { animation: swkPop .35s var(--nx-ease) both; }
+
+@keyframes swkSettle {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(.985) translateY(6px); }
+  to   { opacity: 1; transform: translate(-50%, -50%) scale(1) translateY(0); }
+}
+.export-window { animation: swkSettle .55s var(--nx-ease) both; }
+@keyframes swkSettleFree {
+  from { opacity: 0; transform: scale(.985) translateY(6px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+.color-wheel-card.nurr-wheel-v2 { animation: swkSettleFree .45s var(--nx-ease) both; }
+.color-wheel-card.nurr-wheel-v2.is-minimized { animation: none; }
+
+body:not(.nymph-landing-active) .nurr-brand,
+body:not(.nymph-landing-active) .nurr-brand-button { animation: nymphAppReveal .8s var(--nx-ease) .05s both; }
+body:not(.nymph-landing-active) .rail  { animation: nymphAppReveal .8s var(--nx-ease) .16s both; }
+body:not(.nymph-landing-active) .panel { animation: nymphAppReveal .8s var(--nx-ease) .26s both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .panel:not(.collapsed) .panel-body,
+  .panel .swatch-wrap,
+  .export-window,
+  .color-wheel-card.nurr-wheel-v2 { animation: none !important; }
+}
+
+/* ═══════════════════════════════════════════════════════════ 10 · MOBILE */
+
+/* The mobile experience is owned entirely by css/mobile-ui.css, which is a
+   self-contained liquid-glass system on the `.nm-*` DOM. Nothing here should
+   reach it — the only thing this sheet contributes on small screens is the
+   accent token and a guarantee that the desktop panel stays hidden. */
+@media (max-width: 820px) {
+  html body .panel.panel.panel.panel.panel.panel,
+  html body .panel.panel.panel.panel.panel.panel:not(.collapsed),
+  html body .panel.panel.panel.panel.panel.panel.collapsed { display: none !important; }
+
+  .nurr-support-strip { display: none !important; }
+}

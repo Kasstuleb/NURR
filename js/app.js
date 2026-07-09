@@ -7,20 +7,21 @@ const { useEffect, useRef, useState, useCallback } = React;
 
 const MODULE_LAYER_TYPE = {
   gradient: 'background', abstract: 'background',
-  nature: 'background', geometric: 'object',
+  nature: 'background', geometric: 'background',
 };
 const MODULE_HAS_ALPHA = { geometric: true };
+const MODULE_DISPLAY = { gradient:'gradient', abstract:'abstract', geometric:'flow', nature:'photo' };
+const moduleDisplay = (id) => MODULE_DISPLAY[id] || id;
 
 const EXPORT_SIZES = {
   square:   { label: '1×1',   w: 1080, h: 1080, ratio: '1:1' },
   wide:     { label: '16:9',  w: 1920, h: 1080, ratio: '16:9' },
   story:    { label: '9:16',  w: 1080, h: 1920, ratio: '9:16' },
-  classic:  { label: '4:3',   w: 1600, h: 1200, ratio: '4:3' },
+  portrait: { label: '4:5',   w: 1600, h: 2000, ratio: '4:5' },
   qhd:      { label: '2K',    w: 2560, h: 1440, ratio: '16:9' },
-  uhd:      { label: '4K',    w: 3840, h: 2160, ratio: '16:9' },
 };
 
-const EXPORT_PANEL_KEYS = ['square', 'wide', 'story', 'classic', 'qhd', 'uhd'];
+const EXPORT_PANEL_KEYS = ['square', 'wide', 'story', 'portrait', 'qhd'];
 const EXPORT_FORMATS = {
   png:  { label: 'PNG',  mime: 'image/png',  ext: 'png' },
   jpg:  { label: 'JPG',  mime: 'image/jpeg', ext: 'jpg' },
@@ -219,7 +220,7 @@ function LibraryTab({ library, onDelete, onPreview, onClear, onDownloadAll, onOp
               <span className={'lib-type-badge lib-type-' + item.type}>
                 {item.type === 'object' ? 'OBJ' : 'BG'}
               </span>
-              <span className="lib-mod-badge">{item.module.slice(0, 3).toUpperCase()}</span>
+              <span className="lib-mod-badge">{moduleDisplay(item.module).slice(0, 3).toUpperCase()}</span>
               {item.hasAlpha && <span className="lib-alpha-badge" title="Has transparent layer">α</span>}
               <button className="lib-delete" onClick={(e) => { e.stopPropagation(); onDelete(item.id); }} title="Remove">×</button>
             </div>
@@ -340,32 +341,66 @@ function App() {
   const [exportChecks, setExportChecks] = useState({});
   const [exportTab, setExportTab] = useState('still');
   const [exportFormats, setExportFormats] = useState({ png: true, jpg: false, webp: false, pdf: false });
+  const [exportStatus, setExportStatus] = useState({ busy: false, text: '' });
 
   const showToast = (text = '✓ Saved') => {
     setToast({ show: true, text });
     setTimeout(() => setToast(t => ({ ...t, show: false })), 1800);
   };
 
-  const doSnapshot = (sizeKey = 'qhd') => {
+  const doSnapshot = async (sizeKey = 'qhd') => {
     const ref = snapshotRef;
     if (!ref.current) { showToast('⚠ Not ready yet'); return; }
     const size = EXPORT_SIZES[sizeKey] || EXPORT_SIZES.qhd;
-    ref.current({ width: size.w, height: size.h, filename: `nurr-${mode}-${size.label}-${Date.now()}.png` });
+    const result = ref.current({ width: size.w, height: size.h, returnDataUrl: true });
+    const source = typeof result === 'string' ? result : (result && result.dataUrl);
+    if (!source) { showToast('⚠ Export failed'); return; }
+    try {
+      const img = await dataUrlToImage(source);
+      const canvas = document.createElement('canvas');
+      canvas.width = size.w; canvas.height = size.h;
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, size.w, size.h);
+      ctx.drawImage(img, 0, 0, size.w, size.h);
+      // Grain is produced once, in-shader, at render resolution. No second
+      // canvas grain pass here — that was the source of the dirty/blocky look.
+      const blob = await canvasToBlob(canvas, 'image/png');
+      downloadBlob(blob, `nymph-${mode}-${size.label}-${Date.now()}.png`);
+    } catch (err) {
+      console.error('Snapshot export failed', err);
+      const a = document.createElement('a');
+      a.href = source; a.download = `nymph-${mode}-${size.label}-${Date.now()}.png`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    }
   };
 
   const doTransparentSnapshot = (sizeKey = 'wide') => {
     if (!snapshotRef.current) return;
     const size = EXPORT_SIZES[sizeKey] || EXPORT_SIZES.wide;
-    snapshotRef.current({ width: size.w, height: size.h, transparent: true, filename: `nurr-${mode}-layer-${size.label}-${Date.now()}.png` });
+    snapshotRef.current({ width: size.w, height: size.h, transparent: true, fitObject: true, filename: `nurr-${mode}-layer-${size.label}-${Date.now()}.png` });
   };
 
   // Mobile export: render at the exact requested size and hand back a PNG data
   // URL so the mobile UI can offer Download + Open-image (iOS long-press save).
-  const mobileGetImage = (sizeKey = 'wide') => {
+  const mobileGetImage = async (sizeKey = 'wide') => {
     if (!snapshotRef.current) return null;
     const size = EXPORT_SIZES[sizeKey] || EXPORT_SIZES.wide;
     const r = snapshotRef.current({ width: size.w, height: size.h, returnDataUrl: true });
-    return typeof r === 'string' ? r : (r && r.dataUrl) || null;
+    const source = typeof r === 'string' ? r : (r && r.dataUrl) || null;
+    if (!source) return null;
+    try {
+      const img = await dataUrlToImage(source);
+      const canvas = document.createElement('canvas');
+      canvas.width = size.w; canvas.height = size.h;
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, size.w, size.h);
+      ctx.drawImage(img, 0, 0, size.w, size.h);
+      // Grain comes from the shader render, applied once. No second pass.
+      return canvas.toDataURL('image/png');
+    } catch (err) {
+      console.error('Mobile export grain pass failed', err);
+      return source;
+    }
   };
 
   const captureCurrent = () => {
@@ -375,25 +410,65 @@ function App() {
       const id       = Date.now();
       const type     = MODULE_LAYER_TYPE[mode] || 'background';
       const hasAlpha = MODULE_HAS_ALPHA[mode]  || false;
-      // captureRenderState asks gradient/abstract to also freeze the exact
-      // interaction state (time, mouse, click pulse) behind this preview.
-      // Modules that don't understand the option just return a plain data
-      // URL string, same as before.
-      const captured = ref.current({ width: 960, height: 540, returnDataUrl: true, captureRenderState: true });
+      // captureRenderState asks gradient/abstract to freeze the exact interaction
+      // state (time, mouse, click pulse) behind this save. We also keep a larger
+      // master image rendered from that SAME frozen state and the same visible
+      // stage aspect. Export uses this master as the visual source of truth, so
+      // files match the snap instead of recomputing a different field later.
+      const stageRect = document.querySelector('canvas.stage')?.getBoundingClientRect();
+      const viewRatio = stageRect && stageRect.width > 0 && stageRect.height > 0 ? stageRect.width / stageRect.height : (16 / 9);
+      const previewW = viewRatio >= 1 ? 960 : Math.max(360, Math.round(960 * viewRatio));
+      const previewH = viewRatio >= 1 ? Math.max(360, Math.round(960 / viewRatio)) : 960;
+      const masterW = viewRatio >= 1 ? 2560 : Math.max(720, Math.round(2560 * viewRatio));
+      const masterH = viewRatio >= 1 ? Math.max(720, Math.round(2560 / viewRatio)) : 2560;
+      const captured = ref.current({ width: previewW, height: previewH, returnDataUrl: true, captureRenderState: true });
       if (!captured) return false;
       const preview     = typeof captured === 'string' ? captured : captured.dataUrl;
       const renderState = (captured && typeof captured === 'object') ? captured.renderState : null;
+      // Module snapshot functions return the exact controls they rendered with.
+      // Use this, not App's possibly one-event-late state, so Flip / Flow material
+      // / Photo effect changes cannot be lost between preview and export.
+      const capturedTweaks = (captured && typeof captured === 'object' && captured.tweaks)
+        ? clonePlain(captured.tweaks)
+        : null;
       if (!preview) return false;
-      let alphaPreview = null;
-      if (hasAlpha && snapshotRef.current) {
-        alphaPreview = snapshotRef.current({ width: 960, height: 540, returnDataUrl: true, transparent: true });
+      let exportSource = preview;
+      let sourceW = previewW, sourceH = previewH;
+      // Keep a large master at the exact snapped stage aspect when the module
+      // benefits from a frozen visual fallback. Photo exports now render
+      // natively during final export, because resizing the live WebGL canvas in
+      // Safari can produce striped captures. FLOW still stores a large master,
+      // especially for particle mode where the exact live simulation must be
+      // preserved.
+      if (renderState && mode !== 'nature') {
+        const master = ref.current({
+          width: masterW,
+          height: masterH,
+          returnDataUrl: true,
+          renderStateOverride: renderState,
+          tweaksOverride: capturedTweaks || undefined,
+          exportQuality: true
+        });
+        if (typeof master === 'string') { exportSource = master; sourceW = masterW; sourceH = masterH; }
+        else if (master && master.dataUrl) { exportSource = master.dataUrl; sourceW = masterW; sourceH = masterH; }
       }
-      const tweaksSnap = { gradient: gradientTweaks, geometric: geometricTweaks, nature: natureTweaks, abstract: abstractTweaks };
+      // FLOW can be heavy in particle mode. Store the frozen render state and
+      // render the transparent layer only when requested; this makes snapshots
+      // immediate instead of blocking for several minutes.
+      let alphaPreview = null;
+      if (hasAlpha && mode !== 'geometric' && snapshotRef.current) {
+        alphaPreview = snapshotRef.current({ width: previewW, height: previewH, returnDataUrl: true, transparent: true, fitObject: true, renderStateOverride: renderState, tweaksOverride: capturedTweaks || undefined });
+      }
+      const tweaksSnap = clonePlain({ gradient: gradientTweaks, geometric: geometricTweaks, nature: natureTweaks, abstract: abstractTweaks });
+      if (capturedTweaks) tweaksSnap[mode] = capturedTweaks;
+      const forceVisualExport = (mode === 'geometric' && capturedTweaks && capturedTweaks.material === 'particles');
       setLibrary(items => [...items, {
         id, type, module: mode, hasAlpha,
-        preview, alphaPreview, renderState,
+        preview, exportSource, sourceW, sourceH, alphaPreview, renderState,
         tweaks: tweaksSnap,
         currentImg: mode === 'nature' ? currentImg : null,
+        forceVisualExport,
+        exportFit: forceVisualExport ? 'contain-soft' : 'contain',
         label: null, capturedAt: id,
       }].slice(-32));
       // Keep the current Create/Library tab unchanged when taking snapshots; only the badge count updates.
@@ -429,6 +504,47 @@ function App() {
     img.onerror = reject;
     img.src = src;
   });
+
+  const drawImageFitted = (ctx, img, w, h, fit = 'cover') => {
+    const iw = img.naturalWidth || img.width || w;
+    const ih = img.naturalHeight || img.height || h;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
+    // Preserve the snapped image when exporting to a different aspect ratio.
+    // A soft cover-fill avoids dead black/transparent bars; the sharp contained
+    // image on top is never cropped.
+    if (fit === 'contain-soft') {
+      const coverScale = Math.max(w / Math.max(1, iw), h / Math.max(1, ih));
+      const coverW = iw * coverScale, coverH = ih * coverScale;
+      const coverX = (w - coverW) * 0.5, coverY = (h - coverH) * 0.5;
+      ctx.save();
+      ctx.globalAlpha = 0.34;
+      ctx.filter = 'blur(18px) saturate(1.03)';
+      ctx.drawImage(img, coverX, coverY, coverW, coverH);
+      ctx.restore();
+      fit = 'contain';
+    }
+
+    const scaleFn = fit === 'contain' ? Math.min : Math.max;
+    const scale = scaleFn(w / Math.max(1, iw), h / Math.max(1, ih));
+    const dw = iw * scale;
+    const dh = ih * scale;
+    const dx = (w - dw) * 0.5;
+    const dy = (h - dh) * 0.5;
+    ctx.drawImage(img, dx, dy, dw, dh);
+  };
+
+  const clonePlain = (value) => {
+    try { return JSON.parse(JSON.stringify(value)); }
+    catch (err) { return value; }
+  };
+
+
+  // NOTE: The old canvas-side export grain pass (applyExportGrain) was removed.
+  // Grain is now produced exactly once, in each module's shader, normalized to
+  // a resolution-independent cell size — so it stays consistent across every
+  // export size and aspect ratio and never doubles up into digital "dirt".
 
   const canvasToBlob = (canvas, mime, quality = 0.94) => new Promise((resolve, reject) => {
     canvas.toBlob((blob) => {
@@ -470,43 +586,70 @@ function App() {
     return new Blob(chunks, { type: 'application/pdf' });
   };
 
-  // For gradient and abstract, the library only stores a small 960×540
-  // preview (so the Library list stays cheap). Re-rendering natively at the
-  // exact export size from the saved tweaks + frozen renderState — instead
-  // of stretching that small bitmap up to 2K/4K — is what keeps Grain
-  // looking like grain instead of square blocks, and keeps every aspect
-  // ratio sharp and faithful to what was saved. Modules without a
-  // high-res renderer (geometric, nature) keeps the
-  // existing preview-resample behaviour unchanged.
-  const highResExportSource = async (item, size) => {
+  // ── Single source of truth for every export ────────────────────────────────
+  // The Library only stores a cheap preview for the list UI. The actual file
+  // is ALWAYS re-rendered natively at the exact export width×height from the
+  // saved tweaks + frozen renderState, through the same offscreen renderer for
+  // every module (gradient / abstract / flow / photo). Because it renders at
+  // the real export resolution and aspect, nothing is upscaled and nothing is
+  // cropped — each aspect ratio is a true render, grain stays crisp, and the
+  // file matches the Library preview. Only pre-fix / old-session items that
+  // have no renderState fall back to the stored preview bitmap.
+  const highResExportSource = async (item, size, transparent = false) => {
     const moduleTweaks = item.tweaks ? item.tweaks[item.module] : null;
-    if (!moduleTweaks || !item.renderState) return null;
-    if (item.module === 'gradient' && typeof window.NurrGradientRenderToDataURL === 'function') {
+    if (!moduleTweaks) return null;
+    if (item.forceVisualExport) return null;
+
+    if (!transparent && item.module === 'gradient' && item.renderState && typeof window.NurrGradientRenderToDataURL === 'function') {
       return window.NurrGradientRenderToDataURL(moduleTweaks, item.renderState, size.w, size.h);
     }
-    if (item.module === 'abstract' && typeof window.NurrAbstractRenderToDataURL === 'function') {
+    if (!transparent && item.module === 'abstract' && item.renderState && typeof window.NurrAbstractRenderToDataURL === 'function') {
       return window.NurrAbstractRenderToDataURL(moduleTweaks, item.renderState, size.w, size.h);
+    }
+    if (item.module === 'geometric') {
+      const extra = { transparent, fitObject: transparent, exportQuality: true };
+      // Prefer the standalone static renderer — it works even when FLOW is not
+      // the mounted module. It returns null for particle mode (which needs the
+      // live simulation), so fall through to the live-canvas renderer there.
+      if (typeof window.NurrGeometricRenderStaticToDataURL === 'function') {
+        const staticOut = window.NurrGeometricRenderStaticToDataURL(moduleTweaks, item.renderState || {}, size.w, size.h, extra);
+        if (staticOut) return staticOut;
+      }
+      if (typeof window.NurrGeometricRenderToDataURL === 'function') {
+        return window.NurrGeometricRenderToDataURL(moduleTweaks, item.renderState || {}, size.w, size.h, extra);
+      }
+    }
+    if (!transparent && item.module === 'nature' && item.currentImg && typeof window.NurrNatureRenderToDataURL === 'function') {
+      // Async (image decode) — awaited by the caller.
+      return await window.NurrNatureRenderToDataURL(moduleTweaks, item.renderState || {}, size.w, size.h, { currentImg: item.currentImg });
     }
     return null;
   };
 
   const renderExportBlob = async (item, size, formatKey) => {
-    const hiRes = await highResExportSource(item, size);
-    const img = await dataUrlToImage(hiRes || item.preview);
+    const native = await highResExportSource(item, size, false);
+    const source = native || item.exportSource || item.preview;
+    const img = await dataUrlToImage(source);
     const canvas = document.createElement('canvas');
     canvas.width = size.w; canvas.height = size.h;
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, size.w, size.h);
-    // hiRes sources are already rendered natively at size.w×size.h, so this
-    // is a 1:1 copy. The fallback preview path still resamples into the
-    // requested aspect ratio, same as before.
-    ctx.drawImage(img, 0, 0, size.w, size.h);
+    if (native) {
+      // Native render is already exactly size.w×size.h and aspect-correct —
+      // draw it 1:1. No fit, no cover-crop.
+      ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(img, 0, 0, size.w, size.h);
+    } else {
+      // Fallback for old items with only a stored preview bitmap.
+      drawImageFitted(ctx, img, size.w, size.h, item.exportFit || ((item.type === 'object' && item.module !== 'geometric') ? 'contain' : 'contain'));
+    }
+    // No canvas grain pass — grain is baked into the shader render.
     if (formatKey === 'pdf') {
-      const jpg = await canvasToBlob(canvas, 'image/jpeg', 0.95);
+      const jpg = await canvasToBlob(canvas, 'image/jpeg', 0.98);
       return jpegBlobToPdf(jpg, size.w, size.h);
     }
     const meta = EXPORT_FORMATS[formatKey] || EXPORT_FORMATS.png;
-    return canvasToBlob(canvas, meta.mime, formatKey === 'png' ? undefined : 0.94);
+    return canvasToBlob(canvas, meta.mime, formatKey === 'png' ? undefined : 0.98);
   };
 
   const buildExportJobs = () => {
@@ -523,31 +666,68 @@ function App() {
   };
 
   const exportSelected = async (delivery = 'zip') => {
+    if (exportStatus.busy) return;
     const jobs = buildExportJobs();
     if (!jobs.length) return;
     if (delivery === 'zip' && !window.JSZip) { showToast('⚠ ZIP library missing — use Download files'); return; }
-    if (delivery === 'zip' && window.JSZip) {
-      const zip = new JSZip();
-      for (const job of jobs) {
-        const meta = EXPORT_FORMATS[job.formatKey] || EXPORT_FORMATS.png;
-        const blob = await renderExportBlob(job.item, job.size, job.formatKey);
-        zip.file(`nymph-${String(job.idx + 1).padStart(2, '0')}-${job.item.module}-${job.size.label.replace(':', 'x')}-${job.size.w}x${job.size.h}.${meta.ext}`, blob);
+
+    setExportStatus({ busy: true, text: `Preparing ${jobs.length} file${jobs.length === 1 ? '' : 's'}…` });
+    showToast('Preparing export — download will start shortly');
+
+    try {
+      if (delivery === 'zip' && window.JSZip) {
+        const zip = new JSZip();
+        for (let i = 0; i < jobs.length; i++) {
+          const job = jobs[i];
+          const meta = EXPORT_FORMATS[job.formatKey] || EXPORT_FORMATS.png;
+          setExportStatus({ busy: true, text: `Rendering ${i + 1}/${jobs.length}…` });
+          const blob = await renderExportBlob(job.item, job.size, job.formatKey);
+          zip.file(`nymph-${String(job.idx + 1).padStart(2, '0')}-${moduleDisplay(job.item.module)}-${job.size.label.replace(':', 'x')}-${job.size.w}x${job.size.h}.${meta.ext}`, blob);
+        }
+        setExportStatus({ busy: true, text: 'Compressing ZIP…' });
+        const blob = await zip.generateAsync({ type: 'blob' }, (meta) => {
+          setExportStatus({ busy: true, text: `Compressing ZIP — ${Math.round(meta.percent || 0)}%` });
+        });
+        downloadBlob(blob, 'nymph-export.zip');
+        showToast('Download started');
+        setExportStatus({ busy: false, text: 'Download started' });
+        setTimeout(() => setExportStatus(s => s.text === 'Download started' ? { busy: false, text: '' } : s), 2200);
+        return;
       }
-      const blob = await zip.generateAsync({ type: 'blob' });
-      downloadBlob(blob, 'nymph-export.zip');
-      return;
+
+      for (let i = 0; i < jobs.length; i++) {
+        const job = jobs[i];
+        const meta = EXPORT_FORMATS[job.formatKey] || EXPORT_FORMATS.png;
+        setExportStatus({ busy: true, text: `Downloading ${i + 1}/${jobs.length}…` });
+        const blob = await renderExportBlob(job.item, job.size, job.formatKey);
+        downloadBlob(blob, `nymph-${String(job.idx + 1).padStart(2, '0')}-${moduleDisplay(job.item.module)}-${job.size.label.replace(':', 'x')}-${job.size.w}x${job.size.h}.${meta.ext}`);
+        await new Promise(resolve => setTimeout(resolve, 120));
+      }
+      showToast('Downloads started');
+      setExportStatus({ busy: false, text: 'Downloads started' });
+      setTimeout(() => setExportStatus(s => s.text === 'Downloads started' ? { busy: false, text: '' } : s), 2200);
+    } catch (err) {
+      console.error('Export failed', err);
+      showToast('⚠ Export failed');
+      setExportStatus({ busy: false, text: 'Export failed' });
+      setTimeout(() => setExportStatus(s => s.text === 'Export failed' ? { busy: false, text: '' } : s), 2600);
     }
-    jobs.forEach((job, i) => setTimeout(async () => {
-      const meta = EXPORT_FORMATS[job.formatKey] || EXPORT_FORMATS.png;
-      const blob = await renderExportBlob(job.item, job.size, job.formatKey);
-      downloadBlob(blob, `nymph-${String(job.idx + 1).padStart(2, '0')}-${job.item.module}-${job.size.label.replace(':', 'x')}-${job.size.w}x${job.size.h}.${meta.ext}`);
-    }, i * 120));
   };
 
-  const downloadAlphaLayer = (item) => {
-    if (!item.alphaPreview) return;
+  const downloadAlphaLayer = async (item) => {
+    if (!item.alphaPreview && item.module !== 'geometric') return;
+    let src = item.alphaPreview;
+    if (item.module === 'geometric') {
+      const aspect = Math.max(0.1, (item.sourceW || 16) / Math.max(1, item.sourceH || 9));
+      const longEdge = 2560;
+      const size = aspect >= 1
+        ? { w: longEdge, h: Math.round(longEdge / aspect) }
+        : { w: Math.round(longEdge * aspect), h: longEdge };
+      src = await highResExportSource(item, size, true) || src;
+    }
+    if (!src) return;
     const a = document.createElement('a');
-    a.href = item.alphaPreview; a.download = `nurr-${item.module}-layer-${item.id}.png`;
+    a.href = src; a.download = `nurr-${moduleDisplay(item.module)}-layer-${item.id}.png`;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
   };
 
@@ -556,8 +736,8 @@ function App() {
     if (window.JSZip) {
       const zip = new JSZip();
       library.forEach((item, i) => {
-        const name = `nurr-${String(i + 1).padStart(2, '0')}-${item.module}-${item.type}`;
-        zip.file(name + '.png', item.preview.split(',')[1], { base64: true });
+        const name = `nurr-${String(i + 1).padStart(2, '0')}-${moduleDisplay(item.module)}-${item.type}`;
+        zip.file(name + '.png', (item.exportSource || item.preview).split(',')[1], { base64: true });
         if (item.alphaPreview) zip.file(name + '-layer.png', item.alphaPreview.split(',')[1], { base64: true });
       });
       const blob = await zip.generateAsync({ type: 'blob' });
@@ -567,7 +747,7 @@ function App() {
       setTimeout(() => URL.revokeObjectURL(url), 1500);
     } else {
       library.forEach((item, i) => setTimeout(() => {
-        const a = document.createElement('a'); a.href = item.preview; a.download = `nurr-${i + 1}-${item.module}.png`;
+        const a = document.createElement('a'); a.href = item.exportSource || item.preview; a.download = `nurr-${i + 1}-${moduleDisplay(item.module)}.png`;
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
       }, i * 80));
     }
@@ -591,20 +771,35 @@ function App() {
       const colors = formula && formula.colors ? formula.colors : pickPalette(4);
       setGradientTweaks(s => ({
         ...s,
-        colors: colors.length >= 2 ? colors : s.colors,
+        colors: colors.length >= 2 ? colors.slice(0, 4) : s.colors,
+        // Header/mobile Shuffle was accidentally preserving manualPalette:true
+        // after a user edit or preset pick. That forced the manual/equal role
+        // weights and made strong shuffle palettes render as flat averages.
+        manualPalette: false,
         spread: formula && formula.spread != null ? formula.spread : (colors.length >= 3 ? Math.max(s.spread ?? 0.62, 0.62) : 0.48),
         colorDistance: formula && formula.distance != null ? formula.distance : (s.colorDistance ?? 0.56),
         blend: formula && formula.blend != null ? formula.blend : (s.blend ?? 0.56),
         pigment: formula && formula.pigment != null ? formula.pigment : (s.pigment ?? 0.5),
         saturation: formula && formula.saturation != null ? formula.saturation : (s.saturation ?? 0.5),
+        temperature: 0,
         formula: formula ? formula.formula : s.formula,
         formulaLabel: formula ? formula.label : s.formulaLabel,
         formulaWeights: formula && formula.formulaWeights ? formula.formulaWeights : s.formulaWeights,
-        grain: formula && formula.grain != null ? formula.grain : (s.grain ?? 0.035)
+        grain: formula && formula.grain != null ? formula.grain : Math.min(0.045, s.grain ?? 0.025),
+        // Shuffle should never inherit a stale Pixelate/Chroma surface. Those
+        // remain explicit Surface choices after the new gradient is generated.
+        texturePreset: 'clean',
+        textureAmount: 0,
+        textureScale: 0.45,
+        textureSeed: Math.random()
       }));
       return;
     }
-    if (mode === 'geometric') { setGeometricTweaks(s => ({ ...s, compositionIdx: Math.floor(Math.random() * (window.GEOMETRIC_COMPOSITIONS_LEN || 12)), colors: pickPalette(3).slice(0, 3), grain: Math.min(0.32, Math.max(0.04, (s.grain ?? 0.1) + (Math.random() - 0.5) * 0.08)) })); return; }
+    if (mode === 'geometric') { setGeometricTweaks(s => ({ ...s,
+      compositionIdx: Math.floor(Math.random() * (window.GEOMETRIC_COMPOSITIONS_LEN || 12)),
+      colors: pickPalette(4).slice(0, 4),
+      grain: Math.min(0.22, Math.max(0.015, (s.grain ?? 0.08) + (Math.random() - 0.5) * 0.045))
+    })); return; }
     if (mode === 'nature') { const effects = ['warp','blur','split','melt','nodes']; setNatureTweaks(s => ({ ...s, effect: effects[Math.floor(Math.random() * effects.length)], warp: 0.28 + Math.random() * 0.52, blur: 0.22 + Math.random() * 0.58, split: 0.24 + Math.random() * 0.62, hue: (Math.random() - 0.5) * 0.22, sat: 0.78 + Math.random() * 0.72, contrast: 0.78 + Math.random() * 0.62, grain: Math.random() * 0.18, vignette: 0.08 + Math.random() * 0.38 })); if (natureImages.length) setCurrentImg(natureImages[Math.floor(Math.random() * natureImages.length)]); return; }
     if (mode === 'abstract') { setAbstractTweaks(s => ({ ...s, colors: pickPalette(4), seed: Math.random(), variant: Math.floor(Math.random() * 8), gradientSource: Math.random() > 0.5 ? 'blob' : 'smooth' })); return; }
   };
@@ -820,7 +1015,7 @@ function App() {
   const modes = [
     { id: 'gradient',  label: 'Gradient',   num: 'i.'   },
     { id: 'abstract',  label: 'Abstract',   num: 'ii.'  },
-    { id: 'geometric', label: 'Geometric',  num: 'iii.' },
+    { id: 'geometric', label: 'Flow',       num: 'iii.' },
     { id: 'nature',    label: 'Photo',      num: 'iv.'  },
   ];
 
@@ -894,15 +1089,15 @@ function App() {
                 <div className="create-dl-row create-size-row">
                   <button className="btn btn-italic" onClick={() => doSnapshot('square')} title="1080×1080">1×1 ↓</button>
                   <button className="btn primary btn-italic" onClick={() => doSnapshot('wide')}  title="1920×1080">HD ↓</button>
+                  <button className="btn btn-italic"         onClick={() => doSnapshot('portrait')} title="1600×2000">4:5 ↓</button>
                   <button className="btn primary btn-italic" onClick={() => doSnapshot('qhd')} title="2560×1440">2K ↓</button>
-                  <button className="btn btn-italic"         onClick={() => doSnapshot('uhd')} title="3840×2160">4K ↓</button>
                 </div>
                 {hasAlphaMode && (
                   <div className="create-dl-row create-layer-row">
                     <button className="btn create-alpha-btn" onClick={() => doTransparentSnapshot('square')} title="1×1 square transparent PNG">1×1 layer ↗</button>
                     <button className="btn create-alpha-btn" onClick={() => doTransparentSnapshot('wide')}  title="16:9 transparent PNG">HD layer ↗</button>
+                    <button className="btn create-alpha-btn" onClick={() => doTransparentSnapshot('portrait')} title="4:5 transparent PNG">4:5 layer ↗</button>
                     <button className="btn create-alpha-btn" onClick={() => doTransparentSnapshot('qhd')} title="2K transparent PNG">2K layer ↗</button>
-                    <button className="btn create-alpha-btn" onClick={() => doTransparentSnapshot('uhd')} title="4K transparent PNG">4K layer ↗</button>
                   </div>
                 )}
                 <div className="create-secondary-row">
@@ -1034,8 +1229,8 @@ function App() {
                           <img src={item.preview} alt="" />
                           <div className="export-thumb-meta">
                             <strong>{String(i + 1).padStart(2, '0')}</strong>
-                            <small>{item.module}{item.hasAlpha ? ' · α' : ''}</small>
-                            {item.alphaPreview ? (
+                            <small>{moduleDisplay(item.module)}{item.hasAlpha ? ' · α' : ''}</small>
+                            {(item.alphaPreview || item.module === 'geometric') ? (
                               <button type="button" className="export-alpha-inline" onClick={() => downloadAlphaLayer(item)} title="Download transparent layer PNG">Layer PNG</button>
                             ) : null}
                           </div>
@@ -1052,13 +1247,13 @@ function App() {
                 </div>
 
                 <div className="export-actions">
-                  <button className="btn primary btn-italic" onClick={() => exportSelected('zip')} disabled={!selectedCount}>
-                    Download ZIP ↓
+                  <button className="btn primary btn-italic" onClick={() => exportSelected('zip')} disabled={!selectedCount || exportStatus.busy}>
+                    {exportStatus.busy ? 'Preparing…' : 'Download ZIP ↓'}
                   </button>
-                  <button className="btn btn-italic" onClick={() => exportSelected('files')} disabled={!selectedCount}>
-                    Download files ↓
+                  <button className="btn btn-italic" onClick={() => exportSelected('files')} disabled={!selectedCount || exportStatus.busy}>
+                    {exportStatus.busy ? 'Please wait…' : 'Download files ↓'}
                   </button>
-                  <span>{selectedCount} export slot{selectedCount === 1 ? '' : 's'} selected</span>
+                  <span>{exportStatus.text || `${selectedCount} export slot${selectedCount === 1 ? '' : 's'} selected`}</span>
                 </div>
               </>))}
               {exportTab === 'motion' && MotionPanel && <MotionPanel library={library} currentMode={mode} />}

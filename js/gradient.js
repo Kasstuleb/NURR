@@ -93,6 +93,81 @@ float fbm(vec2 p){
   for(int i=0;i<5;i++){ v += noise(p)*a; p*=2.04; a*=0.52; }
   return v;
 }
+
+// ── Robust hash / noise for high-frequency + pixel-scale passes ─────────────
+// The legacy hash() above uses sin(dot(p,...)*43758). On mobile GPUs, sin()
+// precision breaks down when the argument gets into the millions (pixel coord
+// times ~300 times 43758 is many millions). Once precision breaks, the "noise"
+// stops being random and starts correlating along the perpendicular of
+// (127.1, 311.7) — producing the visible diagonal stripes users saw with grain
+// at max on mobile. This fract-based hash stays numerically stable at any
+// input scale we ever feed it, so grain reads as isotropic dust on every GPU.
+float hash21(vec2 p){
+  // Hoskins-style hash: stable on mobile GPUs and less patterned on integer
+  // pixel coordinates than the previous fract(p*vec2) hash. Grain, Chroma and
+  // Pixelate share this, so it must stay isotropic.
+  vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+  p3 += dot(p3, p3.yzx + 33.33);
+  return fract((p3.x + p3.y) * p3.z);
+}
+
+float nymphFilmGrain(vec2 fragCoord, float seed, float amount, float lum){
+  float amt = clamp(amount, 0.0, 1.0);
+  if (amt <= 0.0001) return 0.0;
+
+  // Non-linear response: the low end stays polite, the upper end finally has bite.
+  float strength = pow(amt, 0.72);
+
+  // Resolution-independent grain. Lock the grain cell to a fixed count across
+  // the SHORT edge, so the tooth reads identically in the live preview and in
+  // every export size / aspect ratio. Previously grain was floor(fragCoord) —
+  // one cell per device pixel — which made it vanish at 2K and change size
+  // between aspect ratios.
+  float grainPx = 900.0 / max(min(u_resolution.x, u_resolution.y), 1.0);
+  vec2 px = floor(fragCoord * grainPx);
+
+  // Two independent fine layers.
+  float a = hash21(px + vec2(seed * 197.13 + 11.7, seed * 43.73 + 5.1));
+  float b = hash21(px * 1.37 + vec2(71.0 + seed * 51.7, 613.3 + seed * 23.1));
+  float fine = a + b - 1.0;
+  fine = sign(fine) * pow(abs(fine), 0.82);
+
+  // Sparse salt / pepper gives the surface grit instead of smooth digital haze.
+  float saltR   = hash21(px * 2.11 + vec2(seed * 911.7 + 17.0, 29.0));
+  float pepperR = hash21(px * 0.73 + vec2(seed * 421.9 + 109.0, 349.0));
+  float salt    = step(0.992 - strength * 0.045, saltR);
+  float pepper  = step(0.994 - strength * 0.038, pepperR);
+  float speck   = salt * 0.85 - pepper * 0.75;
+
+  // Protect highlights from dirty grey while letting mids/darks carry texture.
+  float tonal = mix(0.78, 1.12, smoothstep(0.04, 0.62, lum));
+  tonal *= mix(1.0, 0.58, smoothstep(0.82, 1.0, lum));
+
+  return (fine * 0.115 + speck * 0.105) * strength * tonal;
+}
+
+// Smoothstep-interpolated noise from hash21. Used by the chromatic-haze pass
+// where we specifically want NO visible cell structure at any resolution.
+float smoothNoise21(vec2 p, float seed){
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  f = f*f*(3.0-2.0*f);
+  float a = hash21(i + vec2(seed));
+  float b = hash21(i + vec2(1.0, 0.0) + vec2(seed));
+  float c = hash21(i + vec2(0.0, 1.0) + vec2(seed));
+  float d = hash21(i + vec2(1.0, 1.0) + vec2(seed));
+  return mix(mix(a,b,f.x), mix(c,d,f.x), f.y);
+}
+float fbm21(vec2 p, float seed){
+  float v = 0.0;
+  float a = 0.5;
+  for(int i=0;i<5;i++){
+    v += smoothNoise21(p, seed + float(i) * 17.31) * a;
+    p *= 2.04;
+    a *= 0.52;
+  }
+  return v;
+}
 vec3 hardLight(vec3 base, vec3 blend){
   return mix(2.0 * base * blend, 1.0 - 2.0 * (1.0 - base) * (1.0 - blend), step(0.5, blend));
 }
@@ -113,7 +188,7 @@ vec3 applyTextureSurface(vec3 col, vec2 uv, vec2 p, float time){
     fbm(uv*3.0 + vec2(-time*0.003 + u_textureSeed*1.7))
   ) * 0.018 * distort;
 
-  float fine = hash(uv * u_resolution + vec2(u_textureSeed*997.0)) - 0.5;
+  float fine = hash21(floor(gl_FragCoord.xy) + vec2(u_textureSeed*997.0)) - 0.5;
   float cloud = fbm(q * sc * 0.055 + vec2(time*0.004, -time*0.003));
   float fiber = fbm(vec2(q.x*sc*0.10, q.y*sc*0.018) + vec2(u_textureSeed*4.0));
   float wrinkleA = fbm(vec2(q.x*sc*0.020, q.y*sc*0.090) + vec2(8.0, u_textureSeed));
@@ -191,12 +266,13 @@ float nymphRoleWeight(float idx){
 vec3 recoverBody(vec3 c, float blend){
   float mx = max(max(c.r, c.g), c.b);
   float mn = min(min(c.r, c.g), c.b);
-  float chroma = max(mx - mn, 0.0001);
   vec3 grey = vec3((mx + mn) * 0.5);
-  // Same idea as the Figma plugin: recover body lost to RGB averaging,
-  // but keep it restrained enough for a web canvas.
-  float sat = mix(1.28, 1.10, blend);
-  float contrast = mix(1.20, 1.07, blend);
+  // Recover colour body lost to weighted RGB blending. The previous values
+  // were too polite after the mobile rewrite: strong palettes averaged into
+  // beige/grey centres, especially when CSS scale cropped the middle of the
+  // field. This keeps blends soft but restores visible chroma + contrast.
+  float sat = mix(1.32, 1.12, blend);
+  float contrast = mix(1.22, 1.09, blend);
   c = mix(grey, c, sat);
   c = 0.5 + (c - 0.5) * contrast;
   return clamp(c, 0.0, 1.0);
@@ -204,69 +280,55 @@ vec3 recoverBody(vec3 c, float blend){
 
 
 vec3 applyChromaticHazeFinal(vec3 col, vec2 uv, float time){
-  float amount = clamp(u_chromaAmount, 0.0, 0.62);
+  float amount = clamp(u_chromaAmount, 0.0, 0.86);
   if(u_chromaEnabled == 0 || amount <= 0.001) return col;
 
-  // Aspect-corrected coord so noise cells stay square instead of stretching
-  // into long horizontal bands on wide canvases. The previous version stacked
-  // three sin() channels ALL phase-locked to the same low-frequency haze
-  // fbm: when that fbm dipped into a coherent cell (a few pixels wide on
-  // screen), the sinusoids shifted together and produced visible solid-colour
-  // patches that read as "large blocks like large pixels." Root-cause fix.
-  vec2 aspect = vec2(u_resolution.x / max(u_resolution.y, 1.0), 1.0);
-  vec2 nuv = (uv - 0.5) * aspect;
+  // Restored from the stable older Chromatic Haze visual: prism veil + soft
+  // haze, not colour-noise speckles. The original bug came from letting haze
+  // share texture/pixel state and from unstable pixel-scale hash noise. This
+  // version keeps the old look but uses the independent chroma uniforms and
+  // stable hash21/fbm21 helpers, so it cannot inherit Pixelate blocks.
+  float a = smoothstep(0.0, 1.0, amount);
+  float seed = u_chromaSeed;
+  vec2 q = uv + vec2(
+    fbm21(uv*3.0 + vec2(time*0.004 + seed), seed * 1.37 + 11.0),
+    fbm21(uv*3.0 + vec2(-time*0.003 + seed*1.7), seed * 2.11 + 29.0)
+  ) * 0.018;
 
-  // Very slow drift keeps the haze alive without ever crawling visibly.
-  float t = time * 0.010;
+  float haze = fbm21(q*6.0 + vec2(time*0.006, 0.0), seed * 3.17 + 43.0);
+  vec3 prism = vec3(
+    sin((q.x+haze)*8.0 + 0.0),
+    sin((q.x+haze)*8.0 + 2.1),
+    sin((q.x+haze)*8.0 + 4.2)
+  ) * 0.5 + 0.5;
 
-  // Three UNcorrelated fine-grain noise fields — one per channel, each with
-  // a distinct offset AND time direction. High enough frequency (~24 cells
-  // across a 1920px canvas) that individual noise cells fall below what the
-  // eye reads as structure; they become film-grade dispersion instead.
-  vec3 disp = vec3(
-    fbm(nuv * 24.0 + vec2( 1.7  + t,      0.3  + u_chromaSeed * 5.13)),
-    fbm(nuv * 24.0 + vec2( 4.9  - t,      2.1  + u_chromaSeed * 3.71)),
-    fbm(nuv * 24.0 + vec2(-2.3,          -1.4  + t + u_chromaSeed * 8.42))
-  );
+  vec3 target = col + (prism - 0.5) * 0.18 + vec3(haze - 0.5) * 0.085;
+  col = mix(col, target, a * 0.78);
 
-  // Wide, gentle luminance veil at a completely different scale — this is
-  // what gives the effect its "haze" character: a slow atmospheric wash.
-  // It's uniform across channels, so it can't produce chromatic blocks.
-  float veil = fbm(nuv * 1.6 + vec2(t * 0.4, -t * 0.35)) - 0.5;
-
-  // Additive chromatic tint + monochrome veil. Additive (not multiplicative
-  // through mix()) so there are no channel-crossing seams. Small overall
-  // scale keeps the underlying gradient dominant.
-  vec3 tint = (disp - 0.5) * 0.16 * amount
-            + vec3(veil)   * 0.04 * amount;
-
-  return clamp(col + tint, 0.0, 1.0);
+  // Very small stable tooth, only to stop the haze looking digitally flat.
+  // It is not a grid and it is not shared with Pixelate.
+  float fine = hash21(floor(uv * u_resolution) + vec2(seed*997.0, 41.0)) - 0.5;
+  col += fine * a * 0.010;
+  return clamp(col, 0.0, 1.0);
 }
 
 vec3 weightedDirectionalRamp(float t, float distance, float blend, float spread, float cnt){
   float d = clamp(distance, 0.0, 1.0);
   float b = clamp(blend, 0.0, 1.0);
-  float s = clamp(spread, 0.0, 1.0);
+  float s = smoothstep(0.0, 1.0, clamp(spread, 0.0, 1.0));
   float k1 = step(2.0, cnt);
   float k2 = step(3.0, cnt);
   float k3 = step(4.0, cnt);
 
-  /*
-    Corrected control model:
-    - Distance = spacing between field centres, always kept inside visible bounds.
-      It never pushes colours outside the canvas.
-    - Spread = territory distribution. Low values obey the formula hierarchy
-      strongly; high values give colours more equal visible territory.
-    - Blend = softness of borders only.
-  */
-  // Keep all colour bodies inside the visible frame. The old version pushed
-  // centres too close to the canvas edge, so the viewer mostly saw one muddy
-  // transition zone.
-  float margin = mix(0.28, 0.085, d);
+  // Distance moves the colour bodies. Spread changes their territory and
+  // separation. The previous mapping made Spread mostly a role-weight detail,
+  // so the node felt dead. Here low Spread melts fields together; high Spread
+  // gives each colour clearer physical territory without turning the output flat.
+  float margin = mix(0.30, 0.075, d);
   float p0 = margin;
   float p3 = 1.0 - margin;
-  float p1 = mix(0.40, margin + (1.0 - 2.0 * margin) * 0.34, d);
-  float p2 = mix(0.60, margin + (1.0 - 2.0 * margin) * 0.66, d);
+  float p1 = margin + (1.0 - 2.0 * margin) * 0.34;
+  float p2 = margin + (1.0 - 2.0 * margin) * 0.66;
 
   if(cnt < 3.5){
     p0 = margin;
@@ -281,27 +343,24 @@ vec3 weightedDirectionalRamp(float t, float distance, float blend, float spread,
     p3 = p1;
   }
 
-  // Plugin-like field widths: enough softness to melt, not so much that it
-  // collapses into a two-colour wall.
-  float baseSigma = mix(0.215, 0.070, d) + mix(0.010, 0.095, b);
-  float floorW = mix(0.006, 0.018, b) * mix(1.05, 0.72, d);
+  float baseSigma = mix(0.340, 0.054, s) + mix(0.020, 0.074, b);
+  float floorW = mix(0.072, 0.0040, s) * mix(1.0, 0.70, d);
+  float roleMix = mix(0.22, 0.92, s);
 
-  float r0 = clamp(u_role0, 0.20, 2.20);
-  float r1 = clamp(u_role1, 0.20, 2.20);
-  float r2 = clamp(u_role2, 0.20, 2.20);
-  float r3 = clamp(u_role3, 0.20, 2.20);
+  float r0 = mix(1.0, clamp(u_role0, 0.20, 2.20), roleMix);
+  float r1 = mix(1.0, clamp(u_role1, 0.20, 2.20), roleMix);
+  float r2 = mix(1.0, clamp(u_role2, 0.20, 2.20), roleMix);
+  float r3 = mix(1.0, clamp(u_role3, 0.20, 2.20), roleMix);
 
-  // Spread changes visible territory through both field width and role weight.
-  // This is intentionally different from distance, which only moves centres.
-  float sig0 = baseSigma * mix(sqrt(r0), 1.0, s);
-  float sig1 = baseSigma * mix(sqrt(r1), 1.0, s);
-  float sig2 = baseSigma * mix(sqrt(r2), 1.0, s);
-  float sig3 = baseSigma * mix(sqrt(r3), 1.0, s);
+  float sig0 = baseSigma * mix(1.08, 0.92, s) / sqrt(max(r0, 0.20));
+  float sig1 = baseSigma * mix(1.08, 0.94, s) / sqrt(max(r1, 0.20));
+  float sig2 = baseSigma * mix(1.08, 0.96, s) / sqrt(max(r2, 0.20));
+  float sig3 = baseSigma * mix(1.08, 1.00, s) / sqrt(max(r3, 0.20));
 
-  float w0 = exp(-pow(t - p0, 2.0)/(2.0*sig0*sig0)) * mix(r0, 1.03, s) + floorW;
-  float w1 = exp(-pow(t - p1, 2.0)/(2.0*sig1*sig1)) * mix(r1, 1.00, s) * k1 + floorW * k1;
-  float w2 = exp(-pow(t - p2, 2.0)/(2.0*sig2*sig2)) * mix(r2, 0.98, s) * k2 + floorW * k2;
-  float w3 = exp(-pow(t - p3, 2.0)/(2.0*sig3*sig3)) * mix(r3, 0.86, s) * k3 + floorW * k3;
+  float w0 = exp(-pow(t - p0, 2.0)/(2.0*sig0*sig0)) * r0 + floorW;
+  float w1 = exp(-pow(t - p1, 2.0)/(2.0*sig1*sig1)) * r1 * k1 + floorW * k1;
+  float w2 = exp(-pow(t - p2, 2.0)/(2.0*sig2*sig2)) * r2 * k2 + floorW * k2;
+  float w3 = exp(-pow(t - p3, 2.0)/(2.0*sig3*sig3)) * r3 * k3 + floorW * k3;
 
   vec3 acc = u_color0*w0 + u_color1*w1 + u_color2*w2 + u_color3*w3;
   float wsum = w0 + w1 + w2 + w3;
@@ -315,13 +374,13 @@ void main(){
     // Chroma has independent uniforms and can never enter this path.
     float amt = clamp(u_pixelateAmount, 0.0, 1.0);
     float scale = clamp(u_pixelateScale, 0.0, 1.0);
-    float pxGrid = mix(260.0, 3.0, pow(amt, 1.18));
-    pxGrid = mix(pxGrid * 1.35, pxGrid * 0.55, scale);
+    float pxGrid = mix(320.0, 7.0, pow(amt, 1.22));
+    pxGrid = mix(pxGrid * 1.35, pxGrid * 0.50, scale);
     vec2 aspectFix = vec2(u_resolution.x / max(u_resolution.y, 1.0), 1.0);
     vec2 drift = vec2(
       sin(u_time * 0.115 + u_textureSeed * 6.0) + sin(u_time * 0.051 + 2.4),
       cos(u_time * 0.093 + u_textureSeed * 4.0) + sin(u_time * 0.047 + 0.8)
-    ) * mix(0.004, 0.038, amt);
+    ) * mix(0.003, 0.025, amt);
     vec2 pixelSize = vec2(pxGrid * aspectFix.x, pxGrid);
     uv = (floor((uv + drift) * pixelSize) + 0.5) / pixelSize - drift;
   }
@@ -367,9 +426,10 @@ void main(){
   // artefacts because there is no UV stripe field mixed into the result.
   float aT = u_time * (0.18 + 0.10 * flow);
   vec2 autoDrift = vec2(sin(u_time*0.061), cos(u_time*0.047)) * 0.18 * flow;
-  float orbit = mix(0.38, 0.86, spread);
-  float sharpness = mix(2.8, 12.0, spread);
-  float softness = mix(0.18, 0.050, spread) + blendCtrl * 0.030;
+  float spreadCurve = smoothstep(0.0, 1.0, spread);
+  float orbit = mix(0.16, 1.02, spreadCurve);
+  float sharpness = mix(2.0, 15.0, spreadCurve);
+  float softness = mix(0.260, 0.030, spreadCurve) + blendCtrl * 0.026;
 
   vec2 an0 = (m*0.45 + autoDrift) + vec2(cos(aT+0.0),  sin(aT+0.0))  * (orbit + 0.16*sin(u_time*0.4));
   vec2 an1 = (m*0.45 + autoDrift) + vec2(cos(aT+1.57), sin(aT+1.57)) * (orbit + 0.16*sin(u_time*0.4+1.0));
@@ -399,34 +459,19 @@ void main(){
   vec3 col = organicCol;
 
   if(u_directionMode == 1 || u_directionMode == 2){
-    // Horizontal / vertical are deliberately steady: one controlled axis,
-    // symmetrical bodies, only a very soft mouse/time drift. The previous
-    // version mixed organic noise back in, which made them look random and
-    // created visible vertical/horizontal streaks.
+    // True horizontal / vertical: no cross-axis bending. Movement is limited
+    // to a very small axis drift so the gradient is alive but still optically
+    // straight. Spread is handled inside weightedDirectionalRamp, where it has
+    // a clear territory/separation effect.
     float axis = (u_directionMode == 2) ? uv.y : uv.x;
-    float crossAxis = (u_directionMode == 2) ? uv.x : uv.y;
     float mouseAxis = (u_directionMode == 2) ? (u_mouseRaw.y - 0.5) : (u_mouseRaw.x - 0.5);
-    float mouseCross = (u_directionMode == 2) ? (u_mouseRaw.x - 0.5) : (u_mouseRaw.y - 0.5);
-    float timeDrift = sin(u_time * 0.055 + u_textureSeed * 5.7) * 0.025 * flow;
-
-    // Stronger axis-mode cursor response: the whole ramp follows the cursor,
-    // while a local magnetic bend makes the movement visible without turning
-    // horizontal/vertical back into the random organic field.
-    float mouseDrift = mouseAxis * 0.34 * flow;
-    float axisCentered = axis - 0.5;
-    float crossCentered = crossAxis - 0.5;
-    float localFalloff = exp(-dmr * dmr * 2.15);
-    float localMagnet = (mouseAxis - axisCentered) * localFalloff * 0.36 * flow;
-    float crossBend = sin((crossCentered - mouseCross) * 3.14159 + u_time * 0.075 * flow) * localFalloff * 0.046 * flow;
-    float clickDrift = sin(dmr * 15.0 - u_clickPulse * 8.0) * exp(-dmr * 1.95) * u_clickPulse * 0.068;
-    float dirT = clamp(axis + timeDrift + mouseDrift + localMagnet + crossBend + clickDrift, 0.0, 1.0);
+    float timeDrift = sin(u_time * 0.042 + u_textureSeed * 5.7) * 0.010 * flow;
+    float mouseDrift = mouseAxis * 0.060 * flow;
+    float clickDrift = sin(dmr * 9.0 - u_clickPulse * 6.0) * exp(-dmr * 2.2) * u_clickPulse * 0.018;
+    float dirT = clamp(axis + timeDrift + mouseDrift + clickDrift, 0.0, 1.0);
     vec3 rampCol = weightedDirectionalRamp(dirT, distanceCtrl, blendCtrl, spread, cnt);
-
-    // Still mostly axis-stable, but with enough of the old mouse-bent liquid
-    // body to make horizontal/vertical feel alive.
-    col = mix(rampCol, organicCol, 0.155);
+    col = rampCol;
   }
-
   if(u_invert == 1){ col = vec3(1.0) - col; }
 
   if(u_bw == 1){
@@ -435,11 +480,24 @@ void main(){
     col = vec3(mix(0.12, 0.90, y));
   }
 
-  float g = hash(floor(uv * u_resolution) + vec2(u_textureSeed * 991.0)) - 0.5;
-  col += g * u_grain * 0.36;
-
   col = applyTextureSurface(col, uv, p, u_time);
   col = applyChromaticHazeFinal(col, uv, u_time);
+
+  // Film grain overlay: sharper and stronger at the top end, but still
+  // pixel-scale and monochrome so it exports as texture, not square blocks.
+  float lumGrain = dot(col, vec3(0.2126, 0.7152, 0.0722));
+  col += vec3(nymphFilmGrain(gl_FragCoord.xy, u_textureSeed, u_grain, lumGrain));
+
+  // Pixelate must be visible as both block geometry and simplified colour.
+  // Round 4 kept only the UV block prepass, so soft gradients still looked
+  // almost unfiltered. This colour step is restrained and only active for the
+  // explicit Pixelate surface.
+  if(u_pixelateEnabled == 1 && u_pixelateAmount > 0.001){
+    float pxAmt = clamp(u_pixelateAmount, 0.0, 1.0);
+    float levels = mix(255.0, 18.0, pow(pxAmt, 1.08));
+    vec3 stepped = floor(col * levels + 0.5) / levels;
+    col = mix(col, stepped, clamp(pxAmt * 0.72, 0.0, 0.82));
+  }
 
   float vg = smoothstep(1.25, 0.25, length(uv - 0.5));
   col *= mix(0.90, 1.0, vg);
@@ -713,12 +771,12 @@ window.NURR_NYMPH_GRADIENT_ENGINE = {
       label:nymphActiveFormula.label,
       family,
       // Figma plugin base values; range kept restrained so horizontal/vertical remain multi-colour fields.
-      spread:clampGradient(nymphActiveFormula.spread + (Math.random()-.5)*.10,.48,.78),
-      distance:clampGradient(nymphActiveFormula.distance + (Math.random()-.5)*.10,.38,.68),
-      blend:clampGradient(nymphActiveFormula.blend + .08 + (Math.random()-.5)*.10,.44,.68),
-      pigment:0.88,
-      saturation:0.56 + Math.random()*0.08,
-      grain:0.12,
+      spread:clampGradient(nymphActiveFormula.spread + (Math.random()-.5)*.10,.54,.80),
+      distance:clampGradient(nymphActiveFormula.distance + (Math.random()-.5)*.10,.44,.72),
+      blend:clampGradient(nymphActiveFormula.blend + .035 + (Math.random()-.5)*.08,.40,.58),
+      pigment:0.92,
+      saturation:0.60 + Math.random()*0.08,
+      grain:0.025,
       direction:(Math.random() < .34 ? 'organic' : (Math.random() < .50 ? 'horizontal' : 'vertical'))
     };
   }
@@ -813,7 +871,7 @@ function applyGradientFrame(gl, prog, targetW, targetH, tweaks, time, mouse, pul
     gl.uniform1f(u('u_pixelateAmount'), 0);
     gl.uniform1f(u('u_pixelateScale'), 0.62);
     gl.uniform1i(u('u_chromaEnabled'), 1);
-    gl.uniform1f(u('u_chromaAmount'), Math.min(0.62, tex.chromaAmount || tweaks.textureAmount || 0.56));
+    gl.uniform1f(u('u_chromaAmount'), Math.min(0.78, tex.chromaAmount || tweaks.textureAmount || 0.70));
     gl.uniform1f(u('u_chromaSeed'), tex.chromaSeed || tex.seed || 0.413);
   } else {
     gl.uniform1i(u('u_textureMode'), tex.mode);
@@ -1125,7 +1183,8 @@ function GradientMode({ tweaks, registerSnapshot, mouseRef }) {
       const mouse = stInteract.smoothMouse
         ? { ...stInteract.smoothMouse }
         : { x:0.5, y:0.5, chaosX:0.5, chaosY:0.5 };
-      const renderState = { time, mouse, pulse: stInteract.pulse || 0 };
+      const liveRenderState = { time, mouse, pulse: stInteract.pulse || 0 };
+      const renderState = opts.renderStateOverride || opts.renderState || liveRenderState;
 
       if (opts.captureRenderState) {
         // Library save flow: freeze this exact interaction state alongside
@@ -1134,7 +1193,7 @@ function GradientMode({ tweaks, registerSnapshot, mouseRef }) {
         // to be doing when Export is eventually clicked.
         const w = opts.width || 960, h = opts.height || 540;
         const dataUrl = renderGradientOffscreen(tweaks, renderState, w, h);
-        return dataUrl ? { dataUrl, renderState } : null;
+        return dataUrl ? { dataUrl, renderState, tweaks: JSON.parse(JSON.stringify(tweaks)) } : null;
       }
 
       const w = opts.width || 3840;
@@ -1212,7 +1271,7 @@ function GradientControls({ tweaks, setTweaks }) {
       saturation: 0.5,
       temperature: 0,
       flow: 0.62 + Math.random() * 0.68,
-      grain: formula && formula.grain != null ? formula.grain : (0.06 + Math.random() * 0.12),
+      grain: formula && formula.grain != null ? formula.grain : (0.018 + Math.random() * 0.035),
       texturePreset: nextTexture,
       textureAmount: nextTextureAmount,
       textureScale: 0.45,
@@ -1425,7 +1484,7 @@ function nymphCalmPalette(colors){
 function buildRandomGradientDefaults(){
   const fallback = {
     colors:['#160006','#065D78','#F1BE92','#9AF01D'],
-    grain:0.12, flow:0.96, spread:0.54, colorDistance:0.62, blend:0.46,
+    grain:0.025, flow:0.96, spread:0.58, colorDistance:0.64, blend:0.44,
     pigment:0.86, saturation:0.56, temperature:0, direction:'vertical',
     bw:false, invert:false, texturePreset:'clean', textureAmount:0, textureSeed:0.413,
     formula:'dominant-heavy', formulaWeights:[1.55,.85,.70,.46], manualPalette:false
@@ -1461,7 +1520,7 @@ function buildRandomGradientDefaults(){
 window.GRADIENT_DEFAULTS = buildRandomGradientDefaults();
 window.NURR_GRADIENT_FIXED_START = {
   colors:['#004999','#12000A','#007BF0','#FFF0CF'],
-  grain:0.12, flow:0.96, spread:0.54, colorDistance:0.62, blend:0.46,
+  grain:0.025, flow:0.96, spread:0.58, colorDistance:0.64, blend:0.44,
   pigment:0.5, saturation:0.5, temperature:0, direction:'horizontal',
   bw:false, invert:false, texturePreset:'clean', textureAmount:0, textureSeed:0.413, manualPalette:false
 };

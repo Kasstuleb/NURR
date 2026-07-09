@@ -71,6 +71,50 @@ uniform float u_vignette;    // vignette strength
 float hash(vec2 p) {
   return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
 }
+// Robust fract-based hash used for pixel-scale passes (grain), where sin() of
+// large arguments loses precision on mobile GPUs and starts producing
+// diagonal stripe patterns. hash21 stays isotropic at any input scale.
+float hash21(vec2 p){
+  vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+  p3 += dot(p3, p3.yzx + 33.33);
+  return fract((p3.x + p3.y) * p3.z);
+}
+
+float nymphFilmGrain(vec2 fragCoord, float seed, float amount, float lum){
+  float amt = clamp(amount, 0.0, 1.0);
+  if (amt <= 0.0001) return 0.0;
+
+  // Non-linear response: the low end stays polite, the upper end finally has bite.
+  float strength = pow(amt, 0.72);
+
+  // Resolution-independent grain. Lock the grain cell to a fixed count across
+  // the SHORT edge, so the tooth reads identically in the live preview and in
+  // every export size / aspect ratio. Previously grain was floor(fragCoord) —
+  // one cell per device pixel — which made it vanish at 2K and change size
+  // between aspect ratios.
+  float grainPx = 900.0 / max(min(u_res.x, u_res.y), 1.0);
+  vec2 px = floor(fragCoord * grainPx);
+
+  // Two independent fine layers.
+  float a = hash21(px + vec2(seed * 197.13 + 11.7, seed * 43.73 + 5.1));
+  float b = hash21(px * 1.37 + vec2(71.0 + seed * 51.7, 613.3 + seed * 23.1));
+  float fine = a + b - 1.0;
+  fine = sign(fine) * pow(abs(fine), 0.82);
+
+  // Sparse salt / pepper gives the surface grit instead of smooth digital haze.
+  float saltR   = hash21(px * 2.11 + vec2(seed * 911.7 + 17.0, 29.0));
+  float pepperR = hash21(px * 0.73 + vec2(seed * 421.9 + 109.0, 349.0));
+  float salt    = step(0.992 - strength * 0.045, saltR);
+  float pepper  = step(0.994 - strength * 0.038, pepperR);
+  float speck   = salt * 0.85 - pepper * 0.75;
+
+  // Protect highlights from dirty grey while letting mids/darks carry texture.
+  float tonal = mix(0.78, 1.12, smoothstep(0.04, 0.62, lum));
+  tonal *= mix(1.0, 0.58, smoothstep(0.82, 1.0, lum));
+
+  return (fine * 0.115 + speck * 0.105) * strength * tonal;
+}
+
 
 // ── Value noise (bilinear) ────────────────────────────────────────────────────
 float vnoise(vec2 p) {
@@ -528,14 +572,10 @@ void main() {
     col *= 1.0 - smoothstep(0.28, 0.82, length(vigUV)) * u_vignette * 0.92;
   }
 
-  // ── Grain ─────────────────────────────────────────────────────────────────
-  float g    = u_grain * 0.145;
-  vec2  gp   = gl_FragCoord.xy + floor(u_time * 12.0) * 3.17 + u_seed * 512.0;
-  float fine = hash(floor(gp * 1.10)) - 0.5;
-  float soft = hash(floor(gp * 0.32)) - 0.5;
-  float grit = mix(fine, soft, 0.22);
-  col += grit * g;
-  col  = mix(col, col + vec3(grit) * 0.055, u_grain);
+  // ── Film grain ────────────────────────────────────────────────────────────
+  // Pixel-scale monochrome grit. Stronger upper range, no coarse cell layer.
+  float lumG = dot(col, vec3(0.299, 0.587, 0.114));
+  col += vec3(nymphFilmGrain(gl_FragCoord.xy, u_seed, u_grain, lumG));
 
   gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
 }
@@ -1106,12 +1146,13 @@ void main() {
         const mouse = rt.positionPaused && rt.pausedMouse
           ? rt.pausedMouse
           : (rt.mouseLocked && rt.lockedMouse ? rt.lockedMouse : liveMouse);
-        const renderState = {
+        const liveRenderState = {
           time: time,
           mouse: { x: mouse.x, y: mouse.y, chaosX: mouse.chaosX, chaosY: mouse.chaosY },
           pulse: rt.pulse || 0,
           mouseActive: rt.positionPaused ? 0.0 : 1.0
         };
+        const renderState = opts.renderStateOverride || opts.renderState || liveRenderState;
 
         if (opts.captureRenderState) {
           // Library save flow: freeze this exact interaction state alongside
@@ -1119,7 +1160,7 @@ void main() {
           // visual at full resolution.
           const w = opts.width || 960, h = opts.height || 540;
           const dataUrl = renderAbstractOffscreen(tweaksState, renderState, w, h);
-          return dataUrl ? { dataUrl: dataUrl, renderState: renderState } : null;
+          return dataUrl ? { dataUrl: dataUrl, renderState: renderState, tweaks: JSON.parse(JSON.stringify(tweaksState)) } : null;
         }
 
         const w = opts.width || 3840, h = opts.height || 2160;

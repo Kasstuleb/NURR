@@ -310,7 +310,13 @@
    Extracted ownership rules — 2026-06-29 CSS architecture cleanup.
    Moved out of global CSS without changing declaration values.
    ───────────────────────────────────────────────────────────── */
-#root:has(.panel.mode-gradient) canvas.stage,
+#root:has(.panel.mode-gradient) canvas.stage {
+  /* Gradient already has internal shader movement. CSS scaling was softening
+     the desktop render, enlarging grain, and cropping the gradient centre. */
+  transform: none !important;
+  animation: none !important;
+  will-change: auto;
+}
 #root:has(.panel.mode-abstract) canvas.stage,
 #root:has(.panel.mode-nature)   canvas.stage,
 #root:has(.panel.mode-palette)  canvas.stage {

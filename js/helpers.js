@@ -199,30 +199,54 @@ function useMouse() {
 function useStageSize(canvasRef) {
   const sizeRef = React.useRef({ w:0, h:0, dpr:1 });
   React.useEffect(() => {
+    let rafA = 0;
+    let rafB = 0;
+    let ro = null;
+    const readHostSize = (c) => {
+      const host = c.parentElement || document.getElementById('root') || document.documentElement;
+      // IMPORTANT: do not use canvas.getBoundingClientRect() here.
+      // The stage can be CSS-transformed for visual drift; transformed rects
+      // include scale, so repeated resize passes inflated the backing buffer
+      // and cropped/softened the desktop gradient. parent/client size is the
+      // untransformed layout truth for both desktop and mobile.
+      const vv = window.visualViewport;
+      const w = Math.round(host.clientWidth || vv?.width || window.innerWidth || 1);
+      const h = Math.round(host.clientHeight || vv?.height || window.innerHeight || 1);
+      return { w: Math.max(1, w), h: Math.max(1, h) };
+    };
     const resize = () => {
       const c = canvasRef.current; if (!c) return;
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      // Size from the canvas's own rendered box, not raw window dimensions.
-      // The canvas fills #root (inset:0), so on desktop this equals the viewport
-      // exactly — no visual change. On mobile it uses the real visible box, which
-      // stays stable through the iOS URL-bar show/hide that otherwise stretched
-      // the gradient into flat vertical bands via a jumping window.innerHeight.
-      const rect = c.getBoundingClientRect();
-      const w = Math.round(rect.width)  || window.innerWidth;
-      const h = Math.round(rect.height) || window.innerHeight;
-      c.width = Math.round(w*dpr); c.height = Math.round(h*dpr);
-      c.style.width = w+'px'; c.style.height = h+'px';
+      const { w, h } = readHostSize(c);
+      const bw = Math.round(w * dpr);
+      const bh = Math.round(h * dpr);
+      if (c.width !== bw) c.width = bw;
+      if (c.height !== bh) c.height = bh;
+      c.style.width = w + 'px';
+      c.style.height = h + 'px';
       sizeRef.current = { w, h, dpr };
+    };
+    const scheduleResize = () => {
+      cancelAnimationFrame(rafA);
+      rafA = requestAnimationFrame(() => { resize(); });
     };
     // Two rAFs so the first measure happens after layout settles.
     resize();
-    requestAnimationFrame(() => requestAnimationFrame(resize));
-    window.addEventListener('resize', resize);
+    rafB = requestAnimationFrame(() => requestAnimationFrame(resize));
+    window.addEventListener('resize', scheduleResize);
     const vv = window.visualViewport;
-    if (vv) vv.addEventListener('resize', resize);
+    if (vv) vv.addEventListener('resize', scheduleResize);
+    if (window.ResizeObserver) {
+      const c = canvasRef.current;
+      const host = c && (c.parentElement || document.getElementById('root'));
+      if (host) { ro = new ResizeObserver(scheduleResize); ro.observe(host); }
+    }
     return () => {
-      window.removeEventListener('resize', resize);
-      if (vv) vv.removeEventListener('resize', resize);
+      cancelAnimationFrame(rafA);
+      cancelAnimationFrame(rafB);
+      window.removeEventListener('resize', scheduleResize);
+      if (vv) vv.removeEventListener('resize', scheduleResize);
+      if (ro) ro.disconnect();
     };
   }, []);
   return sizeRef;
