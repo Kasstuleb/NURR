@@ -1,0 +1,1865 @@
+/* ============================================================================
+   nymph-appskin.css  —  consolidated bundle (load order preserved exactly)
+   Sources, in cascade order: regression-fixes.css, nymph-brand-skin.css, nymph-landing.css, mobile-ui.css
+   ============================================================================ */
+
+
+/* ---------- regression-fixes.css ---------- */
+
+/* regression-fixes.css — targeted fixes after CSS ownership migration.
+   Scope: only unintended visual regressions; no redesign, no feature work.
+
+   Reference for create/export controls: uploaded nymph_final.zip, treated as the
+   visual source for the pre-regression sidepanel buttons. */
+
+/* Photo mode: keep the sidepanel above the no-image placeholder overlay. */
+.panel:not(.collapsed),
+.panel.collapsed {
+  position: fixed !important;
+  z-index: 30 !important;
+}
+.placeholder-overlay {
+  z-index: 1 !important;
+}
+.rail,
+.nurr-brand,
+.corner-mark {
+  z-index: 31 !important;
+}
+
+/* Restore original sidepanel export controls.
+   The previous repair overcorrected by giving these controls 62px explicit
+   heights. The source zip used compact pill buttons: min-height 31px, with the
+   four size buttons in a single four-column row. */
+.panel:not(.collapsed) .create-dl-row,
+.panel:not(.collapsed) .create-size-row,
+.panel:not(.collapsed) .create-layer-row {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 5px !important;
+  width: auto !important;
+  padding: 0 18px !important;
+  margin: 10px 0 0 !important;
+}
+.panel:not(.collapsed) .create-layer-row {
+  margin-top: 7px !important;
+}
+.panel:not(.collapsed) .create-dl-row .btn,
+.panel:not(.collapsed) .create-size-row .btn,
+.panel:not(.collapsed) .create-layer-row .btn {
+  width: 100% !important;
+  min-width: 0 !important;
+  height: auto !important;
+  min-height: 31px !important;
+  padding: 0 5px !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(255,255,255,0.58) !important;
+  background: rgba(255,255,255,0.15) !important;
+  color: var(--nurr-ink, rgba(14,14,24,.88)) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.38) !important;
+  text-shadow: none !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  font: 800 7.2px/1 "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  letter-spacing: .08em !important;
+  text-transform: none !important;
+}
+.panel:not(.collapsed) .create-dl-row .btn.primary,
+.panel:not(.collapsed) .create-size-row .btn.primary {
+  background: rgba(255,255,255,.82) !important;
+  border-color: rgba(255,255,255,.58) !important;
+  color: #060606 !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.62) !important;
+}
+.panel:not(.collapsed) .create-layer-row .btn {
+  font-size: 6.8px !important;
+  letter-spacing: .04em !important;
+}
+.panel:not(.collapsed) .create-secondary-row {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 5px !important;
+  width: auto !important;
+  padding: 0 18px 14px !important;
+  margin: 6px 0 0 !important;
+}
+.panel:not(.collapsed) .create-secondary-row .btn {
+  width: 100% !important;
+  min-width: 0 !important;
+  height: auto !important;
+  min-height: 31px !important;
+  padding: 0 5px !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(255,255,255,0.58) !important;
+  background: rgba(255,255,255,0.15) !important;
+  color: var(--nurr-ink, rgba(14,14,24,.88)) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.38) !important;
+  text-shadow: none !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  font: 800 10px/1 "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  letter-spacing: .18em !important;
+  text-transform: uppercase !important;
+}
+
+/* The freeze instruction should be plain helper text, not a framed box. */
+.panel:not(.collapsed) .help.compact-help,
+.mode-gradient .help.compact-help,
+.mode-geometric .help.compact-help,
+.mode-abstract .help.compact-help {
+  background: transparent !important;
+  border: 0 !important;
+  border-top: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 0 18px !important;
+  margin: 20px 0 0 !important;
+  color: rgba(245,244,255,0.62) !important;
+}
+
+/* Export matrix: prevent snapshot metadata / Layer PNG chip overlap. */
+:root {
+  --export-snapshot-col: minmax(360px, 1.34fr);
+  --export-size-col: minmax(116px, 1fr);
+}
+.export-matrix-shell {
+  --matrix-min: 1056px;
+}
+.export-thumb {
+  grid-template-columns: 28px 132px minmax(132px, 1fr) !important;
+  gap: 12px !important;
+  padding: 14px 16px !important;
+}
+.export-thumb img {
+  width: 132px !important;
+  height: 76px !important;
+}
+.export-thumb-meta {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  gap: 4px !important;
+}
+.export-thumb-meta strong,
+.export-thumb-meta small {
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+.export-alpha-inline {
+  max-width: 100% !important;
+  width: max-content !important;
+  min-width: 0 !important;
+  min-height: 22px !important;
+  padding: 0 8px !important;
+  font-size: 7px !important;
+  letter-spacing: .08em !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+
+/* ---------- nymph-brand-skin.css ---------- */
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   NYMPH brand skin — app-only visual layer
+   Scope: header/logo/menu/panel/footer polish, plus the shared brand tokens
+   (accent color, logo geometry) referenced by css/nymph-landing.css so the
+   landing screen and the app read as one consistent surface.
+   Core module logic is intentionally untouched.
+
+   Cleanup pass, 2026-06-30:
+   - Removed a duplicated/overridden ".nurr-brand" rule pair and merged it
+     into one rule using shared logo-geometry variables (no visual change to
+     the app logo — same final left/top/width/opacity as before).
+   - Replaced the global neon accent (#FF2D72) with a calm teal that matches
+     the landing's existing aqua/mineral palette, plus three small overrides
+     so badges/hover states that had the old pink hardcoded stay consistent.
+   - Added a soft CSS-only reveal for the app chrome (logo/nav/panel/footer)
+     when the landing screen is dismissed. No JS was changed — this rides on
+     the existing body.nymph-landing-active class toggle already in app.js.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  --nymph-font: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --nymph-nav-top: 24px;
+  --nymph-nav-height: 44px;
+  --nymph-panel-top: 90px;
+  --nymph-panel-right: 22px;
+  --nymph-panel-width: 392px;
+  --nymph-panel-radius: 18px;
+  --nymph-footer-height: var(--nurr-support-height, 34px);
+  --nymph-white: rgba(255,255,255,.94);
+  --nymph-white-soft: rgba(255,255,255,.68);
+  --nymph-line: rgba(255,255,255,.18);
+  --nymph-line-strong: rgba(255,255,255,.32);
+  --nymph-glass: rgba(7, 9, 16, .20);
+  --nymph-stripe: rgba(246,246,246,.82);
+
+  /* Shared brand-mark geometry — read by the app logo below AND by
+     css/nymph-landing.css, so the landing logo renders at the same size
+     and screen position as the in-app logo. */
+  --nymph-logo-width: clamp(230px, 22vw, 340px);
+  --nymph-logo-left:  clamp(34px, 4.6vw, 76px);
+  --nymph-logo-top:   clamp(54px, 8.5vh, 104px);
+
+  /* Brand accent — replaces the legacy neon pink (#FF2D72) used across the
+     module CSS via var(--accent)/var(--accent-soft). Redeclaring it here
+     (later in the cascade than base.css) recolors every focus ring, active
+     state and badge app-wide to a calm teal without editing module files. */
+  --accent: #3FA7AF;
+  --accent-soft: rgba(63, 167, 175, .16);
+}
+
+html,
+body,
+button,
+input,
+select,
+textarea {
+  font-family: var(--nymph-font) !important;
+}
+
+#root::before { display: none !important; }
+.corner-mark { display: none !important; }
+
+/* Header logo — single source of truth (left/top/width come from the
+   shared variables above so this always matches the landing logo). */
+@media (min-width: 821px) {
+  .nurr-brand,
+  .nurr-brand-button {
+    position: fixed !important;
+    left: var(--nymph-logo-left) !important;
+    top: var(--nymph-logo-top) !important;
+    width: var(--nymph-logo-width) !important;
+    height: auto !important;
+    padding: 0 !important;
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: flex-start !important;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    cursor: pointer !important;
+    z-index: 30 !important;
+    opacity: 1 !important;
+    mix-blend-mode: normal !important;
+    filter: none !important;
+    transform: translateZ(0) !important;
+    transition: transform .34s cubic-bezier(.2,.9,.2,1) !important;
+  }
+
+  .nurr-brand:hover,
+  .nurr-brand-button:hover {
+    transform: translateY(-1px) scale(1.004) !important;
+  }
+
+  .nurr-brand::after,
+  .nurr-brand-button::after { display: none !important; }
+
+  .nurr-brand img,
+  .nurr-brand-button img {
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    object-fit: contain !important;
+    pointer-events: none !important;
+    filter: brightness(0) invert(1) !important;
+    opacity: .64 !important;
+    mix-blend-mode: screen !important;
+    transition: opacity .28s ease !important;
+  }
+
+  .nurr-brand:hover img,
+  .nurr-brand-button:hover img {
+    opacity: .82 !important;
+  }
+}
+
+/* Top navigation pill */
+@media (min-width: 821px) {
+  .rail {
+    position: fixed !important;
+    top: var(--nymph-nav-top) !important;
+    right: 24px !important;
+    left: auto !important;
+    bottom: auto !important;
+    width: min(640px, calc(100vw - 560px)) !important;
+    min-width: 420px !important;
+    height: var(--nymph-nav-height) !important;
+    padding: 0 18px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 999px !important;
+    background: rgba(0,0,0,.93) !important;
+    border: 1px solid rgba(255,255,255,.08) !important;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 18px 44px rgba(0,0,0,.16) !important;
+    backdrop-filter: blur(24px) saturate(1.12) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(1.12) !important;
+    z-index: 60 !important;
+  }
+
+  .rail-group {
+    width: 100% !important;
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0,1fr)) !important;
+    gap: 4px !important;
+    align-items: center !important;
+  }
+
+  .rail-item {
+    position: relative !important;
+    height: 40px !important;
+    padding: 0 12px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: transparent !important;
+    border: 0 !important;
+    color: rgba(255,255,255,.62) !important;
+    font-size: 12px !important;
+    font-weight: 400 !important;
+    line-height: 1 !important;
+    letter-spacing: .055em !important;
+    text-transform: uppercase !important;
+    cursor: pointer !important;
+    transition: color .22s ease, opacity .22s ease !important;
+  }
+
+  .rail-item .num { display: none !important; }
+  .rail-item:hover { color: rgba(255,255,255,.9) !important; }
+  .rail-item.active { color: #fff !important; font-weight: 500 !important; }
+
+  .rail-item::after {
+    content: "" !important;
+    position: absolute !important;
+    left: 50% !important;
+    bottom: 9px !important;
+    width: 58px !important;
+    max-width: calc(100% - 44px) !important;
+    height: 1px !important;
+    transform: translateX(-50%) scaleX(0) !important;
+    transform-origin: center !important;
+    background: var(--nymph-stripe) !important;
+    opacity: .82 !important;
+    box-shadow: 0 0 7px rgba(255,255,255,.13) !important;
+    transition: transform .24s cubic-bezier(.2,.9,.2,1), opacity .24s ease !important;
+  }
+
+  .rail-item:hover::after { transform: translateX(-50%) scaleX(.42) !important; opacity: .45 !important; }
+  .rail-item.active::after,
+  .rail-item.active:hover::after { transform: translateX(-50%) scaleX(1) !important; opacity: .9 !important; }
+}
+
+/* Main side panel */
+@media (min-width: 821px) {
+  .panel:not(.collapsed) {
+    position: fixed !important;
+    top: var(--nymph-panel-top) !important;
+    right: var(--nymph-panel-right) !important;
+    left: auto !important;
+    bottom: auto !important;
+    width: min(var(--nymph-panel-width), calc(100vw - 44px)) !important;
+    min-width: min(var(--nymph-panel-width), calc(100vw - 44px)) !important;
+    height: calc(100svh - var(--nymph-panel-top) - var(--nymph-footer-height) - 18px) !important;
+    max-height: calc(100svh - var(--nymph-panel-top) - var(--nymph-footer-height) - 18px) !important;
+    border-radius: var(--nymph-panel-radius) !important;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.13), rgba(255,255,255,.045) 31%, rgba(0,0,0,.11)),
+      var(--nymph-glass) !important;
+    border: 1px solid rgba(255,255,255,.34) !important;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.22), 0 20px 58px rgba(0,0,0,.16) !important;
+    backdrop-filter: blur(30px) saturate(1.25) brightness(.94) !important;
+    -webkit-backdrop-filter: blur(30px) saturate(1.25) brightness(.94) !important;
+    overflow: hidden !important;
+    z-index: 42 !important;
+  }
+
+  .panel:not(.collapsed).is-dragged {
+    top: var(--panel-y) !important;
+    left: var(--panel-x) !important;
+    right: auto !important;
+  }
+
+  .panel:not(.collapsed) .panel-header {
+    height: 72px !important;
+    min-height: 72px !important;
+    padding: 0 22px !important;
+    border-bottom-color: rgba(255,255,255,.12) !important;
+  }
+
+  .panel:not(.collapsed) .panel-body {
+    padding-left: 22px !important;
+    padding-right: 22px !important;
+    overflow-x: hidden !important;
+  }
+}
+
+.panel,
+.panel input,
+.panel select,
+.panel textarea,
+.panel button {
+  font-family: var(--nymph-font) !important;
+}
+
+.panel-title-nymph {
+  display: flex !important;
+  align-items: center !important;
+  min-height: 24px !important;
+}
+
+.panel-title-nymph img {
+  display: block !important;
+  width: 84px !important;
+  height: auto !important;
+  max-height: 28px !important;
+  object-fit: contain !important;
+  filter: invert(1) grayscale(1) brightness(1.14) contrast(.96) !important;
+  opacity: .92 !important;
+}
+
+.panel .panel-title,
+.panel .section-label,
+.panel .section-label .value,
+.panel .panel-tab,
+.panel .surface-name {
+  font-family: var(--nymph-font) !important;
+  text-transform: uppercase !important;
+}
+
+.panel .section-label,
+.panel .section-label .value { color: rgba(255,255,255,.68) !important; }
+.panel .section { border-color: rgba(255,255,255,.095) !important; }
+
+/* Header icons: no circular badges */
+.panel .icon-btn,
+.header-actions .icon-btn {
+  width: 22px !important;
+  height: 22px !important;
+  min-width: 22px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: rgba(255,255,255,.72) !important;
+  transition: color .18s ease, transform .18s ease, opacity .18s ease !important;
+}
+
+.panel .icon-btn svg,
+.header-actions .icon-btn svg {
+  width: 14px !important;
+  height: 14px !important;
+}
+
+.panel .icon-btn:hover,
+.header-actions .icon-btn:hover {
+  color: #fff !important;
+  background: transparent !important;
+  transform: translateY(-1px) !important;
+}
+
+.panel .icon-btn:active,
+.header-actions .icon-btn:active { transform: scale(.94) !important; }
+.panel .icon-btn[disabled] { opacity: .28 !important; }
+
+/* Controls: glass treatment without overriding swatch fills */
+.panel .btn,
+.panel .nurr-segment,
+.panel .segment button,
+.panel .material-toggle button,
+.mode-gradient .surface-card,
+.panel:not(.collapsed) .surface-card {
+  background: rgba(255,255,255,.04) !important;
+  color: rgba(255,255,255,.76) !important;
+  border-color: rgba(255,255,255,.14) !important;
+  box-shadow: none !important;
+}
+
+.panel .btn:hover,
+.panel .nurr-segment:hover,
+.panel .segment button:hover,
+.panel .material-toggle button:hover,
+.mode-gradient .surface-card:hover,
+.panel:not(.collapsed) .surface-card:hover {
+  background: rgba(255,255,255,.075) !important;
+  color: rgba(255,255,255,.94) !important;
+}
+
+.panel .nurr-segment.active,
+.panel .segment button.active,
+.panel .material-toggle button.active,
+.mode-gradient .surface-card.active,
+.panel:not(.collapsed) .surface-card.active,
+.panel .panel-tab.active {
+  background: rgba(255,255,255,.105) !important;
+  color: rgba(255,255,255,.94) !important;
+  border-color: rgba(255,255,255,.25) !important;
+}
+
+.panel:not(.collapsed) .surface-card {
+  height: 28px !important;
+  min-height: 28px !important;
+  padding: 0 !important;
+}
+
+.panel .surface-name,
+.mode-gradient .surface-card .label,
+.mode-gradient .surface-card span {
+  color: inherit !important;
+  font: 700 8px/1 var(--nymph-font) !important;
+  letter-spacing: .105em !important;
+  text-transform: uppercase !important;
+}
+
+/* Palette swatches: preserve inline color styles */
+.panel .swatches,
+.panel .swatch-wrap { overflow: visible !important; }
+
+.panel .swatch,
+.panel button.swatch,
+.panel .swatch button {
+  border-color: rgba(255,255,255,.45) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.18), 0 6px 16px rgba(0,0,0,.08) !important;
+}
+
+.panel .swatch-remove,
+.panel button.swatch-remove {
+  background: rgba(255,255,255,.88) !important;
+  color: rgba(0,0,0,.72) !important;
+  border: 0 !important;
+}
+
+/* Collapsed panel */
+@media (min-width: 821px) {
+  .panel.collapsed {
+    position: fixed !important;
+    top: var(--nymph-panel-top) !important;
+    right: 74px !important;
+    left: auto !important;
+    width: 276px !important;
+    min-width: 276px !important;
+    height: 76px !important;
+    min-height: 76px !important;
+    border-radius: var(--nymph-panel-radius) !important;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.115), rgba(255,255,255,.035) 52%, rgba(0,0,0,.105)),
+      rgba(4,7,11,.18) !important;
+    border: 1px solid rgba(255,255,255,.25) !important;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.18), 0 18px 42px rgba(0,0,0,.12) !important;
+    backdrop-filter: blur(28px) saturate(1.18) brightness(.94) !important;
+    -webkit-backdrop-filter: blur(28px) saturate(1.18) brightness(.94) !important;
+    color: rgba(255,255,255,.82) !important;
+    z-index: 42 !important;
+  }
+
+  .panel.collapsed .panel-header {
+    height: 76px !important;
+    min-height: 76px !important;
+    padding: 0 22px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+  }
+
+  .panel.collapsed .panel-title-nymph {
+    width: 58px !important;
+    min-width: 58px !important;
+    justify-content: flex-start !important;
+  }
+
+  .panel.collapsed .panel-title-nymph img {
+    content: url('../assets/logos/nymph-logomark.svg') !important;
+    width: 50px !important;
+    height: 50px !important;
+    max-height: 50px !important;
+    object-fit: contain !important;
+    filter: invert(1) grayscale(1) brightness(1.14) contrast(.96) !important;
+    opacity: .82 !important;
+  }
+
+  .panel.collapsed .header-actions { gap: 8px !important; }
+}
+
+/* Footer support strip */
+.nurr-support-strip {
+  z-index: 70 !important;
+  background: rgba(0,0,0,.96) !important;
+}
+
+@media (max-width: 820px) {
+  .nurr-brand img,
+  .nurr-brand-button img {
+    width: 128px !important;
+    filter: invert(1) grayscale(1) !important;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Accent consistency — three hardcoded copies of the old pink (rgba(255,45,114,…))
+   live inside module CSS (geometric material toggle, drop-zone hover, export
+   error state) and don't read var(--accent), so the global token swap above
+   doesn't reach them on its own. Restated here, scoped to the same selectors,
+   so nothing in the app still shows the old neon pink. No module file edited.
+   The export error state is kept a calm warning-red rather than teal, since
+   recoloring an error message to the brand accent would read as not-an-error.
+   ───────────────────────────────────────────────────────────────────────────── */
+.mode-geometric .material-toggle button.active {
+  background: rgba(63, 167, 175, .14) !important;
+}
+
+.panel .drop-zone:hover {
+  background: rgba(63, 167, 175, .08) !important;
+}
+
+.vid-error {
+  background: rgba(255, 122, 105, .08) !important;
+  border-color: rgba(255, 122, 105, .28) !important;
+  color: #ff9a85 !important;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Soft opening — landing → app handoff.
+   Pure CSS, no JS changed: js/app.js already toggles body.nymph-landing-active
+   when the landing screen mounts/unmounts. This rule only fires the moment
+   that class is removed (i.e. the instant the landing is dismissed), giving
+   the header logo, nav, panel and footer a brief, calm rise-and-fade instead
+   of snapping into view.
+   ───────────────────────────────────────────────────────────────────────────── */
+@keyframes nymphAppReveal {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+body:not(.nymph-landing-active) .nurr-brand,
+body:not(.nymph-landing-active) .nurr-brand-button {
+  animation: nymphAppReveal .7s cubic-bezier(.16,.9,.18,1) .04s both;
+}
+
+body:not(.nymph-landing-active) .rail {
+  animation: nymphAppReveal .7s cubic-bezier(.16,.9,.18,1) .13s both;
+}
+
+body:not(.nymph-landing-active) .panel {
+  animation: nymphAppReveal .7s cubic-bezier(.16,.9,.18,1) .21s both;
+}
+
+body:not(.nymph-landing-active) .nurr-support-strip {
+  animation: nymphAppReveal .6s cubic-bezier(.16,.9,.18,1) .3s both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body:not(.nymph-landing-active) .nurr-brand,
+  body:not(.nymph-landing-active) .nurr-brand-button,
+  body:not(.nymph-landing-active) .rail,
+  body:not(.nymph-landing-active) .panel,
+  body:not(.nymph-landing-active) .nurr-support-strip {
+    animation: none !important;
+  }
+}
+
+
+/* ---------- nymph-landing.css ---------- */
+
+/* NYMPH landing page — isolated start screen styles.
+   Edit/remove this file + js/nymph-landing.js to change the landing without touching the app.
+
+   Token reference (kept here so a future pass can find them in one place):
+     --nymph-abyss        #03060d  deepest field, almost black
+     --nymph-deep         #0a1b33  base blue
+     --nymph-mineral      #123c4a  mineral cyan
+     --nymph-steel        #3e5a66  faded steel
+     --nymph-aqua         #bfe6e8  aquatic highlight, used sparingly
+     Type: Helvetica Neue for the one piece of copy on the page (the enter label).
+
+   Cleanup pass, 2026-06-30:
+   - The logo now reads --nymph-logo-width/--nymph-logo-left/--nymph-logo-top
+     from css/nymph-brand-skin.css (loaded first), so it renders at the same
+     size and screen position as the in-app header logo. Desktop only — the
+     existing mobile override below is untouched.
+   - Logo entrance (fade-in, liquid emerge, wordmark opacity, draw-line,
+     tagline, enter button) is retimed to resolve in ~1.5s instead of ~4.8s,
+     and the logo's resting opacity is raised so it reads clearly instead of
+     staying faint. The liquid "rising from water" mask effect itself is
+     unchanged, just compressed in time.
+*/
+
+.nymph-landing {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  overflow: hidden;
+  background: #03060d;
+  color: #fff;
+}
+
+.nymph-landing-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  display: block;
+  opacity: 0;
+  animation: nymphSurface 1.8s ease-out .05s forwards;
+}
+
+.nymph-landing-grain {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: .05;
+  mix-blend-mode: overlay;
+  background-image:
+    radial-gradient(circle at 30% 20%, rgba(255,255,255,.5), transparent 1px),
+    radial-gradient(circle at 72% 78%, rgba(255,255,255,.35), transparent 1px);
+  background-size: 3px 3px, 4px 4px;
+}
+
+.nymph-landing::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 78% 60% at 38% 32%, rgba(191,230,232,.025), transparent 62%),
+    linear-gradient(165deg, rgba(2,4,10,.10), rgba(2,4,10,.34) 78%);
+}
+
+.nymph-landing-content {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: clamp(56px, 9vh, 124px) clamp(40px, 7vw, 132px);
+  padding-top: var(--nymph-logo-top, clamp(54px, 8.5vh, 104px));
+  padding-left: var(--nymph-logo-left, clamp(34px, 4.6vw, 76px));
+  pointer-events: none;
+  text-align: left;
+  opacity: 0;
+  transform: translateY(10px);
+  animation: nymphRise 1.1s cubic-bezier(.16,.9,.18,1) .35s forwards;
+}
+
+/* Logomark — the page's one confident gesture: left-anchored, real scale, quietly alive.
+   Forced white and screen-blended so it reads as light caught in the water rather than
+   a flat sticker; it rises out of the surface on load and stays half-claimed by it. */
+.nymph-landing-logo {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  margin: 0 0 clamp(18px, 2.4vh, 34px) 0;
+  cursor: pointer;
+  pointer-events: auto;
+  opacity: 0;
+  filter: brightness(1.3) invert(1) drop-shadow(0 0 26px rgba(191,230,232,.16));
+  mix-blend-mode: screen;
+  -webkit-mask-image: linear-gradient(to top, transparent 0%, transparent 46%, #000 64%, #000 100%);
+          mask-image: linear-gradient(to top, transparent 0%, transparent 46%, #000 64%, #000 100%);
+  -webkit-mask-size: 100% 480%;
+          mask-size: 100% 480%;
+  -webkit-mask-repeat: no-repeat;
+          mask-repeat: no-repeat;
+  -webkit-mask-position: 0 100%;
+          mask-position: 0 100%;
+  transform: translateZ(0);
+  animation:
+    nymphLogoFadeIn .4s ease-out .15s forwards,
+    nymphEmerge 1.15s cubic-bezier(.19,.85,.22,1) .35s forwards,
+    nymphLap 6.5s ease-in-out 1.6s infinite;
+  transition: transform .5s cubic-bezier(.2,.9,.2,1);
+}
+
+.nymph-landing-logo:hover,
+.nymph-landing-logo:focus-visible {
+  transform: translateY(-1px) scale(1.012);
+  animation-play-state: paused, paused, running;
+}
+
+/* Wordmark — secondary, a placard beneath the mark, not a second hero. */
+.nymph-landing-full-logo {
+  display: block;
+  width: var(--nymph-logo-width, clamp(230px, 22vw, 340px));
+  height: auto;
+  opacity: 0;
+  filter: brightness(1.05);
+  position: relative;
+  padding-top: clamp(14px, 1.8vh, 22px);
+  animation: nymphWordmarkIn .65s ease-out .45s forwards;
+}
+
+.nymph-landing-full-logo::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 1px;
+  width: 0;
+  background: linear-gradient(90deg, rgba(191,230,232,.55), transparent);
+  animation: nymphDrawLine .9s ease-out .55s forwards;
+}
+
+/* Tagline — the one line of copy on the page. Generated here rather than in markup
+   so this file alone can carry the whole landing sequence. */
+.nymph-landing-content::after {
+  content: "A LIQUID TOOL FOR IMAGE, FORM, AND ATMOSPHERE";
+  display: block;
+  margin-top: clamp(16px, 2vh, 24px);
+  max-width: 30ch;
+  font: 300 11px/1.75 "Helvetica Neue", Helvetica, Arial, sans-serif;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.38);
+  opacity: 0;
+  transform: translateY(6px);
+  animation: nymphRise .85s cubic-bezier(.16,.9,.18,1) 1.3s forwards;
+}
+
+/* Enter — a precise instrument, not a button. A hairline ring with one slow-turning mark,
+   a letterspaced word that only appears once invited. */
+.nymph-enter {
+  position: fixed;
+  right: clamp(42px, 7vw, 116px);
+  bottom: clamp(40px, 8vh, 86px);
+  z-index: 3;
+  pointer-events: auto;
+  width: 58px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(191,230,232,.38);
+  border-radius: 999px;
+  background: rgba(191,230,232,.05);
+  color: rgba(255,255,255,.88);
+  backdrop-filter: blur(16px) saturate(1.05);
+  -webkit-backdrop-filter: blur(16px) saturate(1.05);
+  font: 300 22px/1 "Helvetica Neue", Helvetica, Arial, sans-serif;
+  cursor: pointer;
+  opacity: 0;
+  box-shadow: 0 0 0 0 rgba(191,230,232,0);
+  animation:
+    nymphRise .9s cubic-bezier(.16,.9,.18,1) 1.0s forwards,
+    nymphEnterPulse 4.2s ease-in-out 1.9s infinite;
+  transition: background .3s ease, border-color .3s ease, color .3s ease, transform .35s cubic-bezier(.2,.9,.2,1);
+}
+
+.nymph-enter::before {
+  content: "";
+  position: absolute;
+  inset: -9px;
+  border-radius: 999px;
+  background: conic-gradient(from 0deg,
+    rgba(191,230,232,0) 0deg,
+    rgba(191,230,232,.85) 7deg,
+    rgba(191,230,232,0) 26deg,
+    rgba(191,230,232,0) 360deg);
+  -webkit-mask: radial-gradient(closest-side, transparent calc(100% - 1.6px), #000 calc(100% - 1.1px));
+          mask: radial-gradient(closest-side, transparent calc(100% - 1.6px), #000 calc(100% - 1.1px));
+  animation: nymphSpin 26s linear infinite;
+  opacity: .5;
+  transition: opacity .4s ease;
+}
+
+.nymph-enter::after {
+  content: "ENTER";
+  position: absolute;
+  right: calc(100% + 16px);
+  top: 50%;
+  transform: translateY(-50%);
+  font: 300 11px/1 "Helvetica Neue", Helvetica, Arial, sans-serif;
+  letter-spacing: .32em;
+  color: rgba(255,255,255,.55);
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity .45s ease, transform .45s cubic-bezier(.2,.9,.2,1);
+}
+
+.nymph-enter:hover,
+.nymph-enter:focus-visible {
+  background: rgba(255,255,255,.09);
+  border-color: rgba(191,230,232,.6);
+  color: #fff;
+  transform: scale(1.04);
+  animation-play-state: paused, paused;
+  box-shadow: 0 0 0 0 rgba(191,230,232,0);
+}
+
+.nymph-enter:hover::before,
+.nymph-enter:focus-visible::before { opacity: .9; }
+
+.nymph-enter:hover::after,
+.nymph-enter:focus-visible::after {
+  opacity: 1;
+  transform: translateY(-50%) translateX(-3px);
+}
+
+body.nymph-landing-active .nurr-support-strip,
+body.nymph-landing-active .nurr-kofi-modal {
+  display: none !important;
+}
+
+@keyframes nymphLogoFadeIn {
+  to { opacity: 1; }
+}
+
+@keyframes nymphEmerge {
+  from { -webkit-mask-position: 0 100%; mask-position: 0 100%; }
+  to   { -webkit-mask-position: 0 50%;  mask-position: 0 50%; }
+}
+
+@keyframes nymphLap {
+  0%, 100% { -webkit-mask-position: 0 47%; mask-position: 0 47%; }
+  50%      { -webkit-mask-position: 0 53%; mask-position: 0 53%; }
+}
+
+@keyframes nymphEnterPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(191,230,232,.0); transform: scale(1); }
+  50%      { box-shadow: 0 0 0 9px rgba(191,230,232,.07); transform: scale(1.035); }
+}
+
+@keyframes nymphRise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes nymphSurface {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes nymphWordmarkIn {
+  to { opacity: .94; }
+}
+
+@keyframes nymphSpin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes nymphDrawLine {
+  from { width: 0; }
+  to   { width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nymph-landing-canvas,
+  .nymph-landing-content,
+  .nymph-enter,
+  .nymph-landing-logo,
+  .nymph-landing-full-logo,
+  .nymph-landing-full-logo::before,
+  .nymph-landing-content::after {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .nymph-landing-logo {
+    -webkit-mask-position: 0 50% !important;
+            mask-position: 0 50% !important;
+  }
+  .nymph-landing-full-logo {
+    opacity: .94 !important;
+  }
+  .nymph-landing-full-logo::before {
+    width: 100% !important;
+  }
+  .nymph-landing-content::after {
+    opacity: .38 !important;
+  }
+}
+
+@media (max-width: 820px) {
+  .nymph-landing-content { padding: 40px 26px; }
+  .nymph-landing-full-logo { width: clamp(120px, 38vw, 170px); }
+  .nymph-enter { right: 24px; bottom: 28px; }
+  .nymph-enter::after { display: none; }
+}
+
+/* Stabilization fallback: do not leave landing invisible if animation is delayed/blocked. */
+.nymph-landing-content { opacity: 1; transform: translateY(0); }
+.nymph-landing-logo { opacity: 1; }
+.nymph-landing-full-logo { opacity: .94; }
+.nymph-enter { opacity: 1; }
+
+
+/* ---------- mobile-ui.css ---------- */
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   mobile-ui.css — NYMPH mobile experience
+
+   Authoritative mobile stylesheet. Loaded near-last in index.html; nymph-swiss
+   deliberately keeps its hands off the `.nm-*` DOM so this file owns the whole
+   phone experience end to end.
+
+   This pass answers three complaints:
+
+     1. "The cards are very small and it's hard to change the sliders."
+        The old sheet was capped at min(22vh, 210px) — barely two rows tall, so
+        every card scrolled and every slider sat under your thumb. The sheet is
+        now min(52svh, 470px). It can afford the height because the glass got
+        much more transparent: 0.26 veil instead of 0.34, and no bottom mask.
+        You watch the artwork change *through* the controls.
+
+     2. "The colour picker is impossible to use."
+        The picker now takes over the sheet and grows it to min(76svh, 640px).
+        A proper HSL square, then three full-width tracks — hue, saturation,
+        lightness — each painted with a live gradient of its own outcome. A hex
+        field you can type into, and a copy button. Recents underneath.
+
+     3. "Themes and their order should make more sense."
+        Cards follow one grammar in every module: what colour → what form →
+        what structure → what finish. Names are shared across modules so the
+        tab bar teaches itself once.
+
+   Ink is white throughout — the veil is dark enough, and blurred enough, that
+   it works over both a black backdrop and a bleached one. Antique gold marks
+   the one active thing on screen.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Hidden by default → never appears on desktop, regardless of load order. */
+.nymph-m { display: none; }
+
+@media (max-width: 820px) {
+
+  :root {
+    /* ── Liquid glass ──────────────────────────────────────────────────────
+       Low-alpha veil + heavy blur + saturation lift. The surface takes its
+       hue from whatever is behind it rather than imposing one. */
+    --nm-veil:         rgba(14, 12, 24, 0.26);
+    --nm-veil-strong:  rgba(14, 12, 24, 0.34);
+    --nm-surface-2:    rgba(255, 255, 255, 0.06);
+    --nm-raise:        rgba(255, 255, 255, 0.11);
+    --nm-raise-2:      rgba(255, 255, 255, 0.17);
+    --nm-line:         rgba(255, 255, 255, 0.16);
+    --nm-line-soft:    rgba(255, 255, 255, 0.08);
+    --nm-edge:         rgba(255, 255, 255, 0.30);
+
+    /* legacy aliases kept so nothing downstream breaks */
+    --nm-surface:      var(--nm-veil);
+
+    --nm-ink:          rgba(255, 253, 248, 0.97);
+    --nm-ink-dim:      rgba(255, 253, 248, 0.66);
+    --nm-ink-faint:    rgba(255, 253, 248, 0.42);
+
+    /* ── Accent: antique gold ──────────────────────────────────────────── */
+    --nm-accent:       #C9A56B;
+    --nm-accent-soft:  rgba(201, 165, 107, 0.18);
+    --nm-accent-line:  rgba(201, 165, 107, 0.55);
+    --nm-accent-glow:  rgba(201, 165, 107, 0.30);
+    --nm-on-accent:    #16120B;
+
+    --nm-danger:       rgba(224, 116, 106, 0.92);
+
+    --nm-blur:         saturate(1.8) blur(26px);
+    --nm-blur-strong:  saturate(1.9) blur(34px);
+    --nm-shadow:
+      0 26px 64px rgba(0, 0, 0, 0.34),
+      0 3px 14px rgba(0, 0, 0, 0.18),
+      inset 0 1px 0 rgba(255, 255, 255, 0.26),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+    --nm-ease:         cubic-bezier(0.32, 0.72, 0, 1);
+
+    /* ── Sizing ────────────────────────────────────────────────────────── */
+    --nm-r-lg:         24px;
+    --nm-r-md:         13px;
+    --nm-r-sm:         10px;
+    --nm-dock-h:       58px;
+    --nm-top-h:        46px;
+    --nm-safe-b:       env(safe-area-inset-bottom, 0px);
+    --nm-safe-t:       env(safe-area-inset-top, 0px);
+
+    /* Sheet height. Roomy by default, tall for the picker. */
+    --nm-sheet-max:    min(52svh, 470px);
+  }
+
+  /* ── stable full-height stage; hide desktop chrome ─────────────────────── */
+  #root {
+    height: 100dvh !important;
+    height: var(--nymph-vh, 100dvh) !important;
+  }
+  canvas.stage { height: 100% !important; }
+
+  .rail,
+  .nurr-brand,
+  .nurr-brand-button,
+  .corner-mark,
+  .nurr-support-strip,
+  .mobile-panel-handle { display: none !important; }
+
+  .panel:not(.collapsed),
+  .panel.collapsed,
+  .panel { display: none !important; }
+
+  .nymph-m {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    pointer-events: none;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .nymph-m > * { pointer-events: auto; }
+  .nymph-m button { font-family: inherit; -webkit-tap-highlight-color: transparent; }
+  .nymph-m input  { font-family: inherit; }
+
+  /* Shared glass recipe. `--glass-a` lets each shell tune its own opacity. */
+  .nm-top,
+  .nm-dock,
+  .nm-sheet {
+    background:
+      radial-gradient(120% 140% at 4% -30%, rgba(255,255,255,0.16), rgba(255,255,255,0) 62%),
+      var(--glass-a, var(--nm-veil));
+    -webkit-backdrop-filter: var(--nm-blur);
+            backdrop-filter: var(--nm-blur);
+    border: 1px solid var(--nm-edge);
+    box-shadow: var(--nm-shadow);
+  }
+
+  /* ── top strip: logo + modules ─────────────────────────────────────────── */
+  .nm-top {
+    position: absolute;
+    top: calc(var(--nm-safe-t) + 8px);
+    left: 10px; right: 10px;
+    height: var(--nm-top-h);
+    display: flex; align-items: center; gap: 8px;
+    padding: 5px 8px 5px 10px;
+    border-radius: 999px;
+    --glass-a: var(--nm-veil);
+  }
+  .nm-logo {
+    flex: none;
+    width: 32px; height: 32px;
+    display: grid; place-items: center;
+    background: none; border: none; padding: 0;
+    cursor: pointer;
+  }
+  /* The mark ships as black artwork; on dark glass it has to be inverted. */
+  .nm-logo img {
+    width: 22px; height: 22px; display: block;
+    opacity: 0.96;
+    filter: invert(1) drop-shadow(0 1px 3px rgba(0,0,0,0.35));
+  }
+
+  .nm-modes {
+    display: flex; align-items: center; gap: 2px;
+    overflow-x: auto; overflow-y: hidden;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    margin-left: 2px;
+  }
+  .nm-modes::-webkit-scrollbar { display: none; }
+  .nm-mode {
+    flex: none;
+    display: inline-flex; align-items: baseline; gap: 4px;
+    padding: 7px 13px;
+    border: none; border-radius: 999px;
+    background: transparent;
+    color: var(--nm-ink-dim);
+    font-size: 12.5px; letter-spacing: 0.01em; line-height: 1;
+    cursor: pointer;
+    transition: color 0.2s var(--nm-ease), background 0.2s var(--nm-ease);
+  }
+  .nm-mode-num {
+    font-family: "Instrument Serif", Georgia, serif;
+    font-style: italic;
+    font-size: 10.5px;
+    opacity: 0.68;
+    color: inherit;
+  }
+  .nm-mode.is-on {
+    color: var(--nm-ink);
+    background: var(--nm-raise);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.22);
+  }
+  .nm-mode.is-on .nm-mode-num { color: var(--nm-accent); opacity: 1; }
+
+  /* ── bottom dock ───────────────────────────────────────────────────────── */
+  .nm-dock {
+    position: absolute;
+    left: 10px; right: 10px;
+    bottom: calc(var(--nm-safe-b) + 10px);
+    height: var(--nm-dock-h);
+    display: flex; align-items: stretch;
+    padding: 5px;
+    border-radius: 19px;
+    --glass-a: var(--nm-veil);
+  }
+  .nm-dock-btn {
+    flex: 1 1 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 3px;
+    border: none; border-radius: 14px;
+    background: transparent;
+    color: var(--nm-ink-dim);
+    cursor: pointer;
+    transition: color 0.18s var(--nm-ease), background 0.18s var(--nm-ease);
+  }
+  .nm-dock-btn span {
+    font-size: 9.5px; letter-spacing: 0.05em;
+    text-transform: uppercase; font-weight: 500;
+  }
+  .nm-dock-btn svg { width: 19px; height: 19px; }
+  .nm-dock-btn:active { background: var(--nm-raise); color: var(--nm-ink); }
+  .nm-dock-btn.is-on {
+    color: var(--nm-ink);
+    background: var(--nm-raise);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), inset 0 -2px 0 var(--nm-accent);
+  }
+  .nm-dock-btn.is-on svg { color: var(--nm-accent); }
+  .nm-dock-btn:disabled { opacity: 0.32; pointer-events: none; }
+
+  /* ── sheets (controls / export) ────────────────────────────────────────── */
+  .nm-sheet {
+    position: absolute;
+    left: 10px; right: 10px;
+    bottom: calc(var(--nm-safe-b) + var(--nm-dock-h) + 22px);
+    max-height: min(
+      var(--nm-sheet-max),
+      calc(var(--nymph-vh, 100dvh) - var(--nm-safe-t) - var(--nm-top-h) - var(--nm-dock-h) - 64px)
+    );
+    display: flex; flex-direction: column;
+    border-radius: var(--nm-r-lg);
+    overflow: hidden;
+    --glass-a: var(--nm-veil-strong);
+    -webkit-backdrop-filter: var(--nm-blur-strong);
+            backdrop-filter: var(--nm-blur-strong);
+    animation: nm-rise 0.32s var(--nm-ease);
+    transition: transform 0.22s var(--nm-ease), max-height 0.30s var(--nm-ease);
+  }
+  /* The picker needs real estate; the sheet grows to give it. */
+  .nm-sheet.has-picker { --nm-sheet-max: min(76svh, 640px); }
+
+  @keyframes nm-rise {
+    from { transform: translateY(12px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .nm-sheet { animation: none; transition: none; }
+  }
+
+  .nm-sheet-grip {
+    flex: none;
+    height: 20px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: grab;
+    touch-action: none;
+    -webkit-user-select: none; user-select: none;
+  }
+  .nm-sheet-grip:active { cursor: grabbing; }
+  .nm-sheet-grip::before {
+    content: ""; width: 36px; height: 4px; border-radius: 999px;
+    background: rgba(255, 255, 255, 0.32);
+  }
+
+  .nm-sheet-head {
+    flex: none;
+    display: flex; align-items: flex-start; justify-content: space-between;
+    padding: 2px 16px 8px;
+  }
+  .nm-eyebrow {
+    font-size: 9px; letter-spacing: 0.28em; text-transform: uppercase;
+    color: var(--nm-accent); font-weight: 600; margin-bottom: 3px;
+  }
+  .nm-sheet-title {
+    font-family: "Instrument Serif", Georgia, serif;
+    font-size: 20px; line-height: 1; color: var(--nm-ink);
+    font-weight: 400;
+  }
+  .nm-x {
+    flex: none; width: 32px; height: 32px;
+    display: grid; place-items: center;
+    border: 1px solid var(--nm-line); border-radius: 999px;
+    background: var(--nm-surface-2); color: var(--nm-ink);
+    cursor: pointer;
+  }
+
+  .nm-sheet-body {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding: 6px 16px 18px;
+    display: flex; flex-direction: column; gap: 14px;
+    scrollbar-width: none;
+  }
+  .nm-sheet-body::-webkit-scrollbar { display: none; }
+  .nm-card-body { padding-top: 12px; }
+
+  /* ── card tabs ─────────────────────────────────────────────────────────── */
+  .nm-cardtabs {
+    flex: none;
+    display: flex; gap: 2px;
+    padding: 2px 12px 0;
+    overflow-x: auto; scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    border-bottom: 1px solid var(--nm-line-soft);
+  }
+  .nm-cardtabs::-webkit-scrollbar { display: none; }
+  .nm-cardtab {
+    flex: none;
+    position: relative;
+    padding: 10px 13px 12px;
+    border: none;
+    background: transparent;
+    color: var(--nm-ink-faint);
+    font-size: 9.5px; font-weight: 600; letter-spacing: 0.17em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: color 0.18s var(--nm-ease);
+  }
+  .nm-cardtab.is-on { color: var(--nm-ink); }
+  .nm-cardtab.is-on::after {
+    content: "";
+    position: absolute;
+    left: 10px; right: 10px; bottom: -1px;
+    height: 2px; background: var(--nm-accent);
+    border-radius: 999px;
+  }
+
+  /* ── action row (Shuffle / Undo etc. at top of a card) ─────────────────── */
+  .nm-action-row { display: flex; gap: 8px; }
+  .nm-action {
+    flex: 1 1 0;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    min-height: 44px;
+    padding: 10px 12px;
+    border: 1px solid var(--nm-line); border-radius: var(--nm-r-md);
+    background: var(--nm-surface-2); color: var(--nm-ink);
+    font-size: 12.5px; font-weight: 500; letter-spacing: 0.01em;
+    cursor: pointer;
+    transition: color 0.16s var(--nm-ease),
+                background 0.16s var(--nm-ease),
+                border-color 0.16s var(--nm-ease),
+                transform 0.12s var(--nm-ease);
+  }
+  .nm-action:active { transform: scale(0.985); }
+  .nm-action:disabled { opacity: 0.34; pointer-events: none; }
+  .nm-action.is-primary {
+    background: var(--nm-raise-2);
+    border-color: var(--nm-accent-line);
+    color: var(--nm-ink);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.24), 0 0 0 1px var(--nm-accent-glow);
+  }
+  .nm-action svg { flex: none; }
+
+  /* ── slider rows ───────────────────────────────────────────────────────── */
+  .nm-row { display: flex; flex-direction: column; gap: 4px; }
+  .nm-row-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    min-height: 15px;
+  }
+  .nm-row-label {
+    font-size: 12.5px; color: var(--nm-ink); letter-spacing: 0.005em;
+  }
+  .nm-row-val {
+    font-size: 11px; color: var(--nm-ink-dim);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+  }
+  .nm-slider-wrap {
+    position: relative;
+    display: block;
+    padding: 2px 0;
+  }
+  .nm-slider {
+    -webkit-appearance: none; appearance: none;
+    width: 100%; height: 32px; margin: 0;
+    background: transparent; cursor: pointer;
+    accent-color: var(--nm-accent);
+    display: block;
+  }
+  .nm-slider::-webkit-slider-runnable-track {
+    height: 5px; border-radius: 999px;
+    background: rgba(255, 253, 246, 0.18);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
+  }
+  .nm-slider::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 26px; height: 26px; margin-top: -10.5px;
+    border-radius: 50%;
+    background: rgba(255, 253, 248, 0.96);
+    border: 2px solid var(--nm-accent);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.34);
+    transition: transform 0.14s var(--nm-ease);
+  }
+  .nm-slider:active::-webkit-slider-thumb { transform: scale(1.12); }
+  .nm-slider::-moz-range-track {
+    height: 5px; border-radius: 999px;
+    background: rgba(255, 253, 246, 0.18);
+  }
+  .nm-slider::-moz-range-progress {
+    height: 5px; border-radius: 999px; background: var(--nm-accent-line);
+  }
+  .nm-slider::-moz-range-thumb {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: rgba(255, 253, 248, 0.96); border: 2px solid var(--nm-accent);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.34);
+  }
+
+  /* Live value chip that follows the thumb while scrubbing. */
+  .nm-slider-chip {
+    position: absolute;
+    top: -20px;
+    padding: 3px 9px;
+    background: rgba(10, 9, 16, 0.78);
+    -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
+    color: var(--nm-accent);
+    border: 1px solid var(--nm-accent-glow);
+    border-radius: 999px;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+    pointer-events: none;
+    white-space: nowrap;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+    animation: nm-chip-in 0.14s var(--nm-ease);
+  }
+  @keyframes nm-chip-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── fields, segmented, toggles ────────────────────────────────────────── */
+  .nm-field { display: flex; flex-direction: column; gap: 8px; }
+  .nm-field-label {
+    font-size: 9.5px; letter-spacing: 0.17em; text-transform: uppercase;
+    color: var(--nm-ink-faint); font-weight: 600;
+  }
+  .nm-seg {
+    display: grid;
+    grid-template-columns: repeat(var(--nm-seg-n, 3), 1fr);
+    gap: 3px; padding: 3px;
+    background: var(--nm-surface-2);
+    border: 1px solid var(--nm-line-soft);
+    border-radius: var(--nm-r-md);
+  }
+  .nm-seg[data-count="2"] { --nm-seg-n: 2; }
+  .nm-seg[data-count="3"] { --nm-seg-n: 3; }
+  .nm-seg[data-count="4"] { --nm-seg-n: 4; }
+  .nm-seg[data-count="5"] { --nm-seg-n: 5; }
+  .nm-seg-opt {
+    min-height: 40px;
+    padding: 9px 4px;
+    border: none; border-radius: var(--nm-r-sm);
+    background: transparent; color: var(--nm-ink-dim);
+    font-size: 12px; font-weight: 500; letter-spacing: 0.01em;
+    cursor: pointer;
+    transition: color 0.16s var(--nm-ease),
+                background 0.16s var(--nm-ease),
+                box-shadow 0.16s var(--nm-ease);
+  }
+  .nm-seg-opt.is-on {
+    color: var(--nm-ink);
+    background: var(--nm-raise-2);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.24), inset 0 -2px 0 var(--nm-accent);
+  }
+
+  .nm-toggles { display: flex; gap: 8px; }
+  .nm-toggle, .nm-mini {
+    min-height: 44px;
+    padding: 10px 14px;
+    border: 1px solid var(--nm-line); border-radius: var(--nm-r-md);
+    background: var(--nm-surface-2); color: var(--nm-ink);
+    font-size: 12.5px; font-weight: 500; cursor: pointer;
+    transition: color 0.16s var(--nm-ease),
+                background 0.16s var(--nm-ease),
+                border-color 0.16s var(--nm-ease);
+  }
+  .nm-toggle { flex: 1 1 0; }
+  .nm-toggle.is-on, .nm-mini.is-on {
+    background: var(--nm-raise-2);
+    border-color: var(--nm-accent-line);
+    color: var(--nm-ink);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.24), 0 0 0 1px var(--nm-accent-glow);
+  }
+  .nm-mini-solid { background: var(--nm-raise); border-color: var(--nm-line); }
+
+  /* ── swatches ──────────────────────────────────────────────────────────── */
+  .nm-swatches { display: flex; flex-wrap: wrap; gap: 11px; }
+  .nm-swatch {
+    width: 46px; height: 46px; padding: 0;
+    border-radius: 14px;
+    border: 0;
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.26),
+      0 3px 10px rgba(0, 0, 0, 0.22);
+    cursor: pointer;
+    transition: transform 0.14s var(--nm-ease), box-shadow 0.14s var(--nm-ease);
+  }
+  .nm-swatch:active { transform: scale(0.94); }
+  .nm-swatch-add {
+    display: grid; place-items: center;
+    background: var(--nm-surface-2); color: var(--nm-ink-dim);
+    border: 1px dashed var(--nm-line);
+    box-shadow: none;
+  }
+
+  /* ══════════════════════════════════════════════════════ COLOUR PICKER */
+
+  .nm-picker-overlay {
+    display: flex; flex-direction: column; gap: 14px;
+    padding: 0;
+    animation: nm-fade 0.16s var(--nm-ease);
+  }
+
+  .nm-picker-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px;
+    padding: 0 2px;
+  }
+  .nm-picker-back {
+    display: inline-flex; align-items: center; gap: 4px;
+    min-height: 36px;
+    padding: 6px 12px 6px 6px;
+    border: none; border-radius: var(--nm-r-sm);
+    background: transparent; color: var(--nm-ink-dim);
+    font-size: 12.5px; letter-spacing: 0.02em; cursor: pointer;
+  }
+  .nm-picker-back:active { background: var(--nm-raise); color: var(--nm-ink); }
+  .nm-picker-chip {
+    flex: none;
+    width: 34px; height: 34px; border-radius: 50%;
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.30),
+      0 2px 8px rgba(0, 0, 0, 0.28);
+  }
+
+  /* hex field + copy */
+  .nm-hexrow { display: flex; gap: 8px; align-items: stretch; }
+  .nm-hexfield {
+    flex: 1 1 auto;
+    display: flex; align-items: center; gap: 8px;
+    min-height: 46px;
+    padding: 0 14px;
+    border: 1px solid var(--nm-line); border-radius: var(--nm-r-md);
+    background: var(--nm-surface-2);
+  }
+  .nm-hexfield-label {
+    font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--nm-ink-faint); font-weight: 600;
+  }
+  .nm-hexinput {
+    flex: 1 1 auto; min-width: 0;
+    background: transparent; border: 0; outline: none;
+    color: var(--nm-ink);
+    font-size: 15px; letter-spacing: 0.12em;
+    font-variant-numeric: tabular-nums;
+    text-transform: uppercase;
+    padding: 0;
+  }
+  .nm-hexinput::selection { background: var(--nm-accent); color: var(--nm-on-accent); }
+  .nm-hexcopy {
+    flex: none;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    min-width: 92px; min-height: 46px;
+    padding: 0 14px;
+    border: 1px solid var(--nm-line); border-radius: var(--nm-r-md);
+    background: var(--nm-surface-2); color: var(--nm-ink);
+    font-size: 11px; font-weight: 600; letter-spacing: 0.14em;
+    text-transform: uppercase; cursor: pointer;
+    transition: color 0.16s var(--nm-ease),
+                background 0.16s var(--nm-ease),
+                border-color 0.16s var(--nm-ease);
+  }
+  .nm-hexcopy:active { background: var(--nm-raise); }
+  .nm-hexcopy.is-done {
+    color: var(--nm-accent);
+    border-color: var(--nm-accent-line);
+    background: var(--nm-accent-soft);
+  }
+
+  /* HSL square: x = saturation, y = lightness */
+  .nm-picker-sv {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1.7 / 1;
+    min-height: 148px;
+    max-height: 220px;
+    border-radius: var(--nm-r-md);
+    border: 1px solid var(--nm-line);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.14);
+    touch-action: none;
+    cursor: crosshair;
+  }
+  .nm-picker-dot {
+    position: absolute; width: 22px; height: 22px;
+    border-radius: 50%; border: 2px solid #fff;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.5);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+
+  /* three painted tracks: hue · saturation · lightness */
+  .nm-tracks { display: flex; flex-direction: column; gap: 12px; }
+  .nm-track-row { display: flex; flex-direction: column; gap: 3px; }
+  .nm-track-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+  }
+  .nm-track-label {
+    font-size: 9px; letter-spacing: 0.19em; text-transform: uppercase;
+    color: var(--nm-ink-faint); font-weight: 600;
+  }
+  .nm-track-val {
+    font-size: 11px; color: var(--nm-ink-dim);
+    font-variant-numeric: tabular-nums;
+  }
+  .nm-cslider {
+    -webkit-appearance: none; appearance: none;
+    width: 100%; height: 34px; margin: 0;
+    background: transparent; cursor: pointer; display: block;
+    touch-action: none;
+  }
+  .nm-cslider::-webkit-slider-runnable-track {
+    height: 14px; border-radius: 999px;
+    background: var(--nm-track, #888);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.28);
+  }
+  .nm-cslider::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 28px; height: 28px; margin-top: -8px;
+    border-radius: 50%;
+    background: transparent;
+    border: 3px solid #fff;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45), 0 2px 10px rgba(0, 0, 0, 0.4);
+  }
+  .nm-cslider::-moz-range-track {
+    height: 14px; border-radius: 999px;
+    background: var(--nm-track, #888);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+  }
+  .nm-cslider::-moz-range-thumb {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: transparent; border: 3px solid #fff;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45), 0 2px 10px rgba(0, 0, 0, 0.4);
+  }
+
+  /* recents */
+  .nm-recents { display: flex; flex-direction: column; gap: 8px; }
+  .nm-recent-row { display: flex; flex-wrap: wrap; gap: 9px; }
+  .nm-recent {
+    width: 34px; height: 34px; padding: 0;
+    border: 0; border-radius: 50%;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.26);
+    cursor: pointer;
+    transition: transform 0.14s var(--nm-ease);
+  }
+  .nm-recent:active { transform: scale(0.9); }
+  .nm-recent.is-empty {
+    background: transparent;
+    border: 1px dashed var(--nm-line);
+    box-shadow: none;
+  }
+
+  .nm-picker-actions { display: flex; gap: 8px; margin-top: 2px; }
+  .nm-picker-actions .nm-btn { flex: 1 1 0; }
+  .nm-btn-danger {
+    color: var(--nm-danger);
+    border-color: rgba(224, 116, 106, 0.34);
+    background: rgba(224, 116, 106, 0.09);
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  }
+
+  /* ── collapsible presets ───────────────────────────────────────────────── */
+  .nm-collapsible { display: flex; flex-direction: column; gap: 8px; }
+  .nm-collapse-btn {
+    display: flex; align-items: center; justify-content: space-between;
+    min-height: 42px;
+    padding: 8px 13px;
+    border: 1px solid var(--nm-line); border-radius: var(--nm-r-md);
+    background: var(--nm-surface-2); color: var(--nm-ink-dim);
+    font-size: 9.5px; letter-spacing: 0.17em; text-transform: uppercase;
+    font-weight: 600; cursor: pointer;
+    transition: color 0.16s var(--nm-ease), border-color 0.16s var(--nm-ease);
+  }
+  .nm-collapsible.is-open .nm-collapse-btn { color: var(--nm-ink); border-color: var(--nm-accent-line); }
+  .nm-collapse-caret {
+    display: inline-flex; color: var(--nm-ink-faint);
+    transition: transform 0.2s var(--nm-ease);
+  }
+  .nm-collapsible.is-open .nm-collapse-caret { transform: rotate(180deg); }
+  .nm-collapse-body { animation: nm-fade 0.22s var(--nm-ease); }
+  @keyframes nm-fade {
+    from { opacity: 0; transform: translateY(-2px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── preset / number grids, chip rows, thumbnails ──────────────────────── */
+  .nm-preset-grid {
+    display: grid;
+    grid-template-columns: repeat(var(--nm-cols, 4), 1fr);
+    gap: 6px;
+  }
+  .nm-preset {
+    display: flex; height: 38px;
+    border-radius: var(--nm-r-sm); overflow: hidden;
+    border: 1px solid var(--nm-line-soft);
+    padding: 0; cursor: pointer;
+    transition: transform 0.14s var(--nm-ease), border-color 0.14s var(--nm-ease);
+  }
+  .nm-preset:active { transform: scale(0.97); border-color: var(--nm-accent-line); }
+  .nm-preset span { flex: 1 1 0; }
+
+  .nm-num-grid {
+    display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px;
+  }
+  .nm-num {
+    min-height: 44px;
+    padding: 12px 0;
+    border: 1px solid var(--nm-line); border-radius: var(--nm-r-sm);
+    background: var(--nm-surface-2); color: var(--nm-ink-dim);
+    font-size: 12px; font-variant-numeric: tabular-nums; cursor: pointer;
+    transition: color 0.16s var(--nm-ease),
+                background 0.16s var(--nm-ease),
+                border-color 0.16s var(--nm-ease);
+  }
+  .nm-num.is-on {
+    color: var(--nm-ink);
+    background: var(--nm-raise-2);
+    border-color: var(--nm-accent-line);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.24);
+  }
+
+  .nm-chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .nm-chip {
+    min-height: 42px;
+    padding: 10px 16px;
+    border: 1px solid var(--nm-line); border-radius: 999px;
+    background: var(--nm-surface-2); color: var(--nm-ink-dim);
+    font-size: 12.5px; cursor: pointer;
+    transition: color 0.16s var(--nm-ease),
+                background 0.16s var(--nm-ease),
+                border-color 0.16s var(--nm-ease);
+  }
+  .nm-chip.is-on {
+    color: var(--nm-ink);
+    background: var(--nm-raise-2);
+    border-color: var(--nm-accent-line);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.24);
+  }
+
+  .nm-thumb-row {
+    display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none;
+    -webkit-overflow-scrolling: touch; padding-bottom: 2px;
+  }
+  .nm-thumb-row::-webkit-scrollbar { display: none; }
+  .nm-thumb {
+    flex: none; width: 68px; height: 68px; padding: 0;
+    border-radius: var(--nm-r-md); overflow: hidden;
+    border: 1px solid var(--nm-line); background: none; cursor: pointer;
+  }
+  .nm-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .nm-thumb.is-on {
+    box-shadow: 0 0 0 2px var(--nm-accent);
+    border-color: transparent;
+  }
+
+  .nm-upload {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    min-height: 46px;
+    padding: 12px 16px;
+    border: 1px dashed var(--nm-line); border-radius: var(--nm-r-md);
+    background: var(--nm-surface-2); color: var(--nm-ink);
+    font-size: 13px; cursor: pointer;
+  }
+
+  .nm-hint {
+    font-size: 11.5px; line-height: 1.5; color: var(--nm-ink-dim);
+    margin: 2px 0 0;
+  }
+
+  /* ── export sheet ──────────────────────────────────────────────────────── */
+  .nm-export-sizes {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+  }
+  .nm-size {
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    min-height: 62px;
+    padding: 12px 4px;
+    border: 1px solid var(--nm-line); border-radius: var(--nm-r-md);
+    background: var(--nm-surface-2); color: var(--nm-ink);
+    cursor: pointer;
+    transition: color 0.16s var(--nm-ease),
+                background 0.16s var(--nm-ease),
+                border-color 0.16s var(--nm-ease);
+  }
+  .nm-size strong {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 18px; font-weight: 500; line-height: 1;
+    letter-spacing: -0.01em;
+  }
+  .nm-size small {
+    font-size: 9.5px; color: var(--nm-ink-dim); letter-spacing: 0.02em;
+  }
+  .nm-size.is-on {
+    border-color: var(--nm-accent-line);
+    background: var(--nm-raise-2);
+    color: var(--nm-ink);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.24);
+  }
+  .nm-size.is-on small { color: var(--nm-ink); }
+
+  .nm-export-busy {
+    padding: 20px; text-align: center;
+    color: var(--nm-ink-dim); font-size: 12.5px;
+    letter-spacing: 0.02em;
+  }
+  .nm-export-result { display: flex; flex-direction: column; gap: 10px; }
+  .nm-export-preview {
+    border-radius: var(--nm-r-md); overflow: hidden;
+    border: 1px solid var(--nm-line);
+    background: rgba(0, 0, 0, 0.35);
+    max-height: 26vh;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .nm-export-preview img {
+    width: 100%; height: auto; display: block;
+    max-height: 26vh; object-fit: contain;
+  }
+  .nm-export-meta {
+    font-size: 11px; color: var(--nm-ink-dim);
+    letter-spacing: 0.02em; text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+  .nm-export-actions { display: flex; gap: 8px; }
+  .nm-btn {
+    flex: 1 1 0;
+    min-height: 48px;
+    padding: 12px 14px;
+    border: 1px solid var(--nm-line); border-radius: var(--nm-r-md);
+    background: var(--nm-surface-2); color: var(--nm-ink);
+    font-size: 13px; font-weight: 500; cursor: pointer; text-align: center;
+    letter-spacing: 0.01em;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .nm-btn-solid {
+    background: var(--nm-raise-2);
+    border-color: var(--nm-accent-line);
+    color: var(--nm-ink);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.24), 0 0 0 1px var(--nm-accent-glow);
+  }
+}
+
+/* Landscape phones: the sheet has to live in a 380px-tall world. Shrink the
+   dock, drop its labels, and let the picker use nearly all of it. */
+@media (max-width: 820px) and (orientation: landscape) and (max-height: 480px) {
+  :root {
+    --nm-dock-h: 48px;
+    --nm-sheet-max: calc(var(--nymph-vh, 100dvh) - 110px);
+  }
+  .nm-sheet.has-picker { --nm-sheet-max: calc(var(--nymph-vh, 100dvh) - 92px); }
+  .nm-dock-btn span { display: none; }
+  .nm-picker-sv { min-height: 108px; aspect-ratio: 3.2 / 1; }
+  .nm-tracks { gap: 8px; }
+}

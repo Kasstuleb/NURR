@@ -927,6 +927,41 @@ function renderGradientOffscreen(tweaks, renderState, width, height) {
   return dataUrl;
 }
 window.NurrGradientRenderToDataURL = renderGradientOffscreen;
+
+// ── Persistent-context motion renderer ──────────────────────────────────────
+// One offscreen WebGL context, reused for every frame of a motion export, so
+// the animation is rendered natively at the chosen export resolution on the
+// GPU. captureStream() reads this canvas directly — no per-frame PNG encode /
+// decode, no context churn — which is what makes high-res video export fast
+// and crisp. Returns { canvas, draw(tweaks, renderState), dispose() }.
+window.NurrGradientMotion = function (width, height) {
+  const w = Math.max(1, Math.round(width) || 1920);
+  const h = Math.max(1, Math.round(height) || 1080);
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  const res = initGradientGL(canvas);
+  if (!res) return null;
+  const { gl, prog } = res;
+  return {
+    canvas,
+    width: w,
+    height: h,
+    draw(tweaks, renderState) {
+      const rs = renderState || {};
+      const mouse = rs.mouse || { x: 0.5, y: 0.5, chaosX: 0.5, chaosY: 0.5 };
+      applyGradientFrame(
+        gl, prog, w, h, tweaks,
+        Number.isFinite(rs.time) ? rs.time : 0,
+        mouse,
+        Number.isFinite(rs.pulse) ? rs.pulse : 0
+      );
+    },
+    dispose() {
+      const lose = gl.getExtension('WEBGL_lose_context');
+      if (lose) lose.loseContext();
+    }
+  };
+};
 // Exposed for the mobile UI so its palette edits go through the exact same
 // path as the desktop palette editor (keeps swatches, picker and canvas in sync).
 window.NURR_manualGradientPatch = manualGradientPatch;
@@ -1165,6 +1200,22 @@ function GradientMode({ tweaks, registerSnapshot, mouseRef }) {
     stateRef.current.pulse *= Math.exp(-safeDt*1.4);
     drawAt(canvas.width, canvas.height);
   });
+
+  gmUE(() => {
+    // Publish the current look + interaction state so the motion exporter can
+    // start its designed animation from exactly what's on screen (colours,
+    // spread, blend, direction, texture) and morph outward from there.
+    window.NurrGradientLiveState = () => {
+      const st = stateRef.current || {};
+      const liveTime = window.__NURR_T ?? performance.now() / 1000;
+      const mouse = st.smoothMouse ? { ...st.smoothMouse } : { x: 0.5, y: 0.5, chaosX: 0.5, chaosY: 0.5 };
+      return {
+        tweaks: JSON.parse(JSON.stringify(tweaks)),
+        renderState: { time: liveTime, mouse, pulse: st.pulse || 0 }
+      };
+    };
+    return () => { if (window.NurrGradientLiveState) delete window.NurrGradientLiveState; };
+  }, [tweaks]);
 
   gmUE(() => {
     registerSnapshot((opts = {}) => {

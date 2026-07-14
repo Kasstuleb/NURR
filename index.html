@@ -5,28 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>NYMPH</title>
   <link rel="stylesheet" href="https://use.typekit.net/uib5hvg.css" />
-  <link rel="stylesheet" href="css/base.css?v=20260709-liquid-1" />
-  <link rel="stylesheet" href="css/nav-v2.css?v=20260709-liquid-1" />
-  <link rel="stylesheet" href="css/mobile.css?v=20260709-liquid-1" />
-  <link rel="stylesheet" href="css/nurr-panels.css?v=20260709-liquid-1" />
-  <link rel="stylesheet" href="css/nurr-panel-design.css?v=20260709-liquid-1" />
-  <link rel="stylesheet" href="css/nymph-liquid-system.css?v=20260709-liquid-1" />
-  <link rel="stylesheet" href="css/panel-controls.css?v=20260709-liquid-1" />
-  <link rel="stylesheet" href="css/gradient.css?v=20260709-liquid-1" />
-  <link rel="stylesheet" href="css/geometric.css?v=20260709-liquid-1" />
-  <link rel="stylesheet" href="css/abstract.css?v=20260709-liquid-1" />
-  <link rel="stylesheet" href="css/palette.css?v=20260709-liquid-1" />
-  <link rel="stylesheet" href="css/export-panel-isolated.css?v=20260709-liquid-1" />
-  <link rel="stylesheet" href="css/panel-state-clean.css?v=20260709-liquid-1" />
-  <link rel="stylesheet" href="css/color-picker.css?v=20260709-liquid-1" />
-  <link rel="stylesheet" href="css/regression-fixes.css?v=20260709-liquid-1" />
-  <link rel="stylesheet" href="css/nymph-brand-skin.css?v=20260709-liquid-1" />
-  <link rel="stylesheet" href="css/nymph-landing.css?v=20260709-liquid-1" />
-  <!-- Mobile owns the .nm-* component tree; nymph-swiss keeps its hands off it. -->
-  <link rel="stylesheet" href="css/mobile-ui.css?v=20260709-liquid-1" />
-  <!-- Authoritative skin. Loads LAST. Bump ?v= on every edit or the browser
-       (and GitHub Pages) will keep serving the previous build. -->
-  <link rel="stylesheet" href="css/nymph-swiss.css?v=20260709-liquid-1" />
+  <!-- Consolidated stylesheets. Load order is preserved from the original 19
+       files and is authoritative — nymph-swiss.css must remain LAST.
+       Bump ?v= on every edit or the browser / GitHub Pages serves a stale build. -->
+  <link rel="stylesheet" href="css/nymph-foundation.css?v=20260714-motion-4" />
+  <link rel="stylesheet" href="css/nymph-panels.css?v=20260714-motion-4" />
+  <link rel="stylesheet" href="css/nymph-modules.css?v=20260714-motion-4" />
+  <link rel="stylesheet" href="css/nymph-export.css?v=20260714-motion-4" />
+  <link rel="stylesheet" href="css/nymph-appskin.css?v=20260714-motion-4" />
+  <link rel="stylesheet" href="css/nymph-swiss.css?v=20260714-motion-4" />
 </head>
 <body>
 <div id="root"></div>
@@ -34,20 +21,20 @@
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js"></script>
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="js/helpers.js?v=20260709-liquid-1"></script>
-<script src="js/palette.js?v=20260709-liquid-1" type="text/babel"></script>
-<script src="js/gradient-curated-palettes.js?v=20260709-liquid-1"></script>
-<script src="js/texture-presets.js?v=20260709-liquid-1"></script>
-<script src="js/texture-engine.js?v=20260709-liquid-1"></script>
-<script src="js/gradient.js?v=20260709-liquid-1" type="text/babel"></script>
-<script src="js/geometric.js?v=20260709-liquid-1" type="text/babel"></script>
-<script src="js/nature.js?v=20260709-liquid-1" type="text/babel"></script>
-<script src="js/abstract.js?v=20260709-liquid-1" type="text/babel"></script>
-<script src="js/motion-export.js?v=20260709-liquid-1" type="text/babel"></script>
-<script src="js/nymph-landing.js?v=20260709-liquid-1"></script>
-<script src="js/mobile-ui.js?v=20260709-liquid-1" type="text/babel"></script>
-<script src="js/app.js?v=20260709-liquid-1" type="text/babel"></script>
-<script src="js/mobile.js?v=20260709-liquid-1"></script>
+<script src="js/helpers.js?v=20260714-motion-4"></script>
+<script src="js/palette.js?v=20260714-motion-4" type="text/babel"></script>
+<script src="js/gradient-curated-palettes.js?v=20260714-motion-4"></script>
+<script src="js/texture-presets.js?v=20260714-motion-4"></script>
+<script src="js/texture-engine.js?v=20260714-motion-4"></script>
+<script src="js/gradient.js?v=20260714-motion-4" type="text/babel"></script>
+<script src="js/geometric.js?v=20260714-motion-4" type="text/babel"></script>
+<script src="js/nature.js?v=20260714-motion-4" type="text/babel"></script>
+<script src="js/abstract.js?v=20260714-motion-4" type="text/babel"></script>
+<script src="js/motion-export.js?v=20260714-motion-4" type="text/babel"></script>
+<script src="js/nymph-landing.js?v=20260714-motion-4"></script>
+<script src="js/mobile-ui.js?v=20260714-motion-4" type="text/babel"></script>
+<script src="js/app.js?v=20260714-motion-4" type="text/babel"></script>
+<script src="js/mobile.js?v=20260714-motion-4"></script>
 <div class="nurr-support-strip">
 <span>NYMPH is independent.</span>
 <a href="https://ko-fi.com/kasstuleb" id="nurrSupportOpen" rel="noopener noreferrer" target="_blank">

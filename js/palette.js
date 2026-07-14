@@ -63,6 +63,42 @@
     return rgbToHex({ r: (r + m) * 255, g: (g + m) * 255, b: (b + m) * 255 });
   }
 
+  // Correct HSL <-> hex conversions used by the dark/light lightness slider.
+  // (HSL is the right model for a "dark ← → light" control: it changes lightness
+  // while leaving hue and saturation intact, so a muted colour stays muted.)
+  function hexToHsl(hex) {
+    const { r, g, b } = hexToRgb(hex);
+    const rr = r / 255, gg = g / 255, bb = b / 255;
+    const max = Math.max(rr, gg, bb), min = Math.min(rr, gg, bb);
+    let h = 0, s = 0;
+    const l = (max + min) / 2;
+    if (max !== min) {
+      const d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      if (max === rr) h = ((gg - bb) / d + (gg < bb ? 6 : 0)) * 60;
+      else if (max === gg) h = ((bb - rr) / d + 2) * 60;
+      else h = ((rr - gg) / d + 4) * 60;
+    }
+    return { h, s, l };
+  }
+
+  function hslToHex(h, s, l) {
+    h = ((Number(h) % 360) + 360) % 360;
+    s = clamp(s, 0, 1);
+    l = clamp(l, 0, 1);
+    const c = (1 - Math.abs(2 * l - 1)) * s;
+    const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+    const m = l - c / 2;
+    let r = 0, g = 0, b = 0;
+    if (h < 60) [r, g, b] = [c, x, 0];
+    else if (h < 120) [r, g, b] = [x, c, 0];
+    else if (h < 180) [r, g, b] = [0, c, x];
+    else if (h < 240) [r, g, b] = [0, x, c];
+    else if (h < 300) [r, g, b] = [x, 0, c];
+    else [r, g, b] = [c, 0, x];
+    return rgbToHex({ r: (r + m) * 255, g: (g + m) * 255, b: (b + m) * 255 });
+  }
+
   function rgbToCmyk({ r, g, b }) {
     const rr = r / 255, gg = g / 255, bb = b / 255;
     const k = 1 - Math.max(rr, gg, bb);
@@ -301,6 +337,7 @@
     const pickerRef = useRef(null);
     const dragIndexRef = useRef(null);
     const activeDragRef = useRef(null);
+    const lightBaseRef = useRef(null);
     const panelDragRef = useRef(null);
     const colorsRef = useRef(colors);
     const inputFocusRef = useRef(false);
@@ -511,6 +548,13 @@
       e.preventDefault();
       e.stopPropagation();
       activeDragRef.current = kind;
+      // Freeze the hue + saturation at the start of a lightness drag so the whole
+      // gesture only slides lightness. Re-reading the colour each move would let it
+      // desaturate to grey once it passes through pure black/white.
+      if (kind === 'light') {
+        const hsl = hexToHsl(pickerRef.current.color);
+        lightBaseRef.current = { h: hsl.h, s: hsl.s };
+      }
       document.body.classList.add('is-picking-color');
       moveControlDrag(e);
       try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
@@ -576,10 +620,11 @@
 
       if (kind === 'light') {
         const x = clamp((e.clientX - rect.left) / rect.width, 0, 1);
-        // Lightness track: black → pure chosen hue → white.
-        // This keeps the hue stable instead of collapsing bright reds into muddy browns.
-        if (x <= 0.5) updateHsv({ s: 1, v: x / 0.5 });
-        else updateHsv({ s: 1 - ((x - 0.5) / 0.5), v: 1 });
+        // Dark ← → light on a true HSL lightness axis. Hue and saturation are
+        // taken from the baseline captured at drag start, so a muted colour keeps
+        // its character instead of snapping to a fully-saturated bright version.
+        const base = lightBaseRef.current || hexToHsl(pickerRef.current.color);
+        updateColor(hslToHex(base.h, base.s, x), true);
       }
 
       setDrop(d => ({ ...d, visible: false }));
@@ -588,6 +633,7 @@
     const endControlDrag = () => {
       if (!activeDragRef.current) return;
       activeDragRef.current = null;
+      lightBaseRef.current = null;
       document.body.classList.remove('is-picking-color');
       setDrop(d => ({ ...d, visible: false }));
       // Recent colours are committed only when the picker session is closed or
@@ -682,8 +728,8 @@
     const svLen = Math.sqrt(svDx * svDx + svDy * svDy);
     const svClamped = svLen > 0.5 ? { x: 0.5 + svDx / svLen * 0.5, y: 0.5 + svDy / svLen * 0.5 } : { x: svX, y: svY };
     const svThumb = { left: `${svClamped.x * 100}%`, top: `${svClamped.y * 100}%` };
-    const lightPos = activeHsv.v < 0.999 ? (activeHsv.v * 0.5) : (0.5 + (1 - activeHsv.s) * 0.5);
-    const lightThumb = { '--light-pos': Math.max(0, Math.min(1, lightPos)) };
+    // Thumb sits at the colour's actual HSL lightness (0 = black, .5 = pure hue, 1 = white).
+    const lightThumb = { '--light-pos': clamp(hexToHsl(activeColor).l, 0, 1) };
 
     return (
       <>

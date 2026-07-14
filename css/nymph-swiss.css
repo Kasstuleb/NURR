@@ -50,10 +50,10 @@
   --nx-accent-line: rgba(201, 165, 107, 0.62);
   --nx-accent-glow: rgba(201, 165, 107, 0.28);
 
-  /* radii — nothing is square any more */
-  --nx-r:   26px;   /* glass shells      */
-  --nx-r-m: 14px;   /* grouped controls  */
-  --nx-r-s: 10px;   /* single controls   */
+  /* radii — squared editorial geometry; crisp corners, no soft pills */
+  --nx-r:   2px;    /* glass shells      */
+  --nx-r-m: 2px;    /* grouped controls  */
+  --nx-r-s: 2px;    /* single controls   */
 
   --nx-ease: cubic-bezier(.32, .72, 0, 1);
   --nx-ink-fade: color .45s ease, background-color .45s ease,
@@ -120,23 +120,18 @@ html body {
   --nx-blur-strong: blur(44px) saturate(2.05) contrast(1.03);
 
   --nx-lift:
-    0 30px 80px rgb(0 0 0 / 0.26),
-    0 3px 14px rgb(0 0 0 / 0.10),
-    inset 0 1px 0 rgb(255 255 255 / calc(var(--edge-a) * 1.05)),
-    inset 0 -1px 0 rgb(255 255 255 / calc(var(--edge-a) * 0.30));
+    0 16px 44px rgb(0 0 0 / 0.20),
+    0 2px 8px rgb(0 0 0 / 0.10),
+    inset 0 1px 0 rgb(255 255 255 / calc(var(--edge-a) * 0.95));
 
-  /* the veil itself: two soft speculars over a directional wash */
+  /* the veil itself: one restrained top-left specular over an even wash */
   --nx-glass:
-    radial-gradient(140% 105% at 6% -12%,
-      rgb(255 255 255 / calc(var(--edge-a) * 0.62)),
-      rgb(255 255 255 / 0) 58%),
-    radial-gradient(100% 90% at 112% 2%,
-      rgb(255 255 255 / calc(var(--edge-a) * 0.30)),
+    radial-gradient(150% 120% at 4% -16%,
+      rgb(255 255 255 / calc(var(--edge-a) * 0.42)),
       rgb(255 255 255 / 0) 52%),
-    linear-gradient(168deg,
-      rgb(var(--veil-rgb) / calc(var(--veil-a) * 0.74)),
-      rgb(var(--veil-rgb) / var(--veil-a)) 52%,
-      rgb(var(--veil-rgb) / calc(var(--veil-a) * 0.90)));
+    linear-gradient(180deg,
+      rgb(var(--veil-rgb) / calc(var(--veil-a) * 0.94)),
+      rgb(var(--veil-rgb) / var(--veil-a)));
 }
 
 ::selection { background: rgb(var(--ink-rgb) / 0.82); color: rgb(var(--veil-rgb) / 1); }
@@ -157,27 +152,18 @@ html body {
     content: url('../assets/logos/nymph-2026-full.svg') !important;
     mix-blend-mode: normal !important;
     opacity: 1 !important;
-    filter: drop-shadow(0 1px 5px rgb(255 255 255 / 0.25)) !important;
+    filter: none !important;
     transition: opacity .3s var(--nx-ease), filter .5s ease !important;
   }
 
-  /* Dark glyphs over a bright backdrop: keep them dark, and lift them off the
-     artwork with a white counter-glow scaled by local busyness. */
+  /* Ink adapts to the artwork for legibility, but with no glow/shadow behind it. */
   .nurr-brand[data-ink="dark"] img,
   .nurr-brand-button[data-ink="dark"] img {
-    filter:
-      drop-shadow(0 0 calc(3px + var(--halo, .3) * 9px)
-        rgb(255 255 255 / calc(0.30 + var(--halo, .3) * 0.48)))
-      drop-shadow(0 1px 2px rgb(255 255 255 / 0.5)) !important;
+    filter: none !important;
   }
-  /* Light glyphs over a dark backdrop: invert the mark, glow black. */
   .nurr-brand[data-ink="light"] img,
   .nurr-brand-button[data-ink="light"] img {
-    filter:
-      invert(1)
-      drop-shadow(0 0 calc(3px + var(--halo, .3) * 9px)
-        rgb(0 0 0 / calc(0.22 + var(--halo, .3) * 0.46)))
-      drop-shadow(0 1px 2px rgb(0 0 0 / 0.35)) !important;
+    filter: invert(1) !important;
   }
 
   .nurr-brand:hover,
@@ -198,7 +184,7 @@ html body {
     background: transparent !important;
     border: 0 !important;
     border-bottom: 1px solid rgb(255 255 255 / 0.42) !important;
-    box-shadow: 0 1px 0 rgb(0 0 0 / 0.16) !important;
+    box-shadow: none !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
     display: flex !important;
@@ -208,11 +194,11 @@ html body {
   }
   .rail[data-ink="dark"] {
     border-bottom-color: rgb(10 10 10 / 0.42) !important;
-    box-shadow: 0 1px 0 rgb(255 255 255 / 0.42) !important;
+    box-shadow: none !important;
   }
   .rail[data-ink="light"] {
     border-bottom-color: rgb(255 255 255 / 0.52) !important;
-    box-shadow: 0 1px 0 rgb(0 0 0 / 0.24) !important;
+    box-shadow: none !important;
   }
 
   .rail-group {
@@ -331,7 +317,7 @@ html body {
     min-width: 252px !important;
     height: 64px !important;
     min-height: 64px !important;
-    border-radius: 22px !important;
+    border-radius: 2px !important;
     background: var(--nx-glass) !important;
     border: 1px solid var(--nx-edge) !important;
     box-shadow: var(--nx-lift) !important;
@@ -987,10 +973,27 @@ html body .panel.panel.panel.panel.panel.panel .lib-footer { border-top: 1px sol
   margin-bottom: 7px !important;
 }
 .export-window-title {
-  font: 400 19px/1.1 var(--nx-serif) !important;
-  letter-spacing: .01em !important;
+  font: 500 18px/1.15 var(--nx-font) !important;
+  letter-spacing: -0.005em !important;
   color: var(--nx-ink) !important;
   text-transform: none !important;
+}
+/* Motion tab brief: was unstyled (inherited an oversized, mismatched face and
+   ran the label into the description). Now on the clean system, clearly split. */
+.motion-export-brief { display: block !important; margin: 0 0 15px !important; }
+.motion-export-brief strong {
+  display: block !important;
+  font: 600 8.5px/1 var(--nx-font) !important;
+  letter-spacing: .19em !important;
+  text-transform: uppercase !important;
+  color: var(--nx-ink) !important;
+  margin: 0 0 5px !important;
+}
+.motion-export-brief span {
+  display: block !important;
+  font: 400 11px/1.5 var(--nx-font) !important;
+  letter-spacing: .005em !important;
+  color: var(--nx-ink-soft) !important;
 }
 .export-tabs { border-bottom: 1px solid var(--nx-line-soft) !important; background: transparent !important; }
 .export-tab {

@@ -1,3 +1,11 @@
+/* ============================================================================
+   nymph-export.css  —  consolidated bundle (load order preserved exactly)
+   Sources, in cascade order: export-panel-isolated.css, panel-state-clean.css, color-picker.css
+   ============================================================================ */
+
+
+/* ---------- export-panel-isolated.css ---------- */
+
 /* export-panel-isolated.css
    Single owner for the Export window. Older export rules in base/nurr-panels/liquid are stripped.
    Layout model: snapshot column + six equal export-size columns. */
@@ -977,3 +985,433 @@
   font:800 7.6px/34px var(--nx-font) !important;
   letter-spacing:.075em !important;
 }.motion-chip{ border:1px solid var(--nx-line-soft) !important; border-radius:12px !important; background:rgba(255,255,255,.055) !important; color:var(--nx-ink-soft) !important; }.motion-chip.active{ border-color:rgba(255,255,255,.62) !important; background:rgba(255,255,255,.13) !important; color:var(--nx-ink) !important; }.motion-chip strong{ color:var(--nx-ink) !important; font-size:12px !important; }.motion-chip span{ color:var(--nx-ink-soft) !important; font-size:10px !important; }.motion-field label{ color:var(--nx-ink-soft) !important; font:700 10px/1.2 var(--nx-font) !important; letter-spacing:.08em !important; text-transform:uppercase !important; }.motion-actions{ display:flex !important; flex-wrap:wrap !important; gap:10px !important; }
+
+
+/* ---------- panel-state-clean.css ---------- */
+
+/* panel-state-clean.css — final state rules for open/collapsed side panel.
+   Keeps collapse/restore a visual state only; JS position remains free X/Y. */
+.panel.collapsed {
+  position: fixed !important;
+  top: var(--panel-y, var(--nurr-panel-top, 102px)) !important;
+  left: var(--panel-x, auto) !important;
+  right: var(--nurr-panel-right, 24px) !important;
+  bottom: auto !important;
+  width: 332px !important;
+  height: 86px !important;
+  min-height: 86px !important;
+  max-height: 86px !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+  border-radius: 22px !important;
+  border: 1.35px solid rgba(255,255,255,.58) !important;
+  background:
+    radial-gradient(120% 90% at 15% 0%, rgba(255,255,255,.54), rgba(255,255,255,.16) 48%, transparent 74%),
+    linear-gradient(135deg, rgba(255,255,255,.42), rgba(255,255,255,.20)),
+    rgba(236,239,255,.24) !important;
+  backdrop-filter: blur(30px) saturate(1.48) brightness(1.06) !important;
+  -webkit-backdrop-filter: blur(30px) saturate(1.48) brightness(1.06) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.72), 0 22px 52px rgba(0,0,0,.22) !important;
+  color: rgba(20,18,34,.88) !important;
+}
+.panel.collapsed.is-dragged {
+  left: var(--panel-x) !important;
+  top: var(--panel-y) !important;
+  right: auto !important;
+  bottom: auto !important;
+}
+.panel.collapsed .panel-header {
+  height: 86px !important;
+  min-height: 86px !important;
+  padding: 0 18px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  cursor: grab !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+.panel.collapsed .panel-header:active { cursor: grabbing !important; }
+.panel.collapsed .panel-title-nymph {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  letter-spacing: .18em !important;
+  color: inherit !important;
+}
+.panel.collapsed .header-actions {
+  display: flex !important;
+  gap: 7px !important;
+  align-items: center !important;
+}
+.panel.collapsed .icon-btn {
+  width: 26px !important;
+  height: 26px !important;
+  border-radius: 50% !important;
+  border: 1px solid rgba(255,255,255,.36) !important;
+  background: rgba(255,255,255,.16) !important;
+  color: inherit !important;
+}
+.panel.collapsed .panel-tabs,
+.panel.collapsed .panel-body { display: none !important; }
+@media (max-width: 760px) {
+  .panel.collapsed { width: min(332px, calc(100vw - 28px)) !important; }
+}
+
+
+/* ---------- color-picker.css ---------- */
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   NURR colour picker — single source of truth
+   Compact liquid-glass version. Owns all picker visuals.
+   Logic remains in js/palette.js.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+body > .color-wheel-card.nurr-wheel-v2,
+.color-wheel-card.nurr-wheel-v2{
+  position:fixed !important;
+  left:var(--picker-left, 24px) !important;
+  top:var(--picker-top, 24px) !important;
+  right:auto !important;
+  width:300px !important;
+  max-width:min(300px, calc(100vw - 24px)) !important;
+  padding:0 !important;
+  overflow:hidden !important;
+  border-radius:18px !important;
+  z-index:999990 !important;
+  color:rgba(12,16,24,.88) !important;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,.055) 42%, rgba(0,0,0,.045)),
+    color-mix(in srgb, var(--active-color, #eef3ea) 3%, rgba(12,18,18,.18)) !important;
+  border:1px solid rgba(255,255,255,.58) !important;
+  box-shadow:
+    0 22px 58px rgba(0,0,0,.22),
+    inset 0 1px 0 rgba(255,255,255,.48),
+    inset 0 -1px 0 rgba(255,255,255,.16) !important;
+  -webkit-backdrop-filter:blur(28px) saturate(1.34) brightness(.98) !important;
+  backdrop-filter:blur(28px) saturate(1.34) brightness(.98) !important;
+  pointer-events:auto !important;
+  opacity:1 !important;
+  visibility:visible !important;
+}
+.color-wheel-card.nurr-wheel-v2::before{
+  content:"" !important;
+  position:absolute !important;
+  inset:0 !important;
+  pointer-events:none !important;
+  background:
+    radial-gradient(72% 34% at 12% 0%, rgba(255,255,255,.22), transparent 72%),
+    radial-gradient(52% 36% at 92% 16%, color-mix(in srgb, var(--active-hue, #fff) 5%, transparent), transparent 72%),
+    linear-gradient(90deg, rgba(255,255,255,.07), transparent 48%, rgba(255,255,255,.05)) !important;
+  opacity:.86 !important;
+}
+.color-wheel-card.nurr-wheel-v2 .nurr-picker-title-row{
+  height:46px !important;
+  padding:0 17px !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:space-between !important;
+  border-bottom:1px solid rgba(255,255,255,.24) !important;
+  background:rgba(255,255,255,.06) !important;
+  cursor:grab !important;
+  position:relative !important;
+  z-index:2 !important;
+}
+.color-wheel-card.nurr-wheel-v2 .nurr-picker-title-row:active{ cursor:grabbing !important; }
+.color-wheel-card.nurr-wheel-v2 .nurr-picker-title-row span{
+  font:800 14px/1 var(--nx-font,"Helvetica Neue",Helvetica,Arial,sans-serif) !important;
+  letter-spacing:-.02em !important;
+  color:rgba(10,14,22,.88) !important;
+  text-transform:none !important;
+}
+.color-wheel-card.nurr-wheel-v2 .nurr-picker-actions{ display:flex !important; gap:8px !important; align-items:center !important; }
+.color-wheel-card.nurr-wheel-v2 .nurr-picker-actions button{
+  width:30px !important; height:30px !important;
+  display:grid !important; place-items:center !important;
+  border-radius:999px !important;
+  background:rgba(255,255,255,.18) !important;
+  border:1px solid rgba(255,255,255,.42) !important;
+  color:rgba(8,12,22,.64) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.28), 0 7px 16px rgba(0,0,0,.10) !important;
+  font:800 15px/1 var(--nx-font,"Helvetica Neue",Helvetica,Arial,sans-serif) !important;
+  cursor:pointer !important;
+}
+
+.color-wheel-card.nurr-wheel-v2 .nurr-picker-core{
+  width:174px !important; height:174px !important;
+  margin:16px auto 11px !important;
+  position:relative !important; padding:0 !important;
+  filter:drop-shadow(0 14px 24px rgba(0,0,0,.13)) !important;
+  z-index:1 !important;
+}
+.color-wheel-card.nurr-wheel-v2 .nurr-hue-wheel{
+  position:absolute !important; inset:0 !important;
+  width:174px !important; height:174px !important;
+  border-radius:50% !important; cursor:crosshair !important;
+  /* JS hue angle starts at 3 o'clock. CSS conic 0deg starts at 12 o'clock,
+     so the gradient is rotated to keep visual hue and selected hue aligned. */
+  background:conic-gradient(from 90deg,
+    #ff2b2b 0deg,
+    #ff8a00 42deg,
+    #fff200 62deg,
+    #74ff00 100deg,
+    #00f0b0 155deg,
+    #00a8ff 205deg,
+    #3154ff 248deg,
+    #a032ff 286deg,
+    #ff2aa1 324deg,
+    #ff2b2b 360deg) !important;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.55), inset 0 -10px 24px rgba(0,0,0,.10), 0 0 0 1px rgba(0,0,0,.04) !important;
+}
+.color-wheel-card.nurr-wheel-v2 .nurr-hue-cutout{
+  position:absolute !important; inset:25px !important;
+  border-radius:50% !important;
+  background:rgba(246,248,244,.56) !important;
+  -webkit-backdrop-filter:blur(15px) saturate(1.08) !important;
+  backdrop-filter:blur(15px) saturate(1.08) !important;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.58), inset 0 7px 18px rgba(255,255,255,.28), 0 0 0 1px rgba(0,0,0,.045) !important;
+}
+.color-wheel-card.nurr-wheel-v2 .nurr-sv-disc{
+  position:absolute !important;
+  left:50% !important; top:50% !important;
+  width:116px !important; height:116px !important;
+  transform:translate(-50%,-50%) !important;
+  border-radius:50% !important; overflow:hidden !important;
+  cursor:crosshair !important;
+  background:var(--sv-bg) !important;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.50), inset 0 0 18px rgba(255,255,255,.12), 0 0 0 1px rgba(0,0,0,.055) !important;
+}
+.color-wheel-card.nurr-wheel-v2 .nurr-hue-thumb,
+.color-wheel-card.nurr-wheel-v2 .nurr-sv-thumb,
+.color-wheel-card.nurr-wheel-v2 .nurr-lightness-thumb{
+  position:absolute !important;
+  width:18px !important; height:18px !important;
+  border-radius:50% !important;
+  border:3px solid rgba(255,255,255,.96) !important;
+  background:var(--active-color, #fff) !important;
+  box-shadow:0 4px 13px rgba(0,0,0,.24), inset 0 0 0 1px rgba(0,0,0,.12) !important;
+  z-index:8 !important; pointer-events:none !important;
+  transform:translate(-50%,-50%) !important;
+}
+.color-wheel-card.nurr-wheel-v2 .nurr-hue-thumb{ background:var(--active-hue, #fff) !important; }
+.color-wheel-card.nurr-wheel-v2 .nurr-sv-thumb{ }
+.color-wheel-card.nurr-wheel-v2 .nurr-lightness-line{
+  width:214px !important; height:26px !important;
+  margin:0 auto 13px !important;
+  position:relative !important;
+  border-radius:999px !important;
+  background:rgba(255,255,255,.15) !important;
+  border:1px solid rgba(255,255,255,.23) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.28) !important;
+  cursor:ew-resize !important;
+}
+.color-wheel-card.nurr-wheel-v2 .nurr-lightness-track{
+  position:absolute !important;
+  left:13px !important; right:13px !important; top:50% !important;
+  height:6px !important; transform:translateY(-50%) !important;
+  border-radius:999px !important;
+  background:linear-gradient(90deg,#050505 0%, var(--active-hue, #fff) 50%, #ffffff 100%) !important;
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.18), 0 1px 0 rgba(255,255,255,.22) !important;
+}
+.color-wheel-card.nurr-wheel-v2 .nurr-lightness-thumb{ top:50% !important; left:calc(13px + (100% - 26px) * var(--light-pos, .5)) !important; transform:translate(-50%,-50%) !important; }
+
+.color-wheel-card.nurr-wheel-v2 .nurr-value-block{
+  padding:0 16px 13px !important;
+  display:grid !important;
+  grid-template-columns:50px 1fr !important;
+  gap:14px !important;
+  align-items:center !important;
+  position:relative !important; z-index:2 !important;
+}
+.color-wheel-card.nurr-wheel-v2 .nurr-active-chip{
+  width:48px !important; height:48px !important;
+  border-radius:50% !important;
+  background:var(--active-color, #fff) !important;
+  border:1px solid rgba(255,255,255,.42) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.34), 0 9px 22px rgba(0,0,0,.12) !important;
+}
+.color-wheel-card.nurr-wheel-v2 .nurr-value-row{
+  display:grid !important;
+  grid-template-columns:40px 1fr !important;
+  align-items:center !important; gap:9px !important;
+  margin:0 0 7px !important;
+}
+.color-wheel-card.nurr-wheel-v2 .nurr-value-row span,
+.color-wheel-card.nurr-wheel-v2 .nurr-recent-label{
+  color:rgba(8,12,20,.78) !important;
+  font:800 9px/1 var(--nx-font,"Helvetica Neue",Helvetica,Arial,sans-serif) !important;
+  letter-spacing:.03em !important;
+}
+.color-wheel-card.nurr-wheel-v2 input[type="text"],
+.color-wheel-card.nurr-wheel-v2 input.color-input{
+  width:100% !important; height:30px !important;
+  border-radius:12px !important;
+  border:1px solid rgba(255,255,255,.35) !important;
+  background:rgba(255,255,255,.20) !important;
+  color:rgba(8,12,20,.82) !important;
+  font:700 12px/1 var(--nx-font,"Helvetica Neue",Helvetica,Arial,sans-serif) !important;
+  padding:0 11px !important;
+  outline:none !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.25) !important;
+}
+.color-wheel-card.nurr-wheel-v2 input.color-input:focus{
+  background:rgba(255,255,255,.18) !important;
+  border-color:rgba(255,255,255,.58) !important;
+}
+.color-wheel-card.nurr-wheel-v2 .nurr-recent-block{
+  padding:12px 16px 15px !important;
+  border-top:1px solid rgba(255,255,255,.20) !important;
+  position:relative !important; z-index:2 !important;
+}
+.color-wheel-card.nurr-wheel-v2 .nurr-recent-list{
+  margin-top:12px !important;
+  display:grid !important;
+  grid-template-columns:repeat(5, 1fr) !important;
+  gap:10px !important;
+}
+.color-wheel-card.nurr-wheel-v2 .nurr-recent-chip{
+  width:100% !important; aspect-ratio:1/1 !important;
+  border-radius:50% !important;
+  border:1px solid rgba(255,255,255,.34) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.24), 0 7px 16px rgba(0,0,0,.10) !important;
+  cursor:pointer !important;
+}
+.color-wheel-card.nurr-wheel-v2 .nurr-recent-chip.is-empty{
+  background:rgba(255,255,255,.06) !important;
+  border-style:dashed !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.14) !important;
+}
+.color-wheel-card.nurr-wheel-v2.is-minimized,
+body > .color-wheel-card.nurr-wheel-v2.is-minimized{
+  width:184px !important; height:60px !important; min-height:0 !important;
+  border-radius:19px !important;
+}
+.color-wheel-card.nurr-wheel-v2.is-minimized .nurr-picker-mini-chip{
+  display:block !important;
+  position:absolute !important;
+  left:18px !important; bottom:14px !important;
+  width:30px !important; height:30px !important;
+  border-radius:50% !important;
+  border:2px solid rgba(255,255,255,.88) !important;
+}
+.eyedropper-follow{
+  position:fixed !important;
+  z-index:999999 !important;
+  width:28px !important; height:28px !important;
+  border-radius:50% !important;
+  border:2px solid rgba(255,255,255,.92) !important;
+  box-shadow:0 10px 25px rgba(0,0,0,.28), inset 0 0 0 1px rgba(0,0,0,.16) !important;
+  pointer-events:none !important;
+}
+body.is-picking-color{ cursor:crosshair !important; }
+body.nurr-no-select{ user-select:none !important; }
+@media (max-width:720px){
+  body > .color-wheel-card.nurr-wheel-v2,
+  .color-wheel-card.nurr-wheel-v2{ width:min(300px, calc(100vw - 20px)) !important; }
+}
+
+
+/* geometry safety: nodes stay inside their controls and the picker matches the main glass panel language */
+.color-wheel-card.nurr-wheel-v2 .nurr-hue-wheel,
+.color-wheel-card.nurr-wheel-v2 .nurr-sv-disc,
+.color-wheel-card.nurr-wheel-v2 .nurr-lightness-line{ overflow:visible !important; }
+.color-wheel-card.nurr-wheel-v2 .nurr-hue-thumb,
+.color-wheel-card.nurr-wheel-v2 .nurr-sv-thumb,
+.color-wheel-card.nurr-wheel-v2 .nurr-lightness-thumb{ will-change:left,top !important; }
+.color-wheel-card.nurr-wheel-v2 .nurr-lightness-thumb{ background:var(--active-color, #fff) !important; }
+
+
+/* Recent colours: active chips must show the stored colour.
+   This intentionally uses --recent-color so no global glass rule can wash it out. */
+.color-wheel-card.nurr-wheel-v2 .nurr-recent-chip:not(.is-empty){
+  background:var(--recent-color, #ffffff) !important;
+  border-style:solid !important;
+  border-color:rgba(255,255,255,.46) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.30),
+    inset 0 -8px 16px rgba(0,0,0,.10),
+    0 7px 16px rgba(0,0,0,.12) !important;
+}
+.color-wheel-card.nurr-wheel-v2 .nurr-recent-chip.is-empty{
+  background:rgba(255,255,255,.055) !important;
+  border-color:rgba(10,15,20,.16) !important;
+}
+
+/* Minimized picker: compact glass pill, no overlapping label / random colour dot. */
+.color-wheel-card.nurr-wheel-v2.is-minimized,
+body > .color-wheel-card.nurr-wheel-v2.is-minimized{
+  width:214px !important;
+  height:50px !important;
+  min-height:50px !important;
+  border-radius:17px !important;
+  overflow:hidden !important;
+}
+.color-wheel-card.nurr-wheel-v2.is-minimized .nurr-picker-title-row{
+  height:50px !important;
+  padding:0 12px 0 50px !important;
+  border-bottom:0 !important;
+  background:rgba(255,255,255,.055) !important;
+}
+.color-wheel-card.nurr-wheel-v2.is-minimized .nurr-picker-title-row span{
+  max-width:86px !important;
+  white-space:nowrap !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+  font-size:12px !important;
+}
+.color-wheel-card.nurr-wheel-v2.is-minimized .nurr-picker-actions{
+  gap:6px !important;
+}
+.color-wheel-card.nurr-wheel-v2.is-minimized .nurr-picker-actions button{
+  width:26px !important;
+  height:26px !important;
+  font-size:13px !important;
+}
+.color-wheel-card.nurr-wheel-v2.is-minimized .nurr-picker-mini-chip{
+  display:block !important;
+  position:absolute !important;
+  left:15px !important;
+  top:50% !important;
+  bottom:auto !important;
+  width:22px !important;
+  height:22px !important;
+  transform:translateY(-50%) !important;
+  border-radius:999px !important;
+  border:2px solid rgba(255,255,255,.82) !important;
+  box-shadow:0 7px 14px rgba(0,0,0,.18), inset 0 0 0 1px rgba(0,0,0,.10) !important;
+  z-index:5 !important;
+}
+
+
+/* Colour picker eyedropper preview — owned by color-picker.css */
+.eyedropper-follow{
+  position:fixed !important; z-index:2147483500 !important;
+  width:28px !important; height:28px !important;
+  transform:translate3d(-14px,-14px,0) !important;
+  pointer-events:none !important; display:block !important;
+  border-radius:50% !important; border:2px solid rgba(255,255,255,.92) !important;
+  box-shadow:0 10px 25px rgba(0,0,0,.28), inset 0 0 0 1px rgba(0,0,0,.16) !important;
+}
+.eyedropper-follow.is-hidden{ opacity:0 !important; visibility:hidden !important; }
+.eyedropper-color{ position:absolute !important; inset:0 !important; border-radius:50% !important; background:currentColor; }
+
+/* ─────────────────────────────────────────────────────────────
+   Extracted ownership rules — 2026-06-29 CSS architecture cleanup.
+   Moved out of global CSS without changing declaration values.
+   ───────────────────────────────────────────────────────────── */
+body.is-picking-color, body.is-picking-color * { cursor: none !important; }.mode-glass3d .glass3d-picker-pair{
+  display:grid !important;
+  grid-template-columns:1fr 1fr !important;
+  gap:6px !important;
+  margin-top:8px !important;
+}.mode-glass3d .glass3d-picker-btn{
+  min-height:34px !important;
+  border:1px solid var(--nx-line-soft) !important;
+  background:rgba(255,255,255,.045) !important;
+  border-radius:0 !important;
+}.mode-glass3d .glass3d-picker-swatch{
+  width:16px !important;
+  height:16px !important;
+  border-radius:50% !important;
+}.mode-glass3d .glass3d-picker-pair{ grid-template-columns:1fr 1fr !important; gap:6px !important; }.mode-glass3d .glass3d-picker-btn{ height:32px !important; min-height:32px !important; padding:0 8px !important; gap:7px !important; overflow:hidden !important; }.mode-glass3d .glass3d-picker-label,
+.mode-glass3d .glass3d-hue-label{ font:800 7.5px/1 "Helvetica Neue", Helvetica, Arial, sans-serif !important; letter-spacing:.08em !important; overflow:hidden !important; text-overflow:ellipsis !important; white-space:nowrap !important; }

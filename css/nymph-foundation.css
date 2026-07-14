@@ -1,3 +1,11 @@
+/* ============================================================================
+   nymph-foundation.css  —  consolidated bundle (load order preserved exactly)
+   Sources, in cascade order: base.css, nav-v2.css, mobile.css
+   ============================================================================ */
+
+
+/* ---------- base.css ---------- */
+
 /* ─────────────────────────────────────────────────────────────────────────────
    NURR — base.css   Dark-theme redesign
    Drop into css/ next to mobile.css. index.html unchanged.
@@ -787,5 +795,521 @@ input, textarea, [contenteditable="true"] {
     height: calc(100svh - var(--nurr-support-height, 46px) - 124px) !important;
     max-height: calc(100svh - var(--nurr-support-height, 46px) - 124px) !important;
     min-height: 0 !important;
+  }
+}
+
+
+/* ---------- nav-v2.css ---------- */
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   NURR — nav-v2.css   Typographic header nav + dark glass panel   (revision 4)
+   Load after base.css:
+     <link rel="stylesheet" href="css/nav-v2.css?v=nav-v4" />
+   ─────────────────────────────────────────────────────────────────────────────
+   Navigation concept: "Editorial strip"
+   No folder shapes. No transparency tricks. No stacking context battles.
+   One clean 64px black header. Module names as a typographic list.
+   Active module: white, full weight, accent underline below.
+   Inactive modules: dim, small. Clean and absolutely reliable.
+
+   Panel glass: dark purple tint (58% opacity) + blur(40px).
+   Readable white text, canvas visible through blur, no red bleed.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* ─── Astonpoliz display font ─────────────────────────────────────────────── */
+
+
+/* ─── Tokens ──────────────────────────────────────────────────────────────── */
+:root {
+  --header-h:  64px;
+  --chrome-h:  var(--header-h);
+  --nav-text-rest:   rgba(255, 255, 255, 0.36);
+  --nav-text-hover:  rgba(255, 255, 255, 0.70);
+  --nav-text-active: rgba(255, 255, 255, 0.97);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   HEADER — inside #root (correct stacking context)
+   Covers y: 0–64px. Positioned absolute so canvas stacking order is unaffected.
+   ═══════════════════════════════════════════════════════════════════════════ */
+#root::before {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; top: 0;
+  height: var(--header-h);
+  background: rgba(5, 5, 5, 0.98);
+  
+  z-index: 6;
+  pointer-events: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DESKTOP (≥ 821px)
+   ═══════════════════════════════════════════════════════════════════════════ */
+@media (min-width: 821px) {
+
+  /* ─── NURR wordmark ──────────────────────────────────────────────────── */
+  .nurr-brand,
+  .nurr-brand-button {
+    font-family: "Astonpoliz", "Moden", "Helvetica Neue", sans-serif !important;
+    position: absolute !important;
+    left: 32px !important; top: 0 !important;
+    height: var(--header-h) !important; width: auto !important;
+    display: flex !important; align-items: center !important;
+    font-size: 46px !important; line-height: 1 !important;
+    letter-spacing: -0.02em !important; font-weight: normal !important;
+    color: rgba(255, 255, 255, 0.96) !important;
+    z-index: 11 !important; pointer-events: auto !important; padding: 0 !important;
+  }
+  .nurr-brand::after,
+  .nurr-brand-button::after {
+    content: "";
+    display: inline-block;
+    width: 6px; height: 6px; margin-left: 5px;
+    background: var(--accent); border-radius: 50%;
+    vertical-align: 20%; flex-shrink: 0;
+  }
+
+  /* ─── Rail — horizontal typographic nav strip ───────────────────────── */
+  /* Rail is absolute inside #root. Height = header only.
+     No tab zone below header — the canvas starts immediately at y:64px. */
+  .rail {
+    position: absolute !important;
+    top: 0 !important; left: 0 !important; right: 0 !important;
+    bottom: auto !important; width: auto !important;
+    height: var(--header-h) !important;
+    z-index: 9 !important;
+    background: transparent !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    padding: 0 32px 0 0 !important;
+    pointer-events: none !important;
+  }
+
+  .rail-group {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 4px !important;
+    height: 100% !important;
+    pointer-events: auto !important;
+  }
+
+  /* ─── Individual module button ─────────────────────────────────────── */
+  .rail-item {
+    writing-mode:    horizontal-tb !important;
+    transform:       none !important;
+    mix-blend-mode:  normal !important;
+    position: relative !important;
+
+    height: 100% !important;
+    padding: 0 14px !important;
+
+    font-family:    "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+    font-size:      11.5px !important;
+    font-weight:    400 !important;
+    letter-spacing: 0.08em !important;
+    text-transform: uppercase !important;
+    color:          var(--nav-text-rest) !important;
+
+    background:   transparent !important;
+    border:       none !important;
+    border-radius: 0 !important;
+
+    display:         inline-flex !important;
+    align-items:     center !important;
+    justify-content: center !important;
+    white-space:     nowrap !important;
+    cursor:          pointer !important;
+    user-select:     none !important;
+
+    transition:
+      color       0.18s ease,
+      opacity     0.18s ease !important;
+  }
+
+  .rail-item .num  { display: none !important; }
+  .rail-foot       { display: none !important; }
+
+  /* Accent underline indicator — scales in on active */
+  .rail-item::after {
+    content: "";
+    position: absolute;
+    bottom: 0; left: 14px; right: 14px;
+    height: 2px;
+    background: var(--accent);
+    border-radius: 1px;
+    transform: scaleX(0);
+    transform-origin: center;
+    transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+  }
+
+  /* Hover */
+  .rail-item:not(.active):hover {
+    color: var(--nav-text-hover) !important;
+  }
+
+  /* Active module */
+  .rail-item.active {
+    color:       var(--nav-text-active) !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.07em !important;
+  }
+  .rail-item.active::after {
+    transform: scaleX(1) !important;
+  }
+
+  /* ════════════════════════════════════════════════════════════════════════
+     PANEL — dark glass
+     Panel begins directly below the header (64px).
+     .panel:not([style]) = initial position before dragging.
+     After first drag, React inline style `left / top / right:auto` takes over.
+     All visual !important rules override base.css light-glass patch.
+     ════════════════════════════════════════════════════════════════════════ */
+
+  /* Initial position — CSS wins here; after first drag, inline style wins */
+  .panel:not([style]) {
+    top:   calc(var(--chrome-h) + 14px);
+    right: 24px;
+    left:  auto;
+  }
+
+  .panel {
+    width:         340px !important;
+    max-height:    calc(100vh - var(--chrome-h) - 24px - var(--nurr-support-height, 46px)) !important;
+    border-radius: 20px !important;
+
+    /* Dark purple glass: ~58% dark tint + blur.
+       Dark enough for white text, transparent enough to feel like glass.
+       Purple tint neutralises warm canvas gradients so no red bleed. */
+    background: linear-gradient(
+      158deg,
+      rgba(16, 13, 32, 0.38) 0%,
+      rgba(11,  9, 24, 0.32) 48%,
+      rgba(14, 11, 29, 0.36) 100%
+    ) !important;
+    backdrop-filter:         blur(42px) saturate(1.55) !important;
+    -webkit-backdrop-filter: blur(42px) saturate(1.55) !important;
+    border:     1px solid rgba(255, 255, 255, 0.20) !important;
+    box-shadow:
+      0 22px 65px rgba(3, 2, 14, 0.52),
+      0 3px 10px  rgba(3, 2, 14, 0.26),
+      inset 0 1px 0 rgba(255, 255, 255, 0.38),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.07) !important;
+    color:    rgba(245, 244, 255, 0.96) !important;
+    overflow: hidden !important;
+  }
+
+  /* Specular refraction ellipse */
+  .panel::before {
+    content: ""; position: absolute; inset: 0;
+    pointer-events: none; z-index: 1; border-radius: inherit;
+    background:
+      radial-gradient(ellipse 78% 46% at 22% 0%,
+        rgba(255, 255, 255, 0.20) 0%, rgba(255, 255, 255, 0) 55%),
+      linear-gradient(140deg,
+        rgba(255, 255, 255, 0.09) 0%, rgba(255, 255, 255, 0) 22%);
+  }
+
+  /* Hairline top-edge highlight */
+  .panel::after {
+    content: ""; position: absolute;
+    left: 16px; right: 16px; top: 0; height: 1px;
+    pointer-events: none; z-index: 2;
+    background: linear-gradient(90deg,
+      transparent, rgba(255, 255, 255, 0.55) 50%, transparent);
+    animation: nurr-shimmer 4s ease-in-out infinite;
+  }
+  @keyframes nurr-shimmer {
+    0%, 100% { opacity: 0.50; }
+    50%       { opacity: 0.95; }
+  }
+
+  /* Layer all panel children above refraction pseudo-elements */
+  .panel-header, .panel-body, .panel .section,
+  .panel-eyebrow, .panel-title {
+    position: relative; z-index: 3; background: transparent !important;
+  }
+
+  .panel-header { border-bottom: 0 !important; }
+  .panel-header::after {
+    background: linear-gradient(90deg, transparent,
+      rgba(255,255,255,0.13) 22%, rgba(255,255,255,0.13) 78%, transparent) !important;
+  }
+
+  .panel-eyebrow {
+    color: rgba(245, 244, 255, 0.56) !important;
+    letter-spacing: 0.18em !important;
+  }
+  .panel-title {
+    color: rgba(255, 255, 255, 0.98) !important;
+    font-weight: 300 !important; font-size: 17px !important;
+    letter-spacing: -0.005em !important;
+  }
+  .panel-title .amp { color: var(--accent) !important; }
+
+  
+  
+  
+
+  /* Icon buttons */
+  
+  
+
+  /* Buttons */
+  
+  
+  
+  
+  
+
+  /* Sliders */
+  .panel .slider {
+    background: rgba(255,255,255,0.14) !important; height: 2px !important;
+  }
+  .panel .slider::-webkit-slider-thumb {
+    background: #fff !important; border: 0 !important;
+    width: 13px !important; height: 13px !important;
+    box-shadow: 0 0 0 4px rgba(255,255,255,0.10), 0 2px 5px rgba(0,0,0,0.28) !important;
+  }
+  .panel .slider::-moz-range-thumb {
+    background: #fff !important; border: 0 !important;
+    width: 13px !important; height: 13px !important;
+    box-shadow: 0 0 0 4px rgba(255,255,255,0.10), 0 2px 5px rgba(0,0,0,0.28) !important;
+  }
+  .panel .slider:active::-webkit-slider-thumb {
+    box-shadow: 0 0 0 6px var(--accent-soft), 0 2px 5px rgba(0,0,0,0.28) !important;
+  }
+
+  /* Swatches */
+  
+  
+  
+  
+
+  /* Seg controls */
+  
+  
+  
+  
+
+  /* Layout cards */
+  
+  
+
+  /* Help text */
+  
+  
+  
+
+  /* Drop zones */
+  
+  
+
+  /* Scrollbar */
+  .panel-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12) !important; }
+  
+}
+
+/* ─── Corner mark ─────────────────────────────────────────────────────────── */
+@media (min-width: 821px) {
+  .corner-mark { left: 28px !important; bottom: 58px !important; z-index: 5 !important; }
+  .corner-mark .big   { color: rgba(245, 244, 255, 0.86) !important; }
+  .corner-mark .small { color: rgba(220, 218, 255, 0.42) !important; }
+}
+
+/* ─── Snapshot toast ──────────────────────────────────────────────────────── */
+
+
+/* ─── Reduced motion ──────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .rail-item, .rail-item::after { transition: none !important; }
+  .panel::after { animation: none !important; }
+}
+
+/* ─── Mobile (≤ 820px) ───────────────────────────────────────────────────── */
+@media (max-width: 820px) {
+  #root::before  { display: none; }
+  .nurr-brand,
+  .nurr-brand-button {
+    top: 22px !important; left: 22px !important; height: auto !important;
+    font-size: clamp(52px, 18vw, 88px) !important; color: var(--accent) !important;
+  }
+  .nurr-brand::after, .nurr-brand-button::after { display: none !important; }
+  .panel:not([style]) { top: 110px; right: 16px; }
+  .panel { width: calc(100vw - 32px) !important; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   INFINITY SCROLL — slow organic background drift
+   Canvas is scaled to 1.22× so edges never show during translation.
+   Scale(1.22) adds 11% overflow on each side; max translation is 7%,
+   leaving a 4% safety margin. #root { overflow: hidden } clips the rest.
+   Disabled for 3D and Geometric (precise object rendering).
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+canvas.stage {
+  transform-origin: center center;
+}
+
+/* Apply drift to flat/background modules */
+
+
+@keyframes nurr-bg-wander {
+  0%   { transform: scale(1.22) translate(  0%,    0%  ); }
+  18%  { transform: scale(1.22) translate(-4.5%, -3.5% ); }
+  38%  { transform: scale(1.22) translate(-7%,    2%   ); }
+  58%  { transform: scale(1.22) translate(-2.5%,  5.5% ); }
+  78%  { transform: scale(1.22) translate( 3.5%,  2.5% ); }
+  100% { transform: scale(1.22) translate(  0%,    0%  ); }
+}
+
+/* Hard-disable for modules where canvas content must stay pixel-precise */
+
+
+/* Respect user motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  canvas.stage {
+    animation: none !important;
+    transform: none !important;
+  }
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   NURR hotfix — header, footer clearance, palette panel reset support
+   Added 2026-05-27. Scoped as late overrides so it wins over base.css.
+   ───────────────────────────────────────────────────────────────────────────── */
+:root {
+  --header-h: 64px;
+  --chrome-h: 64px;
+  --nurr-support-height: 34px;
+}
+
+html,
+body {
+  background: #000 !important;
+}
+
+#root {
+  height: 100vh !important;
+  height: 100svh !important;
+  background: #000 !important;
+  overflow: hidden !important;
+}
+
+#root::before {
+  height: var(--header-h) !important;
+  background: #000 !important;
+  box-shadow: none !important;
+}
+
+@media (min-width: 821px) {
+  .rail {
+    height: var(--header-h) !important;
+    background: #000 !important;
+    box-shadow: none !important;
+  }
+
+  .rail::before,
+  .rail::after {
+    content: none !important;
+    display: none !important;
+  }
+
+  .panel:not([style]) {
+    top: calc(var(--header-h) + 14px) !important;
+    right: 24px !important;
+    left: auto !important;
+  }
+
+  .panel {
+    max-height: calc(100vh - var(--header-h) - 22px) !important;
+    max-height: calc(100svh - var(--header-h) - 22px) !important;
+  }
+
+  
+
+  
+}
+
+.nurr-support-strip {
+  height: var(--nurr-support-height) !important;
+  min-height: var(--nurr-support-height) !important;
+  padding: 0 24px !important;
+  transform: none !important;
+}
+
+.nurr-support-strip a {
+  height: 24px !important;
+  padding: 0 14px !important;
+}
+
+.nurr-support-strip span,
+.nurr-support-strip a {
+  font-size: 10px !important;
+}
+
+.corner-mark {
+  bottom: calc(var(--nurr-support-height) + 18px) !important;
+}
+
+
+/* ---------- mobile.css ---------- */
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   NURR / NYMPH — mobile.css
+
+   Deliberately small. `css/mobile-ui.css` is the authoritative phone
+   stylesheet: it owns the top strip, the dock, the sheets, and every control
+   inside them, and it hides the desktop chrome outright. This file exists only
+   for the handful of elements that live outside that component.
+
+   Removed in this pass, and why:
+
+     · The whole `(max-height: 650px)` branch. It made the *desktop* side panel
+       collapse into a bottom sheet whenever a laptop window was shorter than
+       650px — pushed off-screen by `transform: translateY(calc(100% - 66px))`
+       with no handle to bring it back, because `.mobile-panel-handle` is
+       hidden on the phone breakpoint and never created on desktop.
+
+     · Every `.panel`, `.panel-header`, `.panel-body`, `.rail`, `.swatch`,
+       `.palette-grid`, `.layout-grid`, `.nature-grid`, `.collection-drawer`
+       and `.mobile-panel-handle` rule. The desktop panel is `display: none`
+       on phones; these were styling a hidden element and fighting three later
+       stylesheets to do it.
+
+     · The white-strip repair block. It hid `input[type="file"]` globally to
+       patch a panel that no longer renders on this breakpoint.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+@media (max-width: 820px) {
+
+  /* The canvas is the page. Nothing behind it should rubber-band. */
+  html, body {
+    overflow: hidden;
+    overscroll-behavior: none;
+    touch-action: manipulation;
+  }
+
+  /* Snapshot toast clears the dock. */
+  .snapshot-toast {
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 84px) !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    font-size: 10px !important;
+  }
+
+  /* Support modal fills the screen minus the safe areas. */
+  .nurr-kofi-window {
+    left: 12px !important;
+    right: 12px !important;
+    top: calc(env(safe-area-inset-top, 0px) + 68px) !important;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 12px) !important;
+    width: auto !important;
+    height: auto !important;
+    border-radius: 22px !important;
   }
 }
