@@ -1378,3 +1378,235 @@ body:not(.nymph-landing-active) .panel { animation: nymphAppReveal .8s var(--nx-
 
   .nurr-support-strip { display: none !important; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PRINT TAB
+   Lives in nymph-swiss.css because this file loads LAST and is the
+   authoritative layer — an earlier revision sat in nymph-export.css and was
+   written against --export-ink (a fixed dark value from the older layer).
+   That was wrong: panel ink here is ADAPTIVE. --ink-rgb flips between
+   255 255 255 and 12 11 18 via [data-panel-ink], so hardcoded dark text
+   disappeared entirely in the default light-ink state. Everything below uses
+   the --nx-* tokens and therefore tracks the artwork like every other panel.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* The strip was a 2-column grid; a third button wrapped to an implicit second
+   row that the 42px height then clipped out of sight. */
+.export-tabs { grid-template-columns: repeat(3, 1fr) !important; }
+.export-tab:last-child { border-right: 0 !important; }
+
+/* Small accent mark so Print reads as a real destination, not an afterthought. */
+.export-tab.is-print-tab::after {
+  content: '';
+  display: inline-block;
+  width: 3px; height: 3px;
+  margin: 0 0 2px 7px;
+  border-radius: 50%;
+  background: var(--nx-accent);
+  opacity: .55;
+  vertical-align: middle;
+  transition: var(--nx-ink-fade) !important;
+}
+.export-tab.is-print-tab.active::after { opacity: 1; }
+
+/* Default body is a 3-row grid with overflow:hidden, which clipped the print
+   form and put the export button out of reach. One scrolling column instead. */
+.export-window-body.is-print {
+  display: block !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  scrollbar-width: thin !important;
+}
+
+.print-tab {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0 !important;
+  color: var(--nx-ink) !important;
+  font: 400 11px/1.5 var(--nx-font) !important;
+}
+
+/* Match the Still tab's control blocks: squared, hairline, subtle fill. */
+.export-window .print-tab .export-control-block {
+  border: 1px solid var(--nx-line-soft) !important;
+  background: var(--nx-fill) !important;
+  border-radius: var(--nx-r-s) !important;
+  padding: 16px 18px !important;
+  margin-bottom: 10px !important;
+  box-shadow: none !important;
+}
+.export-window .print-tab .export-control-title {
+  font: 600 8.5px/1 var(--nx-font) !important;
+  letter-spacing: .19em !important;
+  text-transform: uppercase !important;
+  color: var(--nx-ink) !important;
+  margin: 0 0 12px !important;
+}
+
+.print-group-label {
+  font: 500 8px/1 var(--nx-font) !important;
+  letter-spacing: .19em !important;
+  text-transform: uppercase !important;
+  color: var(--nx-ink-faint) !important;
+  margin: 13px 0 7px !important;
+}
+.print-group-label:first-child { margin-top: 0 !important; }
+
+.print-chip-row { display: flex !important; flex-wrap: wrap !important; gap: 6px !important; }
+
+.print-chip {
+  appearance: none !important;
+  min-height: 32px !important;
+  padding: 0 12px !important;
+  border: 1px solid var(--nx-line) !important;
+  border-radius: var(--nx-r-s) !important;
+  background: transparent !important;
+  color: var(--nx-ink-soft) !important;
+  font: 500 9px/1 var(--nx-font) !important;
+  letter-spacing: .13em !important;
+  text-transform: uppercase !important;
+  cursor: pointer !important;
+  transition: var(--nx-ink-fade) !important;
+}
+.print-chip:hover { color: var(--nx-ink) !important; background: var(--nx-fill) !important; }
+.print-chip.active {
+  color: var(--nx-ink) !important;
+  border-color: var(--nx-accent-line) !important;
+  background: var(--nx-accent-soft) !important;
+}
+
+.print-toggle,
+.print-icc {
+  display: flex !important;
+  align-items: center !important;
+  gap: 9px !important;
+  margin-top: 14px !important;
+  min-height: 30px !important;
+  font: 400 11px/1.4 var(--nx-font) !important;
+  color: var(--nx-ink-soft) !important;
+  cursor: pointer !important;
+}
+.print-toggle input { accent-color: var(--nx-accent) !important; width: 14px !important; height: 14px !important; }
+.print-icc input[type="file"] {
+  max-width: 168px !important;
+  font: 400 10px/1 var(--nx-font) !important;
+  color: var(--nx-ink-faint) !important;
+}
+
+.print-note {
+  font: 400 10.5px/1.6 var(--nx-font) !important;
+  color: var(--nx-ink-soft) !important;
+  margin-top: 10px !important;
+}
+.print-note em { font-style: italic !important; color: var(--nx-accent) !important; }
+.print-note-dim { color: var(--nx-ink-faint) !important; }
+.print-warn { color: var(--nx-accent) !important; }
+
+.print-range { display: block !important; margin-top: 14px !important; }
+.print-range span {
+  display: block !important;
+  font: 500 8px/1 var(--nx-font) !important;
+  letter-spacing: .19em !important;
+  text-transform: uppercase !important;
+  color: var(--nx-ink-faint) !important;
+  margin-bottom: 8px !important;
+}
+.print-range input[type="range"] { width: 100% !important; accent-color: var(--nx-accent) !important; }
+
+.print-snap-row { display: flex !important; gap: 8px !important; overflow-x: auto !important; padding-bottom: 4px !important; scrollbar-width: thin !important; }
+.print-snap {
+  position: relative !important;
+  flex: 0 0 auto !important;
+  width: 64px !important; height: 46px !important;
+  padding: 0 !important;
+  border: 1px solid var(--nx-line) !important;
+  border-radius: var(--nx-r-s) !important;
+  background: transparent !important;
+  overflow: hidden !important;
+  cursor: pointer !important;
+  transition: var(--nx-ink-fade) !important;
+}
+.print-snap img { width: 100% !important; height: 100% !important; object-fit: cover !important; display: block !important; }
+.print-snap span {
+  position: absolute !important;
+  left: 0; right: 0; bottom: 0;
+  background: rgb(var(--veil-rgb) / .72) !important;
+  color: var(--nx-ink) !important;
+  font: 600 7.5px/1 var(--nx-font) !important;
+  letter-spacing: .16em !important;
+  padding: 3px 0 !important;
+}
+.print-snap.active { border-color: var(--nx-accent) !important; }
+
+.print-fmt-grid { display: flex !important; flex-wrap: wrap !important; gap: 7px !important; }
+.print-fmt {
+  position: relative !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 3px !important;
+  min-width: 126px !important;
+  min-height: 44px !important;
+  padding: 10px 12px !important;
+  border: 1px solid var(--nx-line) !important;
+  border-radius: var(--nx-r-s) !important;
+  background: transparent !important;
+  cursor: pointer !important;
+  transition: var(--nx-ink-fade) !important;
+}
+.print-fmt:hover { background: var(--nx-fill) !important; }
+.print-fmt.active { border-color: var(--nx-accent-line) !important; background: var(--nx-accent-soft) !important; }
+.print-fmt input { position: absolute !important; opacity: 0 !important; width: 1px !important; height: 1px !important; }
+.print-fmt strong {
+  font: 600 9px/1 var(--nx-font) !important;
+  letter-spacing: .16em !important;
+  text-transform: uppercase !important;
+  color: var(--nx-ink) !important;
+}
+.print-fmt small { font: 400 10px/1.35 var(--nx-font) !important; color: var(--nx-ink-faint) !important; }
+
+/* Sticky so the export control stays reachable however far the form scrolls. */
+.print-actions {
+  position: sticky !important;
+  bottom: 0 !important;
+  z-index: 4 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+  padding: 14px 0 2px !important;
+  background: linear-gradient(to top,
+    rgb(var(--veil-rgb) / .94) 58%,
+    rgb(var(--veil-rgb) / 0)) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+}
+.export-window .print-actions .btn {
+  width: 100% !important;
+  min-height: 40px !important;
+  border-radius: var(--nx-r-s) !important;
+  font: 600 9px/1 var(--nx-font) !important;
+  letter-spacing: .19em !important;
+  text-transform: uppercase !important;
+}
+.export-window .print-actions .btn[disabled] { opacity: .38 !important; cursor: default !important; }
+
+.print-progress { height: 1px !important; background: var(--nx-line-soft) !important; overflow: hidden !important; }
+.print-progress-bar { height: 100% !important; background: var(--nx-accent) !important; transition: width .25s var(--nx-ease) !important; }
+
+/* Keyboard affordance — the rest of the panel relies on browser defaults that
+   the resets here would otherwise swallow. */
+.print-chip:focus-visible,
+.print-snap:focus-visible,
+.print-fmt:focus-within,
+.export-tab:focus-visible,
+.print-actions .btn:focus-visible {
+  outline: 1px solid var(--nx-accent) !important;
+  outline-offset: 2px !important;
+}
+
+@media (max-width: 760px) {
+  .export-tabs { height: auto !important; }
+  .export-tab { padding: 12px 4px !important; }
+  .print-fmt { min-width: 0 !important; flex: 1 1 46% !important; }
+  .print-chip { min-height: 40px !important; padding: 0 13px !important; }
+  .print-snap { width: 72px !important; height: 52px !important; }
+}

@@ -827,46 +827,55 @@
       h('div', { className: 'export-control-block ' + (cls || '') },
         h('div', { className: 'export-control-title' }, title), kids);
 
-    const chips = (opts, value, onPick, keyer) =>
-      h('div', { className: 'print-chip-row' }, opts.map(o =>
-        h('button', {
-          key: keyer(o),
-          type: 'button',
-          className: 'print-chip' + (value === keyer(o) ? ' active' : ''),
-          onClick: () => onPick(keyer(o)),
-        }, o.label)));
+    const chips = (opts, value, onPick, keyer, groupLabel) =>
+      h('div', { className: 'print-chip-row', role: 'group', 'aria-label': groupLabel || undefined },
+        opts.map(o => {
+          const on = value === keyer(o);
+          return h('button', {
+            key: keyer(o),
+            type: 'button',
+            className: 'print-chip' + (on ? ' active' : ''),
+            // Single-select group of buttons: aria-pressed is what conveys the
+            // choice to a screen reader, since colour alone does not.
+            'aria-pressed': on,
+            onClick: () => onPick(keyer(o)),
+          }, o.label);
+        }));
 
     const papers = Object.keys(P.PAPER).map(k => ({ key: k, label: P.PAPER[k].label, group: P.PAPER[k].group }));
 
     return h('div', { className: 'print-tab' },
 
       block('Snapshot', h('div', { className: 'print-snap-row' },
-        library.map(l => h('button', {
+        library.map((l, i) => h('button', {
           key: l.id, type: 'button',
           className: 'print-snap' + (item && l.id === item.id ? ' active' : ''),
-          onClick: () => setSel(l.id), title: moduleDisplay(l.module),
+          onClick: () => setSel(l.id),
+          title: moduleDisplay(l.module),
+          'aria-label': `Snapshot ${i + 1}, ${moduleDisplay(l.module)}`,
+          'aria-pressed': !!(item && l.id === item.id),
         }, h('img', { src: l.preview, alt: '' }),
            h('span', null, moduleDisplay(l.module).slice(0, 4).toUpperCase()))))),
 
       block('Paper', h('div', null,
         h('div', { className: 'print-group-label' }, 'ISO'),
-        chips(papers.filter(p => p.group === 'ISO'), paper, setPaper, o => o.key),
+        chips(papers.filter(p => p.group === 'ISO'), paper, setPaper, o => o.key, 'ISO paper size'),
         h('div', { className: 'print-group-label' }, 'US / Arch'),
-        chips(papers.filter(p => p.group === 'US'), paper, setPaper, o => o.key),
+        chips(papers.filter(p => p.group === 'US'), paper, setPaper, o => o.key, 'US paper size'),
         h('label', { className: 'print-toggle' },
           h('input', { type: 'checkbox', checked: landscape, onChange: e => setLand(e.target.checked) }),
           h('span', null, 'Landscape')))),
 
       block('Resolution',
         h('div', null,
-          chips(P.DPI_OPTIONS.map(d => ({ key: d, label: d + ' DPI' })), dpi, setDpi, o => o.key),
+          chips(P.DPI_OPTIONS.map(d => ({ key: d, label: d + ' DPI' })), dpi, setDpi, o => o.key, 'Output resolution'),
           h('div', { className: 'print-note' },
             `${page.wmm}×${page.hmm} mm · ${page.px}×${page.py} px · ${mpx.toFixed(1)} Mpx`,
             mpx > 90 ? h('em', null, ' — large job, expect a minute or two') : null))),
 
       block('Colour', h('div', null,
         chips([{ key: 'cmyk', label: 'CMYK · coated' }, { key: 'rgb', label: 'RGB · sRGB' }],
-              colorMode, setColor, o => o.key),
+              colorMode, setColor, o => o.key, 'Colour space'),
         colorMode === 'cmyk' ? h('div', null,
           h('label', { className: 'print-range' },
             h('span', null, `Total ink limit ${tac}%`),
@@ -919,8 +928,13 @@
           className: 'btn primary btn-italic',
           disabled: !!busy || !active.length,
           onClick: run,
+          'aria-busy': !!busy,
         }, busy ? `${busy.label} — ${busy.pct}%` : `Export ${active.length || 0} print file${active.length === 1 ? '' : 's'}`),
-        busy ? h('div', { className: 'print-progress' },
+        busy ? h('div', {
+          className: 'print-progress', role: 'progressbar',
+          'aria-valuenow': busy.pct, 'aria-valuemin': 0, 'aria-valuemax': 100,
+          'aria-label': `Rendering ${busy.label}`,
+        },
           h('div', { className: 'print-progress-bar', style: { width: busy.pct + '%' } })) : null)
     );
   }
