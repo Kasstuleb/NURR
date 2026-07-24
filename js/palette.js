@@ -307,6 +307,10 @@
       const ctx = canvas.getContext('2d', { willReadFrequently: true });
       if (ctx) {
         const px = ctx.getImageData(x, yTop, 1, 1).data;
+        // A transparent pixel is stored as (0,0,0,0). Reading it as an opaque
+        // colour would hand back pure black, so treat anything effectively
+        // transparent as "no colour here" instead of sampling a false #000000.
+        if (px[3] < 8) return null;
         return rgbToHex({ r: px[0], g: px[1], b: px[2] });
       }
     } catch (_) {}
@@ -315,6 +319,7 @@
       if (gl) {
         const px = new Uint8Array(4);
         gl.readPixels(x, Math.max(0, Math.min(canvas.height - 1, canvas.height - 1 - yTop)), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+        if (px[3] < 8) return null;
         return rgbToHex({ r: px[0], g: px[1], b: px[2] });
       }
     } catch (_) {}
@@ -338,6 +343,15 @@
     const dragIndexRef = useRef(null);
     const activeDragRef = useRef(null);
     const lightBaseRef = useRef(null);
+    // Remembered HSL hue+saturation of the last colour that actually had chroma.
+    // Driving lightness to pure white or black erases hue/saturation from the hex
+    // itself, so without this the colour could never be brought back — it would
+    // return as grey (or, once hue defaulted to 0, as red).
+    const toneRef = useRef(null);
+    const rememberTone = (hex) => {
+      const hsl = hexToHsl(normalizeHex(hex, '#000000'));
+      if (hsl.s > 0.001 && hsl.l > 0.001 && hsl.l < 0.999) toneRef.current = { h: hsl.h, s: hsl.s };
+    };
     const panelDragRef = useRef(null);
     const colorsRef = useRef(colors);
     const inputFocusRef = useRef(false);
@@ -377,7 +391,20 @@
       const current = pickerRef.current;
       if (!current) return;
       const clean = normalizeHex(hex, current.color || '#000000');
-      const hsv = hexToHsv(clean);
+      // White and black carry no hue, so hexToHsv() reports h = 0 (red) for them.
+      // Taking that at face value throws away the colour's identity: the SV field
+      // would flip to red the moment lightness was driven to either end, and the
+      // next edit would produce red instead of the colour the user was working on.
+      // Keep the previous hue (and saturation, once value collapses) whenever the
+      // new colour is achromatic — the swatch is still a true white/black, but the
+      // picker remembers what it was made from.
+      const raw = hexToHsv(clean);
+      const prev = current.hsv;
+      const achromatic = raw.s <= 0.001 || raw.v <= 0.001;
+      const hsv = (prev && achromatic)
+        ? { h: prev.h, s: raw.v <= 0.001 ? prev.s : raw.s, v: raw.v }
+        : raw;
+      rememberTone(clean);
       const nextPicker = { ...current, color: clean, hsv, dirty: current.dirty || clean !== normalizeHex(current.openedColor || '', '') };
       pickerRef.current = nextPicker;
       setPicker(nextPicker);
@@ -398,6 +425,7 @@
         v: patch.v != null ? clamp(patch.v, 0, 1) : current.hsv.v
       };
       const color = hsvToHex(hsv.h, hsv.s, hsv.v);
+      rememberTone(color);
       const nextPicker = { ...current, hsv, color, dirty: current.dirty || color !== normalizeHex(current.openedColor || '', '') };
       pickerRef.current = nextPicker;
       setPicker(nextPicker);
@@ -553,7 +581,13 @@
       // desaturate to grey once it passes through pure black/white.
       if (kind === 'light') {
         const hsl = hexToHsl(pickerRef.current.color);
-        lightBaseRef.current = { h: hsl.h, s: hsl.s };
+        // If the colour is currently pure white/black it has no hue of its own to
+        // read, so fall back to the remembered tone. Otherwise starting a drag from
+        // white would slide through greys instead of back into the user's colour.
+        const chromatic = hsl.s > 0.001 && hsl.l > 0.001 && hsl.l < 0.999;
+        lightBaseRef.current = chromatic
+          ? { h: hsl.h, s: hsl.s }
+          : (toneRef.current || { h: hsl.h, s: hsl.s });
       }
       document.body.classList.add('is-picking-color');
       moveControlDrag(e);
@@ -584,16 +618,34 @@
       const card = cardRef.current;
       const target = card ? card.querySelector(kind === 'hue' ? '.nurr-hue-wheel' : kind === 'sv' ? '.nurr-sv-disc' : '.nurr-lightness-line') : null;
       if (!target) return;
-      const inCard = card ? card.contains(document.elementFromPoint(e.clientX, e.clientY)) : true;
 
+      const rect = target.getBoundingClientRect();
+
+      // The lightness control is a 1-D slider. Dragging past either end must clamp
+      // to the track (the universal slider behaviour) and never fall through to the
+      // page eyedropper — otherwise "maxing out" the slider grabs a stray colour
+      // (often #000000 over a transparent part of the backdrop) instead of the
+      // brightest/darkest version of the current colour.
+      if (kind === 'light') {
+        const x = clamp((e.clientX - rect.left) / rect.width, 0, 1);
+        // Dark ← → light on a true HSL lightness axis. Hue and saturation are
+        // taken from the baseline captured at drag start, so a muted colour keeps
+        // its character instead of snapping to a fully-saturated bright version.
+        const base = lightBaseRef.current || hexToHsl(pickerRef.current.color);
+        updateColor(hslToHex(base.h, base.s, x), true);
+        setDrop(d => ({ ...d, visible: false }));
+        return;
+      }
+
+      // Hue ring + SV disc keep the "drag out onto the artwork to eyedrop" gesture:
+      // leaving the card while dragging one of the wheel controls samples the page.
+      const inCard = card ? card.contains(document.elementFromPoint(e.clientX, e.clientY)) : true;
       if (!inCard) {
         const sampled = samplePageAt(e.clientX, e.clientY);
         if (sampled) updateColor(sampled, true);
         setDrop({ visible: true, x: e.clientX, y: e.clientY, color: sampled || pickerRef.current?.color || activeColor });
         return;
       }
-
-      const rect = target.getBoundingClientRect();
 
       if (kind === 'hue') {
         const cx = rect.left + rect.width / 2;
@@ -616,15 +668,6 @@
         const x = clamp((pt.x - rect.left) / rect.width, 0, 1);
         const y = clamp((pt.y - rect.top) / rect.height, 0, 1);
         updateHsv({ s: x, v: 1 - y });
-      }
-
-      if (kind === 'light') {
-        const x = clamp((e.clientX - rect.left) / rect.width, 0, 1);
-        // Dark ← → light on a true HSL lightness axis. Hue and saturation are
-        // taken from the baseline captured at drag start, so a muted colour keeps
-        // its character instead of snapping to a fully-saturated bright version.
-        const base = lightBaseRef.current || hexToHsl(pickerRef.current.color);
-        updateColor(hslToHex(base.h, base.s, x), true);
       }
 
       setDrop(d => ({ ...d, visible: false }));

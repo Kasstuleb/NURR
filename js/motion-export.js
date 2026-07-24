@@ -238,7 +238,13 @@
           await nextFrame();
         }
         if (recorder.state !== 'inactive') recorder.stop();
-        await stopped;
+        // Safety net: a few software/headless encoders never fire onstop even
+        // after stop() returns, which would otherwise leave the export pinned at
+        // 99% forever. Prefer the natural stop, but never wait more than 8s —
+        // start(200) has been flushing chunks every 200ms, so what we already
+        // hold is playable. 8s is generous enough not to truncate a slow but
+        // valid finalize on real hardware, where onstop normally fires in <1s.
+        await Promise.race([stopped, new Promise(r => setTimeout(r, 8000))]);
       } finally {
         stream.getTracks().forEach(t => { try { t.stop(); } catch (_) {} });
       }

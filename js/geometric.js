@@ -38,24 +38,24 @@ const { useEffect: geomUE, useRef: geomUR, useState: geomUS } = React;
    thermal/heat bands, or a particle-built body. Suggestions never switch
    render mode, so object and material no longer fight each other. */
 const GEOMETRIC_COMPOSITIONS = [
-  { name:'orb',          forms:[{type:1, x:0.50, y:0.37, r:0.23, ci:1}],
+  { name:'circle',     forms:[{type:1, x:0.50, y:0.42, r:0.25, ci:1}],
     suggest:{ flow:0.05, ripple:0.0, glow:0.88 } },
-  { name:'reflection',   forms:[{type:1, x:0.50, y:0.34, r:0.22, ci:1},
-                                {type:1, x:0.50, y:0.64, r:0.28, ci:2, ghost:1}],
+  { name:'square',     forms:[{type:6, x:0.50, y:0.48, r:0.30, ci:1}],
+    suggest:{ flow:0.06, ripple:0.0, glow:0.44 } },
+  { name:'triangle',   forms:[{type:8, x:0.50, y:0.52, r:0.30, ci:1}],
+    suggest:{ flow:0.06, ripple:0.0, glow:0.46 } },
+  { name:'hexagon',    forms:[{type:9, x:0.50, y:0.48, r:0.30, ci:1}],
+    suggest:{ flow:0.06, ripple:0.0, glow:0.48 } },
+  { name:'ring',       forms:[{type:7, x:0.50, y:0.48, r:0.32, ci:1}],
+    suggest:{ flow:0.07, ripple:0.16, glow:0.44 } },
+  { name:'diamond',    forms:[{type:5, x:0.50, y:0.47, r:0.30, ci:1}],
+    suggest:{ flow:0.08, ripple:0.10, glow:0.55 } },
+  { name:'reflection', forms:[{type:1, x:0.50, y:0.34, r:0.22, ci:1},
+                              {type:1, x:0.50, y:0.66, r:0.28, ci:2, ghost:1}],
     suggest:{ flow:0.08, ripple:0.0, glow:0.70 } },
-  { name:'capsule',      forms:[{type:2, x:0.50, y:0.48, r:0.28, ci:1}],
-    suggest:{ flow:0.07, ripple:0.32, glow:0.48 } },
-  { name:'loop',         forms:[{type:7, x:0.50, y:0.48, r:0.31, ci:1}],
-    suggest:{ flow:0.08, ripple:0.20, glow:0.35 } },
-  { name:'tilt',         forms:[{type:5, x:0.50, y:0.48, r:0.31, ci:1}],
-    suggest:{ flow:0.14, ripple:0.14, glow:0.52 } },
-  { name:'horizon',      forms:[{type:1, x:0.50, y:1.02, r:0.54, ci:1}],
+  { name:'horizon',    forms:[{type:1, x:0.50, y:1.02, r:0.54, ci:1}],
     suggest:{ flow:0.18, ripple:0.0, glow:0.72 } },
-  { name:'band',         forms:[{type:3, x:0.50, y:0.52, r:0.18, ci:1}],
-    suggest:{ flow:0.36, ripple:0.0, glow:0.42 } },
-  { name:'block',        forms:[{type:6, x:0.50, y:0.50, r:0.30, ci:1}],
-    suggest:{ flow:0.10, ripple:0.0, glow:0.36 } },
-  { name:'veil',         forms:[{type:4, x:0.50, y:0.50, r:0.90, ci:1}],
+  { name:'veil',       forms:[{type:4, x:0.50, y:0.50, r:0.90, ci:1}],
     suggest:{ flow:0.72, ripple:0.0, glow:0.22 } },
 ];
 window.GEOMETRIC_COMPOSITIONS_LEN = GEOMETRIC_COMPOSITIONS.length;
@@ -240,24 +240,38 @@ float softBoxSDF(vec2 c, vec2 b, float r){
   vec2 q = abs(c) - b + r;
   return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
 }
+// equilateral triangle (point up), size r
+float triSDF(vec2 p, float r){
+  const float k = 1.7320508;               // sqrt(3)
+  p.x = abs(p.x) - r;
+  p.y = p.y + r / k;
+  if (p.x + k * p.y > 0.0) p = vec2(p.x - k * p.y, -k * p.x - p.y) / 2.0;
+  p.x -= clamp(p.x, -2.0 * r, 0.0);
+  return -length(p) * sign(p.y);
+}
+// regular hexagon (flat-top), size r
+float hexSDF(vec2 p, float r){
+  const vec3 k = vec3(-0.8660254, 0.5, 0.5773503);
+  p = abs(p);
+  p -= 2.0 * min(dot(k.xy, p), 0.0) * k.xy;
+  p -= vec2(clamp(p.x, -k.z * r, k.z * r), r);
+  return length(p) * sign(p.y);
+}
 float formSD(vec4 F, vec2 p){
   float ty = F.w;
   vec2 c = p - F.xy;
-  if (ty < 1.5) return length(c) - F.z;                       // orb / blob
-  if (ty < 2.5) return capsuleSDF(c, vec2(F.z * 0.52, F.z * 0.85)); // vertical capsule
-  if (ty < 3.5) return abs(c.y) - F.z * 0.5;                  // horizontal band
-  if (ty < 4.5) return -0.35;                                 // full-bleed veil
-  if (ty < 5.5) {                                             // diagonal capsule
-    float a = -0.58;
-    mat2 rot = mat2(cos(a), -sin(a), sin(a), cos(a));
-    vec2 q = rot * c;
-    return capsuleSDF(q, vec2(F.z * 0.95, F.z * 0.28));
+  if (ty < 1.5) return length(c) - F.z;                              // circle
+  if (ty < 2.5) return softBoxSDF(c, vec2(F.z * 0.40, F.z * 0.78), F.z * 0.40); // (legacy) vertical pill
+  if (ty < 3.5) return softBoxSDF(c, vec2(F.z * 1.30, F.z * 0.40), F.z * 0.40); // (legacy) horizontal bar
+  if (ty < 4.5) return -0.35;                                        // full-bleed veil
+  if (ty < 5.5) {                                                    // diamond (square rotated 45°)
+    mat2 rot = mat2(0.70710678, -0.70710678, 0.70710678, 0.70710678);
+    return softBoxSDF(rot * c, vec2(F.z * 0.64, F.z * 0.64), F.z * 0.10);
   }
-  if (ty < 6.5) return softBoxSDF(c, vec2(F.z * 0.82, F.z * 0.58), F.z * 0.18); // soft block
-
-  // loop / ring: an elliptical torus with a real cut-out, not a filled blob.
-  vec2 q = c / vec2(0.78, 1.08);
-  return abs(length(q) - F.z * 0.92) - F.z * 0.17;
+  if (ty < 6.5) return softBoxSDF(c, vec2(F.z * 0.66, F.z * 0.66), F.z * 0.14); // square
+  if (ty < 7.5) return abs(length(c) - F.z * 0.86) - F.z * 0.15;     // ring / donut
+  if (ty < 8.5) return triSDF(vec2(c.x, -c.y), F.z * 1.02) - F.z * 0.06; // triangle (apex up, softly rounded)
+  return hexSDF(c, F.z * 0.94) - F.z * 0.05;                         // hexagon (softly rounded)
 }
 
 void main(){
@@ -318,9 +332,15 @@ void main(){
     // at the base, silk perturbation on top — predictable and paintable
     float ramp = clamp((F.y + F.z - pw.y) / max(F.z * 2.0, 0.001), 0.0, 1.0);
     float span = 1.0 / max(float(u_inkCount - 1), 1.0);
+    // A form sits on its assigned ink (ci) at the top and melts toward the NEXT
+    // ink at its base. The melt is capped inside one ink-span, and the silk
+    // perturbation is scaled *by span* and kept small so it can only jitter
+    // within the form's own ink band — never smear the picked colour across the
+    // whole palette. That smear is what made Flow colours feel random and
+    // uncontrollable; now a picked swatch reliably shows up as itself.
     float local = clamp(float(ci - 1) * span
-                + (1.0 - ramp) * span * 1.15
-                + (silk - 0.5) * (0.22 + fl * 0.55), 0.0, 1.0);
+                + (1.0 - ramp) * span * 0.85
+                + (silk - 0.5) * span * (0.12 + fl * 0.22), 0.0, 1.0);
 
     float w = body + exp(-max(d, 0.0) * 5.0) * 0.25;
     hueT += local * w;
@@ -333,7 +353,10 @@ void main(){
       g.y *= 0.62;                                          // squashed ellipse
       float halo = exp(-dot(g, g) / (F.z * F.z * 1.9 + 0.02));
       I = max(I, halo * u_glow * 0.85);
-      hueT += clamp(float(ci) * span + 0.18, 0.0, 1.0) * halo * u_glow;
+      // Under-glow pools the form's OWN ink (ci-1 base, like the body) with a
+      // small span-scaled lift — previously it used a different ink (ci) with a
+      // fixed 0.18 offset, which made the glow disagree with the form colour.
+      hueT += clamp(float(ci - 1) * span + 0.14 * span, 0.0, 1.0) * halo * u_glow;
       wSum += halo * u_glow;
     }
   }
@@ -409,9 +432,11 @@ void main(){
 const PART_VS = `
 attribute vec2 a_pos;      // unit space
 attribute vec2 a_prop;     // size(px@1x), alpha
+attribute float a_shade;   // directional light term 0..1 (isometric form)
 uniform vec2 u_resolution;
 uniform float u_dpr;
 varying float v_alpha;
+varying float v_shade;
 void main(){
   float minAxis = min(u_resolution.x, u_resolution.y);
   vec2 px = (a_pos - 0.5) * minAxis + 0.5 * u_resolution;
@@ -419,6 +444,7 @@ void main(){
   gl_Position = vec4(ndc.x, -ndc.y, 0.0, 1.0);
   gl_PointSize = a_prop.x * u_dpr;
   v_alpha = a_prop.y;
+  v_shade = a_shade;
 }
 `;
 const PART_FS = `
@@ -432,6 +458,7 @@ uniform int u_invert;
 uniform int u_blendMode;
 uniform vec3 u_bg;
 varying float v_alpha;
+varying float v_shade;
 float phash(vec2 p){
   vec3 p3 = fract(vec3(p.xyx) * 0.1031);
   p3 += dot(p3, p3.yzx + 33.33);
@@ -472,7 +499,10 @@ void main(){
   float pepper = step(0.994 - strength * 0.038, phash(px * 0.73 + 109.0));
   float speck = salt * 0.85 - pepper * 0.75;
   a *= clamp(1.0 + tooth * strength * 0.42, 0.48, 1.26);
-  vec3 col = mix(u_inkA, u_inkB, v_alpha * 0.80) * sphere;
+  // Directional light gives the dot cloud solid isometric form: lit faces read
+  // as the ink, shadowed faces fall toward a darker shadow tone of the same ink.
+  vec3 lit = mix(u_inkB, u_inkA, smoothstep(0.14, 0.98, v_shade));
+  vec3 col = lit * (0.50 + 0.62 * v_shade) * sphere;
   col = partBlend(u_bg, col);
   col = partFilters(col);
   col += tooth * strength * 0.070 + speck * strength * 0.085;
@@ -519,7 +549,8 @@ function initFlowGL(canvas) {
   return { gl, field, parts, triBuf, partBuf,
     fieldPos: gl.getAttribLocation(field, 'a_pos'),
     partPos: gl.getAttribLocation(parts, 'a_pos'),
-    partProp: gl.getAttribLocation(parts, 'a_prop') };
+    partProp: gl.getAttribLocation(parts, 'a_prop'),
+    partShade: gl.getAttribLocation(parts, 'a_shade') };
 }
 
 
@@ -567,7 +598,7 @@ function renderGeometricStaticToDataURL(moduleTweaks, renderState, width, height
   gl.bindBuffer(gl.ARRAY_BUFFER, R.triBuf);
   gl.enableVertexAttribArray(R.fieldPos);
   gl.vertexAttribPointer(R.fieldPos, 2, gl.FLOAT, false, 0, 0);
-  [R.partPos, R.partProp].forEach(loc => { if (loc >= 0 && loc !== R.fieldPos) gl.disableVertexAttribArray(loc); });
+  [R.partPos, R.partProp, R.partShade].forEach(loc => { if (loc >= 0 && loc !== R.fieldPos) gl.disableVertexAttribArray(loc); });
 
   const u = (n) => gl.getUniformLocation(field, n);
   gl.uniform2f(u('u_resolution'), w, h);
@@ -847,14 +878,13 @@ function GeometricMode({ tweaks, registerSnapshot, mouseRef }) {
   const ensureParticles = (F) => {
     const st = stateRef.current;
     const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
-    // Density now scales with shape area. A large object can still be made from
-    // tiny dots without turning into one thin dust cloud. Live caps are kept sane;
-    // export gets a higher ceiling through exportQuality.
+    // Density scales with shape area. Tuned dense so the objects read as solid
+    // stippled volumes (like the references), not sparse dust.
     const scaleArea = Math.max(0.42, Math.min(6.0, F.scale * F.scale));
-    const base = coarse ? 9000 : 18000;
-    const cap  = F.exportQuality ? (coarse ? 120000 : 240000) : (coarse ? 42000 : 82000);
+    const base = coarse ? 40000 : 88000;
+    const cap  = F.exportQuality ? (coarse ? 240000 : 500000) : (coarse ? 110000 : 210000);
     const n = Math.min(cap, Math.round(F.particlesAmt * base * scaleArea));
-    const key = 'sphereIso5|' + F.cIdx + '|' + n + '|' + F.comp.forms.length;
+    const key = 'solidIso1|' + F.cIdx + '|' + n + '|' + F.comp.forms.length;
     if (st.particles.key === key) return st.particles;
 
     const rel = new Float32Array(n * 4);      // formIndex, u, v, w
@@ -862,7 +892,8 @@ function GeometricMode({ tweaks, registerSnapshot, mouseRef }) {
     const off = new Float32Array(n * 2);
     const baseSize = new Float32Array(n);
     const baseAlpha = new Float32Array(n);
-    const data = new Float32Array(n * 4);     // pos.xy + size, alpha
+    const stip = new Float32Array(n);         // per-dot stipple threshold (density shading)
+    const data = new Float32Array(n * 5);     // pos.xy, size, alpha, shade
     let rs = 12345 + F.cIdx * 777;
     const rnd = () => { rs = (rs * 1103515245 + 12345) & 0x7fffffff; return rs / 0x7fffffff; };
     const forms = F.comp.forms.length ? F.comp.forms : [{ type:1, x:0.5, y:0.5, r:0.3 }];
@@ -874,16 +905,27 @@ function GeometricMode({ tweaks, registerSnapshot, mouseRef }) {
       rel[i*4+2] = rnd();                    // v
       rel[i*4+3] = rnd();                    // w / face selector
       tempo[i] = 0.28 + rnd() * 1.95;        // per-dot tempo for cursor parallax
-      baseSize[i] = 0.78 + Math.pow(rnd(), 1.8) * 1.35;
-      baseAlpha[i] = 0.42 + rnd() * 0.46;
+      baseSize[i] = 0.95 + Math.pow(rnd(), 1.5) * 1.65;
+      baseAlpha[i] = 0.55 + rnd() * 0.42;
+      stip[i] = rnd();                       // stable per-dot threshold for density shading
     }
-    st.particles = { key, n, rel, data, off, tempo, baseSize, baseAlpha };
+    st.particles = { key, n, rel, data, off, tempo, baseSize, baseAlpha, stip };
     return st.particles;
   };
 
+  // Fixed studio light for the isometric forms (upper-left, slightly toward viewer).
+  const P_LIGHT = (() => { const l=[-0.34,-0.66,0.67]; const m=Math.hypot(l[0],l[1],l[2])||1; return [l[0]/m,l[1]/m,l[2]/m]; })();
+  const shadeFromNormal = (nx, ny, nz) => {
+    const d = nx*P_LIGHT[0] + ny*P_LIGHT[1] + nz*P_LIGHT[2];
+    const b = d * 0.5 + 0.5;                               // 0..1
+    // High-contrast lighting so the object reads with strong light→shadow.
+    return Math.max(0, Math.min(1, 0.12 + 0.95 * Math.pow(b, 1.35)));
+  };
+
+  // 3/4 isometric projection. Object space: +X right, +Y down, +Z toward viewer.
   const isoProject = (x, y, z, r) => ({
-    x: (x * 0.86 + z * 0.42) * r,
-    y: (y * 0.72 - z * 0.30) * r,
+    x: (x * 0.92 + z * 0.44) * r,
+    y: (y * 0.80 - z * 0.30) * r,
     depth: z,
   });
 
@@ -894,65 +936,84 @@ function GeometricMode({ tweaks, registerSnapshot, mouseRef }) {
     const u = P.rel[i*4+1], v = P.rel[i*4+2], w = P.rel[i*4+3];
     const a = u * Math.PI * 2;
     const loose = Math.max(0, Math.min(1.25, F.particleLoose ?? 0.12));
-    const jitter = (loose * loose) * 0.16;
+    const jitter = (loose * loose) * 0.14;
     const jx = (jsHash(i + 11.7, F.cIdx + 3.1) - 0.5) * jitter;
     const jy = (jsHash(i + 41.3, F.cIdx + 9.2) - 0.5) * jitter;
     const jz = (jsHash(i + 72.6, F.cIdx + 1.4) - 0.5) * jitter;
 
-    let X = 0, Y = 0, Z = 0;
+    let X = 0, Y = 0, Z = 0, nx = 0, ny = 0, nz = 1, edge = 0;
 
     if (f.type === 4) {                                      // full-bleed particle field
-      return { x: u, y: v, depth: w * 2 - 1, body: 0.60 };
+      return { x: u, y: v, depth: w * 2 - 1, shade: 0.42 + w * 0.5, edge: 0 };
     }
 
-    if (f.type === 7) {                                      // isometric torus / ring
-      const th = a;
-      const ph = v * Math.PI * 2;
-      const major = 0.74;
-      const minor = 0.20 + loose * 0.035;
-      X = (major + minor * Math.cos(ph)) * Math.cos(th);
-      Y = (major + minor * Math.cos(ph)) * Math.sin(th) * 1.10;
-      Z = minor * Math.sin(ph) * 1.75;
-    } else if (f.type === 2) {                               // vertical capsule / cylinder cloud
-      const h = (v * 2 - 1);
-      const cap = Math.max(0, Math.abs(h) - 0.70) / 0.30;
-      const rad = 0.48 * (1.0 - cap * 0.34);
-      X = Math.cos(a) * rad;
-      Z = Math.sin(a) * rad;
-      Y = h * 1.08;
-    } else if (f.type === 3) {                               // long folded band / wave plane
-      const sx = u * 2.55 - 1.275;
-      const sy = (v - 0.5) * 0.70;
-      X = sx;
-      Y = sy + Math.sin(sx * 2.2 + w * 2.0) * 0.17;
-      Z = Math.cos(sx * 1.7 + w * 2.4) * 0.34;
-    } else if (f.type === 5) {                               // tilted ribbon surface
-      const sx = u * 2.05 - 1.025;
-      const sy = (v - 0.5) * 0.58;
-      X = sx;
-      Y = sy + Math.sin(sx * Math.PI) * 0.18;
-      Z = Math.cos(sx * Math.PI * 0.85) * 0.36 + (w - 0.5) * 0.18;
-      const ca = Math.cos(-0.58), sa = Math.sin(-0.58);
-      const rx = X * ca - Y * sa;
-      const ry = X * sa + Y * ca;
-      X = rx; Y = ry;
-    } else if (f.type === 6) {                               // isometric soft block / poster tile
-      // Sample visible cuboid faces so the dot cloud reads as geometry, not dust.
-      const face = w < 0.38 ? 0 : (w < 0.70 ? 1 : 2);
-      if (face === 0) { X = u * 1.50 - 0.75; Y = v * 1.02 - 0.51; Z = 0.38; }
-      else if (face === 1) { X = 0.75; Y = u * 1.02 - 0.51; Z = v * 0.76 - 0.38; }
-      else { X = u * 1.50 - 0.75; Y = -0.51; Z = v * 0.76 - 0.38; }
-    } else {                                                 // orb / sphere surface
-      const z = v * 2 - 1;
-      const rr = Math.sqrt(Math.max(0, 1 - z*z));
-      X = Math.cos(a) * rr;
-      Y = Math.sin(a) * rr;
-      Z = z;
+    if (f.type === 7) {                                      // torus / ring
+      const th = a, ph = v * Math.PI * 2;
+      const major = 0.80;
+      const minor = 0.24 * (0.84 + 0.16 * Math.cbrt(w));
+      const cth = Math.cos(th), sth = Math.sin(th), cph = Math.cos(ph), sph = Math.sin(ph);
+      X = (major + minor * cph) * cth;
+      Y = (major + minor * cph) * sth;
+      Z = minor * sph;
+      nx = cph * cth; ny = cph * sth; nz = sph;
+    } else if (f.type === 5) {                               // diamond (octahedron)
+      const cz = 2*v - 1, sr = Math.sqrt(Math.max(0, 1 - cz*cz));
+      const dx = sr*Math.cos(a), dy = sr*Math.sin(a), dz = cz;
+      const s = (Math.abs(dx)+Math.abs(dy)+Math.abs(dz)) || 1;
+      const scale = 1.04;
+      X = dx/s*scale; Y = dy/s*scale; Z = dz/s*scale;
+      const inv = 0.57735;
+      nx = Math.sign(dx)*inv; ny = Math.sign(dy)*inv; nz = Math.sign(dz)*inv;
+      // accent the octahedron ribs (where two axes are near-equal)
+      const m1 = Math.abs(Math.abs(dx)-Math.abs(dy)), m2 = Math.abs(Math.abs(dy)-Math.abs(dz)), m3 = Math.abs(Math.abs(dx)-Math.abs(dz));
+      edge = 1 - Math.min(1, Math.min(m1, Math.min(m2, m3)) / 0.10);
+    } else if (f.type === 6) {                               // cube — 3 visible faces
+      const s = 0.84;
+      const face = w < 0.40 ? 0 : (w < 0.72 ? 1 : 2);
+      if (face === 0)      { X = (u*2-1)*s; Y = -s;        Z = (v*2-1)*s; nx=0; ny=-1; nz=0; } // top
+      else if (face === 1) { X = (u*2-1)*s; Y = (v*2-1)*s; Z = s;         nx=0; ny=0;  nz=1; } // front
+      else                 { X = s;         Y = (u*2-1)*s; Z = (v*2-1)*s; nx=1; ny=0;  nz=0; } // right
+      const em = Math.min(u, 1-u, v, 1-v);
+      edge = 1 - Math.min(1, em / 0.11);                    // glow along face borders / corners
+    } else if (f.type === 8 || f.type === 9) {              // triangular / hexagonal prism
+      const m = (f.type === 8) ? 3 : 6;
+      const R = (f.type === 8) ? 0.98 : 0.86;
+      const depth = (f.type === 8) ? 0.44 : 0.42;
+      const off = (f.type === 8) ? (-Math.PI/2) : 0;        // triangle apex up
+      const ang = (k) => off + k * (2*Math.PI/m);
+      if (w < 0.44) {                                       // polygon cap
+        const front = (w < 0.22) ? 1 : -1;
+        const uu = u * m, k = Math.floor(uu) % m;
+        let s = uu - Math.floor(uu), t = v;
+        if (s + t > 1) { s = 1 - s; t = 1 - t; }
+        const a0 = ang(k), a1 = ang((k+1)%m);
+        X = s*Math.cos(a0)*R + t*Math.cos(a1)*R;
+        Y = s*Math.sin(a0)*R + t*Math.sin(a1)*R;
+        Z = front * depth; nx = 0; ny = 0; nz = front;
+        edge = Math.max(0, Math.min(1, (s + t - 0.80) / 0.20)); // outer rim of the cap
+      } else {                                              // side wall
+        const vv = v * m, k = Math.floor(vv) % m, tt = vv - Math.floor(vv);
+        const zz = ((w - 0.44) / 0.56) * 2 - 1;
+        const a0 = ang(k), a1 = ang((k+1)%m);
+        const vx0 = Math.cos(a0)*R, vy0 = Math.sin(a0)*R, vx1 = Math.cos(a1)*R, vy1 = Math.sin(a1)*R;
+        X = vx0 + (vx1-vx0)*tt; Y = vy0 + (vy1-vy0)*tt; Z = zz * depth;
+        let onx = (vy1-vy0), ony = -(vx1-vx0); const el = Math.hypot(onx, ony) || 1; onx/=el; ony/=el;
+        if (onx*((vx0+vx1)/2) + ony*((vy0+vy1)/2) < 0) { onx=-onx; ony=-ony; }
+        nx = onx; ny = ony; nz = 0;
+        const endE = 1 - Math.min(1, (1 - Math.abs(zz)) / 0.16);
+        const cornerE = 1 - Math.min(1, Math.min(tt, 1-tt) / 0.10);
+        edge = Math.max(endE, cornerE);                     // top/bottom rim + vertical corner edges
+      }
+    } else {                                                 // sphere (circle / horizon / reflection)
+      const cz = 2*v - 1, sr = Math.sqrt(Math.max(0, 1 - cz*cz));
+      const rad = 0.78 + 0.22 * Math.cbrt(w);               // fairly thin shell → crisp silhouette
+      nx = sr*Math.cos(a); ny = sr*Math.sin(a); nz = cz;
+      X = nx*rad; Y = ny*rad; Z = nz*rad;
     }
 
     X += jx; Y += jy; Z += jz;
     const proj = isoProject(X, Y, Z, L.r);
-    return { x: L.x + proj.x, y: L.y + proj.y, depth: proj.depth, body: 1.0 };
+    return { x: L.x + proj.x, y: L.y + proj.y, depth: proj.depth, shade: shadeFromNormal(nx, ny, nz), edge };
   };
 
   const stepParticles = (F, mu, dt) => {
@@ -981,12 +1042,28 @@ function GeometricMode({ tweaks, registerSnapshot, mouseRef }) {
       const k = dt > 0 && !st.frozen ? Math.min(1, dt * (0.9 + tempo * 2.8)) : 1;
       P.off[i*2]   += (tx - P.off[i*2]) * k;
       P.off[i*2+1] += (ty - P.off[i*2+1]) * k;
-      P.data[i*4]   = bx + P.off[i*2];
-      P.data[i*4+1] = by + P.off[i*2+1];
-      P.data[i*4+2] = Math.max(0.55, P.baseSize[i] * pointScale);
-      // Depth shading helps the particle shape read as an isometric object.
-      const depthLift = 0.56 + Math.max(-1, Math.min(1, b.depth || 0)) * 0.22;
-      P.data[i*4+3] = Math.max(0.08, Math.min(0.96, (0.42 + P.baseAlpha[i] * 0.56) * depthLift * (1.05 - loose * 0.18)));
+      P.data[i*5]   = bx + P.off[i*2];
+      P.data[i*5+1] = by + P.off[i*2+1];
+      // Edge/vertex accent brightens the object's structural lines (cube & prism
+      // borders, octahedron ribs) so the form reads clearly, like the references.
+      const edge = b.edge || 0;
+      const shade = Math.min(1, b.shade + edge * 0.55);
+      // Contrast the lighting, then thin dots below their stable threshold so
+      // shadowed regions go sparse and lit regions stay dense — a stipple/halftone
+      // density gradient that gives the cloud real volumetric form.
+      const lit = Math.min(1, Math.max(0, Math.pow(shade, 1.22)));
+      const thr = P.stip[i];
+      // Keep density ∝ light: dots survive fully where the surface is lit and
+      // thin out smoothly into shadow → a stipple/halftone gradient with solid
+      // lit regions (matches the dense references).
+      const dense = lit >= thr ? 1.0 : Math.max(0.0, 1.0 - (thr - lit) / 0.24);
+      // Nearer dots read a touch larger, and edge dots a touch larger still.
+      const dsz = 1.0 + Math.max(-1, Math.min(1, b.depth || 0)) * 0.16 + edge * 0.28;
+      P.data[i*5+2] = Math.max(0.55, P.baseSize[i] * pointScale * dsz);
+      P.data[i*5+3] = Math.max(0.0, Math.min(0.99,
+        P.baseAlpha[i] * (0.32 + 0.78 * lit) * (0.22 + 0.85 * dense) * (1.06 - loose * 0.16)));
+      // Light term (with edge boost) → solid isometric shading in the fragment shader.
+      P.data[i*5+4] = shade;
     }
     return P;
   };
@@ -1065,7 +1142,7 @@ function GeometricMode({ tweaks, registerSnapshot, mouseRef }) {
     // Attribute indices are shared across programs: partPos may alias
     // fieldPos (both location 0). Only disable locations we are not using
     // in THIS pass, or the triangle degenerates and nothing rasterises.
-    [R.partPos, R.partProp].forEach(loc => {
+    [R.partPos, R.partProp, R.partShade].forEach(loc => {
       if (loc >= 0 && loc !== R.fieldPos) gl.disableVertexAttribArray(loc);
     });
 
@@ -1136,23 +1213,29 @@ function GeometricMode({ tweaks, registerSnapshot, mouseRef }) {
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
         gl.bindBuffer(gl.ARRAY_BUFFER, R.partBuf);
         gl.bufferData(gl.ARRAY_BUFFER, P.data, gl.DYNAMIC_DRAW);
+        // Interleaved: [x, y, size, alpha, shade] — stride 20 bytes.
         gl.enableVertexAttribArray(R.partPos);
-        gl.vertexAttribPointer(R.partPos, 2, gl.FLOAT, false, 16, 0);
+        gl.vertexAttribPointer(R.partPos, 2, gl.FLOAT, false, 20, 0);
         gl.enableVertexAttribArray(R.partProp);
-        gl.vertexAttribPointer(R.partProp, 2, gl.FLOAT, false, 16, 8);
-        if (R.fieldPos >= 0 && R.fieldPos !== R.partPos && R.fieldPos !== R.partProp)
+        gl.vertexAttribPointer(R.partProp, 2, gl.FLOAT, false, 20, 8);
+        if (R.partShade >= 0) {
+          gl.enableVertexAttribArray(R.partShade);
+          gl.vertexAttribPointer(R.partShade, 1, gl.FLOAT, false, 20, 16);
+        }
+        if (R.fieldPos >= 0 && R.fieldPos !== R.partPos && R.fieldPos !== R.partProp && R.fieldPos !== R.partShade)
           gl.disableVertexAttribArray(R.fieldPos);
         const pu = (n) => gl.getUniformLocation(parts, n);
         gl.uniform2f(pu('u_resolution'), W, H);
         gl.uniform1f(pu('u_dpr'), Math.max(1, W / (canvasRef.current?.clientWidth || W)));
-        // Dots print in the selected form inks, shaded toward print black.
+        // Each particle object is one form ink, lit as a solid: inkA = the lit
+        // colour, inkB = a deep shadow tone of the SAME ink. The vertex shade
+        // term (surface normal · light) blends between them so the dot cloud
+        // reads as a dense, lit isometric object rather than flat dust.
         const inks2 = F.palette.slice(1);
         const ciA = ((F.comp.forms[0]?.ci || 1) - 1 + inks2.length) % Math.max(1, inks2.length);
-        const ciB = ((F.comp.forms[1]?.ci || F.comp.forms[0]?.ci || 1) - 1 + inks2.length) % Math.max(1, inks2.length);
         const A = geoHexRgb01(inks2[ciA] || '#1A1A1A');
-        const B = geoHexRgb01(inks2[ciB] || inks2[ciA] || '#1A1A1A');
-        gl.uniform3f(pu('u_inkA'), A[0]*0.45, A[1]*0.45, A[2]*0.45);
-        gl.uniform3f(pu('u_inkB'), B[0]*0.62, B[1]*0.62, B[2]*0.62);
+        gl.uniform3f(pu('u_inkA'), A[0]*0.98, A[1]*0.98, A[2]*0.98);
+        gl.uniform3f(pu('u_inkB'), A[0]*0.30, A[1]*0.30, A[2]*0.30);
         gl.uniform3f(pu('u_bg'), bg[0], bg[1], bg[2]);
         gl.uniform1i(pu('u_bw'), F.bw ? 1 : 0);
         gl.uniform1i(pu('u_invert'), F.invert ? 1 : 0);
@@ -1312,18 +1395,25 @@ function CompositionPreview({ comp, palette, material }) {
   const cols = safePalette.slice(1).length ? safePalette.slice(1) : ['#FF4D00'];
   const uid = comp.name.replace(/[^a-z0-9]+/gi,'-');
   const drawForm = (f, i, fill) => {
+    const cx = f.x * 100, cy = f.y * 100, r = f.r * 100;
     if (f.type === 4) return <rect key={i} width="100" height="100" fill={fill} />;
-    if (f.type === 2) return <rect key={i} x={(f.x - f.r*0.52)*100} y={(f.y - f.r*0.9)*100}
-      width={f.r*1.04*100} height={f.r*1.8*100} rx={f.r*52} fill={fill} />;
-    if (f.type === 3) return <rect key={i} x="0" y={(f.y - f.r*0.5)*100} width="100" height={f.r*100} fill={fill} />;
-    if (f.type === 5) return <rect key={i} x={(f.x - f.r*0.95)*100} y={(f.y - f.r*0.28)*100}
-      width={f.r*1.9*100} height={f.r*0.56*100} rx={f.r*28}
-      transform={`rotate(-33 ${f.x*100} ${f.y*100})`} fill={fill} />;
-    if (f.type === 6) return <rect key={i} x={(f.x - f.r*0.82)*100} y={(f.y - f.r*0.58)*100}
-      width={f.r*1.64*100} height={f.r*1.16*100} rx={f.r*18} fill={fill} />;
-    if (f.type === 7) return <ellipse key={i} cx={f.x*100} cy={f.y*100}
-      rx={f.r*70} ry={f.r*94} fill="none" stroke={fill} strokeWidth={f.r*30} strokeLinecap="round" />;
-    return <circle key={i} cx={f.x*100} cy={f.y*100} r={f.r*100} fill={fill} />;
+    if (f.type === 5) return <rect key={i} x={cx - r*0.64} y={cy - r*0.64}          // diamond
+      width={r*1.28} height={r*1.28} rx={r*0.10}
+      transform={`rotate(45 ${cx} ${cy})`} fill={fill} />;
+    if (f.type === 6) return <rect key={i} x={cx - r*0.66} y={cy - r*0.66}          // square
+      width={r*1.32} height={r*1.32} rx={r*0.14} fill={fill} />;
+    if (f.type === 7) return <circle key={i} cx={cx} cy={cy} r={r*0.86}             // ring
+      fill="none" stroke={fill} strokeWidth={r*0.30} />;
+    if (f.type === 8) {                                                             // triangle
+      const s = r*1.02, pts = [[cx, cy - s], [cx - 0.884*s, cy + 0.51*s], [cx + 0.884*s, cy + 0.51*s]];
+      return <polygon key={i} points={pts.map(q => q.join(',')).join(' ')} fill={fill} strokeLinejoin="round" />;
+    }
+    if (f.type === 9) {                                                             // hexagon
+      const s = r*0.94, pts = [];
+      for (let k = 0; k < 6; k++) { const g = k*Math.PI/3; pts.push([cx + Math.cos(g)*s, cy + Math.sin(g)*s]); }
+      return <polygon key={i} points={pts.map(q => q.join(',')).join(' ')} fill={fill} strokeLinejoin="round" />;
+    }
+    return <circle key={i} cx={cx} cy={cy} r={r} fill={fill} />;                    // circle
   };
   return (
     <svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice">
@@ -1387,6 +1477,13 @@ function GeometricControls({ tweaks, setTweaks }) {
 
   return (
     <>
+      <PaletteEditor colors={tweaks.colors} setColors={setColors}
+        countLabel={`${tweaks.colors.length} colors`} allowAdd={true}
+        minColors={2} maxColors={5} compact={true} />
+      {material === 'thermal' && (
+        <div className="geo-note">First swatch = flat background. Backdrop gradient overrides it. Remaining swatches form the heat scale.</div>
+      )}
+
       <div className="section geo-render-section">
         <div className="section-label"><span className="name">Flow render</span>
           <span className="value">{(GEO_MATERIALS.find(m => m[0] === material) || GEO_MATERIALS[0])[1]}</span></div>
@@ -1443,13 +1540,6 @@ function GeometricControls({ tweaks, setTweaks }) {
           ))}
         </div>
       </div>
-
-      <PaletteEditor colors={tweaks.colors} setColors={setColors}
-        countLabel={`${tweaks.colors.length} colors`} allowAdd={true}
-        minColors={2} maxColors={5} compact={true} />
-      {material === 'thermal' && (
-        <div className="geo-note">First swatch = flat background. Backdrop gradient overrides it. Remaining swatches form the heat scale.</div>
-      )}
 
       <div className={'section presets-section collapsible-presets ' + (presetsOpen ? 'is-open' : 'is-collapsed')}>
         <button type="button" className="section-label presets-toggle"
@@ -1520,8 +1610,8 @@ window.GEOMETRIC_DEFAULTS = {
   compositionIdx: 0,
   colors: ['#CBD2D4', '#FF4D00', '#FF2E9A', '#6A5BD8'],
   material: 'gradient',
-  flow: 0.05, ripple: 0.0, glow: 0.85, blur: 0.0, particles: 0.55,
-  particleSize: 0.70, particleLoose: 0.12,
+  flow: 0.05, ripple: 0.0, glow: 0.85, blur: 0.0, particles: 0.9,
+  particleSize: 1.3, particleLoose: 0.10,
   vectorScale: 1.0, vectorDistance: 1.0, mousePull: 0.85,
   heatSteps: 0, grain: 0.10, bw: false, invert: false, blendMode: 'normal',
   backdropGradient: false, backdropA: '#CBD2D4', backdropB: '#F2EDE0',

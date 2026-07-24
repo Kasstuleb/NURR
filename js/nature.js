@@ -97,16 +97,22 @@ void main(){
   vec3 col;
 
   if (u_effect == 0) {
-    float swirl = (u_strength * 2.8 + pulse * 1.4) * wide;
-    float ang = swirl * 2.2;
+    // Master strength gates the whole warp — including the cursor's click pulse —
+    // so the slider is the true ceiling: moving or clicking the cursor can add a
+    // kick but can never drive the warp past what the slider allows (at strength 0
+    // the cursor does nothing). Base magnitude reduced ~4x; the old 2.8 produced a
+    // ~19% displacement at the default slider value, which read as far too strong.
+    float react = u_strength * (1.0 + pulse * 0.7);
+    float swirl = react * 0.62 * wide;
+    float ang = swirl * 1.9;
     mat2 R = mat2(cos(ang), -sin(ang), sin(ang), cos(ang));
     vec2 d = R * toM - toM;
-    float push = (u_strength * 0.12 + pulse * 0.06) * wide;
-    vec2 disp = d * 0.65 + normalize(toM + 0.0001) * (-push);
+    float push = react * 0.075 * wide;
+    vec2 disp = d * 0.6 + normalize(toM + 0.0001) * (-push);
     col = sampleImage(uv + disp);
 
   } else if (u_effect == 1) {
-    float radius = (u_blur * 0.55 + pulse * 0.35) * wide * 0.065 + u_blur * 0.007;
+    float radius = (u_blur * 0.55 + pulse * u_strength * 0.35) * wide * 0.065 + u_blur * 0.007;
     vec3 acc = vec3(0.0); float tw = 0.0;
     for(int i=-4;i<=4;i++){
       for(int j=-4;j<=4;j++){
@@ -119,7 +125,7 @@ void main(){
     col = acc / tw;
 
   } else if (u_effect == 2) {
-    float amt = (u_split * 0.85 + pulse * 0.55) * wide * 0.046 + 0.0008;
+    float amt = (u_split * 0.85 + pulse * u_strength * 0.55) * wide * 0.046 + 0.0008;
     vec2 dir = normalize(toM + 0.0001);
     col.r = sampleImage(uv - dir * amt * 1.0).r;
     col.g = sampleImage(uv + dir * amt * 0.1).g;
@@ -127,7 +133,7 @@ void main(){
 
   } else if (u_effect == 3) {
     float n = sin(uv.x * 16.0 + u_time * 0.65) * 0.42 + 0.5;
-    float warp = (u_strength * 1.6 + pulse) * wide * 0.26 * n;
+    float warp = u_strength * (1.6 + pulse) * wide * 0.2 * n;
     float sway = (u_mouse.x - 0.5) * u_strength * 0.04 * wide;
     col = sampleImage(uv + vec2(sway, warp));
 
@@ -137,7 +143,7 @@ void main(){
     vec2 fr = fract(cell) - 0.5;
     float ring = 1.0 - smoothstep(0.18, 0.5, length(fr));
     float h2 = hash(floor(cell));
-    float glow = (u_strength * 0.55 + pulse * 0.5) * ring * max(0.0, 1.0 - dm * 3.0) * h2;
+    float glow = (u_strength * 0.55 + pulse * u_strength * 0.5) * ring * max(0.0, 1.0 - dm * 3.0) * h2;
     col += glow * vec3(0.95, 0.88, 0.72);
     col = mix(col, col * 1.06, wide * u_strength * 0.5);
   }

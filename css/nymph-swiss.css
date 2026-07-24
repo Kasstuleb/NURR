@@ -333,6 +333,21 @@ html body {
     height: 30px !important;
     max-height: 30px !important;
   }
+
+  /* Floating (dragged) panel: JS supplies --panel-x/-y and pins --panel-h to the
+     height the panel had while docked. Other stylesheets size the dragged panel
+     with calc(100svh - var(--panel-y) - …), which shrank it the further down it
+     was dragged; the panel must never resize just because it was moved. Free 2D
+     movement comes from the drag clamp keeping the header on screen (app.js). */
+  html body .panel.panel.panel.panel.panel.panel.is-dragged:not(.collapsed) {
+    position: fixed !important;
+    left: var(--panel-x) !important;
+    top: var(--panel-y) !important;
+    right: auto !important;
+    bottom: auto !important;
+    height: var(--panel-h, auto) !important;
+    max-height: var(--panel-h, none) !important;
+  }
 }
 
 /* Morphed glass: a specular sweep across the shoulder, and an inner rim light
@@ -1013,6 +1028,51 @@ html body .panel.panel.panel.panel.panel.panel .lib-footer { border-top: 1px sol
   background: var(--nx-fill) !important;
   box-shadow: inset 0 -2px 0 var(--nx-accent) !important;
 }
+
+/* ── Export window: onto the squared, roomier system ───────────────────────
+   The export window is a separate surface (outside .panel) and had kept its old
+   rounded, cramped styling — the one place still using pills and 6–8px gaps.
+   Square every rectangular control to match the app and open the spacing so it
+   breathes. Circular affordances (close button, checks) stay round. */
+.export-window { border-radius: 3px !important; }
+/* Once the user has deliberately resized the window, its own default 760px cap
+   must not silently override the height they chose. */
+.export-window.is-resized { max-height: calc(100vh - 16px) !important; }
+/* The header has a fixed height and centres its children, so vertical padding
+   only pushes the title off-centre — give it room via the height instead. */
+.export-window-header { height: 64px !important; padding: 0 22px 0 26px !important; }
+.export-window-body { padding: 22px 26px 26px !important; }
+.export-window .export-tab,
+.export-window .export-tab.active { border-radius: 0 !important; }
+.export-window .btn,
+.export-window .motion-chip,
+.export-window .vid-chip,
+.export-window .motion-field select,
+.export-window .motion-field input,
+.export-window .export-control-block,
+.export-window .vid-error,
+.export-window .vid-done,
+.export-window .motion-progress-track,
+.export-window .vid-progress-track { border-radius: 2px !important; }
+
+.export-window .motion-grid,
+.export-window .motion-ratios,
+.export-window .motion-styles { gap: 10px !important; margin-bottom: 16px !important; }
+.export-window .motion-ratios { grid-template-columns: repeat(5, 1fr) !important; }
+.export-window .motion-styles { grid-template-columns: repeat(6, 1fr) !important; }
+.export-window .motion-chip {
+  min-height: 52px !important;
+  height: auto !important;
+  padding: 11px 12px !important;
+}
+.export-window .motion-chip strong { font: 700 11px/1.1 var(--nx-font) !important; letter-spacing: .02em !important; display: block !important; }
+.export-window .motion-chip span { font: 400 9px/1.25 var(--nx-font) !important; letter-spacing: .01em !important; display: block !important; margin-top: 4px !important; opacity: .6 !important; }
+.export-window .motion-inline-controls { display: grid !important; grid-template-columns: 1fr 1fr 1.2fr !important; gap: 14px !important; align-items: end !important; margin: 6px 0 18px !important; }
+.export-window .motion-field label { font: 700 9px/1 var(--nx-font) !important; letter-spacing: .12em !important; margin-bottom: 6px !important; }
+.export-window .motion-field select { height: 38px !important; padding: 0 12px !important; font-size: 12px !important; }
+.export-window .motion-actions { display: grid !important; grid-template-columns: 1fr 1fr 1fr !important; gap: 12px !important; margin-top: 18px !important; }
+.export-window .motion-actions .btn { width: 100% !important; padding: 13px 12px !important; }
+.export-window .motion-export-brief { margin: 0 0 20px !important; }
 .export-control-title {
   font: 600 8.5px/1 var(--nx-font) !important;
   letter-spacing: .19em !important;

@@ -119,7 +119,11 @@ function NymphLanding({ onEnter }) {
 function App() {
   const [mode, setMode]           = useState('gradient');
   const [page, setPage]           = useState('main');
-  const [showLanding, setShowLanding] = useState(true);
+  // Landing removed for now: the app opens straight into the gradient module with
+  // a freshly randomised gradient (window.GRADIENT_DEFAULTS is built per load).
+  // The landing component is still here and can be re-enabled by flipping this
+  // back to true.
+  const [showLanding, setShowLanding] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState('create');
   const [panelTone, setPanelTone] = useState('dark');
@@ -194,11 +198,26 @@ function App() {
     setTimeout(() => setToast(t => ({ ...t, show: false })), 1800);
   };
 
+  // Supersampled export. The on-screen stage renders at devicePixelRatio (up
+  // to 2×), so on a retina display the live preview is drawn at ~2× the pixels
+  // of a flat "2K" file — which is why a native-resolution export can still
+  // read as soft / "not truly 2K" next to the preview. We render each export
+  // at up to 2× the requested size and downsample with high-quality smoothing,
+  // so the file is at least as crisp as what the preview shows. The internal
+  // buffer is capped so we never allocate an unreasonable canvas.
+  const exportSupersample = (size) => {
+    const longEdge = Math.max(size.w, size.h);
+    const MAX_INTERNAL = 5120;
+    return Math.max(1, Math.min(2, MAX_INTERNAL / longEdge));
+  };
+
   const doSnapshot = async (sizeKey = 'qhd') => {
     const ref = snapshotRef;
     if (!ref.current) { showToast('⚠ Not ready yet'); return; }
     const size = EXPORT_SIZES[sizeKey] || EXPORT_SIZES.qhd;
-    const result = ref.current({ width: size.w, height: size.h, returnDataUrl: true });
+    const ss = exportSupersample(size);
+    const rw = Math.round(size.w * ss), rh = Math.round(size.h * ss);
+    const result = ref.current({ width: rw, height: rh, returnDataUrl: true, exportQuality: true });
     const source = typeof result === 'string' ? result : (result && result.dataUrl);
     if (!source) { showToast('⚠ Export failed'); return; }
     try {
@@ -207,6 +226,9 @@ function App() {
       canvas.width = size.w; canvas.height = size.h;
       const ctx = canvas.getContext('2d');
       ctx.clearRect(0, 0, size.w, size.h);
+      // Downsample the supersampled render to the target size. High-quality
+      // smoothing turns the extra samples into genuinely crisper output.
+      ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
       ctx.drawImage(img, 0, 0, size.w, size.h);
       // Grain is produced once, in-shader, at render resolution. No second
       // canvas grain pass here — that was the source of the dirty/blocky look.
@@ -231,7 +253,9 @@ function App() {
   const mobileGetImage = async (sizeKey = 'wide') => {
     if (!snapshotRef.current) return null;
     const size = EXPORT_SIZES[sizeKey] || EXPORT_SIZES.wide;
-    const r = snapshotRef.current({ width: size.w, height: size.h, returnDataUrl: true });
+    const ss = exportSupersample(size);
+    const rw = Math.round(size.w * ss), rh = Math.round(size.h * ss);
+    const r = snapshotRef.current({ width: rw, height: rh, returnDataUrl: true, exportQuality: true });
     const source = typeof r === 'string' ? r : (r && r.dataUrl) || null;
     if (!source) return null;
     try {
@@ -240,6 +264,7 @@ function App() {
       canvas.width = size.w; canvas.height = size.h;
       const ctx = canvas.getContext('2d');
       ctx.clearRect(0, 0, size.w, size.h);
+      ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
       ctx.drawImage(img, 0, 0, size.w, size.h);
       // Grain comes from the shader render, applied once. No second pass.
       return canvas.toDataURL('image/png');
@@ -473,7 +498,11 @@ function App() {
   };
 
   const renderExportBlob = async (item, size, formatKey) => {
-    const native = await highResExportSource(item, size, false);
+    // Render the native source supersampled (up to 2×), then downsample to the
+    // requested size — matches the retina preview's effective resolution.
+    const ss = exportSupersample(size);
+    const renderSize = { w: Math.round(size.w * ss), h: Math.round(size.h * ss) };
+    const native = await highResExportSource(item, renderSize, false);
     const source = native || item.exportSource || item.preview;
     const img = await dataUrlToImage(source);
     const canvas = document.createElement('canvas');
@@ -481,8 +510,8 @@ function App() {
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, size.w, size.h);
     if (native) {
-      // Native render is already exactly size.w×size.h and aspect-correct —
-      // draw it 1:1. No fit, no cover-crop.
+      // Native render is supersampled (renderSize); downsample to the target
+      // with high-quality smoothing so the file is as crisp as the preview.
       ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
       ctx.drawImage(img, 0, 0, size.w, size.h);
     } else {
@@ -730,18 +759,25 @@ function App() {
   // Panel drag
   const panelRef  = useRef(null);
   const [panelPos, setPanelPos] = useState(null);
+  const [panelH, setPanelH] = useState(null);
   const dragState = useRef(null);
 
   const getSafePanelPos = useCallback((x, y, w = 392, h = 560) => {
     const railRect = document.querySelector('.rail')?.getBoundingClientRect();
-    const footerRect = document.querySelector('.nurr-support-strip')?.getBoundingClientRect();
-    const topMin = Math.max(14, (railRect?.bottom || 72) + 18);
-    const bottomMax = (footerRect?.top || window.innerHeight) - 18;
-    const leftMin = 8;
-    const rightMax = window.innerWidth - w - 8;
+    const margin = 10;
+    // Keep the panel grabbable rather than fully contained. Requiring the whole
+    // panel to fit inside the viewport collapses the vertical range to nothing
+    // (the panel is nearly viewport-tall), which is what made it drag in a
+    // straight line; capping its height instead made it shrink when moved. So:
+    // keep it below the rail, keep its header on screen, and let the body extend
+    // past the bottom edge if the user wants it there.
+    const topMin = Math.max(margin, (railRect?.bottom || 64) + 8);
+    const headerSafe = 72;
+    const maxX = Math.max(margin, window.innerWidth - w - margin);
+    const maxY = Math.max(topMin, window.innerHeight - headerSafe);
     return {
-      x: Math.max(leftMin, Math.min(Math.max(leftMin, rightMax), x)),
-      y: Math.max(topMin, Math.min(Math.max(topMin, bottomMax - h), y))
+      x: Math.min(Math.max(margin, x), maxX),
+      y: Math.min(Math.max(topMin, y), maxY)
     };
   }, []);
 
@@ -765,6 +801,10 @@ function App() {
     if (!rect) return;
     // Convert the CSS-positioned panel into a real fixed-position drag target.
     // This avoids the old "rail" feeling where competing right/top CSS could lock one axis.
+    // Remember the height the panel had while docked. Several stylesheets size the
+    // floating panel with calc(100svh - var(--panel-y) - …), which makes it shrink
+    // the further down it is dragged; pinning the captured height stops that.
+    setPanelH(Math.round(rect.height));
     setPanelPos({ x: rect.left, y: rect.top });
     dragState.current = { offX: e.clientX - rect.left, offY: e.clientY - rect.top, raf: null };
     document.body.classList.add('nurr-no-select');
@@ -800,6 +840,7 @@ function App() {
       const win = exportPanelRef.current;
       if (!win) return;
       win.classList.remove('is-dragging');
+      win.classList.remove('is-resized');
       win.style.setProperty('left', '50%', 'important');
       win.style.setProperty('top', '50%', 'important');
       win.style.setProperty('right', 'auto', 'important');
@@ -824,6 +865,9 @@ function App() {
     const rect = win.getBoundingClientRect();
     win.style.setProperty('left', rect.left + 'px', 'important'); win.style.setProperty('top', rect.top + 'px', 'important'); win.style.setProperty('right', 'auto', 'important'); win.style.setProperty('bottom', 'auto', 'important'); win.style.setProperty('transform', 'none', 'important');
     win.classList.add('is-dragging');
+    // `is-resized` lets the stylesheet relax its default max-height so a panel the
+    // user deliberately enlarges isn't silently capped at 760px.
+    win.classList.add('is-resized');
     exportResizeRef.current = { startX: e.clientX, startY: e.clientY, startW: rect.width, startH: rect.height, left: rect.left, top: rect.top, raf: null };
     document.body.classList.add('nurr-no-select'); e.preventDefault(); e.stopPropagation();
   };
@@ -839,10 +883,25 @@ function App() {
       }
       if (exportResizeRef.current) {
         const st = exportResizeRef.current; const win = exportPanelRef.current; if (!win) return;
-        const w = Math.max(520, Math.min(Math.max(520, window.innerWidth - st.left - 16), st.startW + (e.clientX - st.startX)));
-        const h = Math.max(300, Math.min(Math.max(300, window.innerHeight - st.top - 16), st.startH + (e.clientY - st.startY)));
+        const margin = 8;
+        // The panel's size is limited by the viewport, never by where it happens to
+        // sit. Previously the max width was `innerWidth - left`, so a panel dragged
+        // toward an edge snapped smaller the moment the grip was touched and could
+        // never be enlarged again. Now: grow freely, and if that would push the
+        // panel past the right/bottom edge, slide it back instead of refusing.
+        const maxW = Math.max(520, window.innerWidth  - 2 * margin);
+        const maxH = Math.max(300, window.innerHeight - 2 * margin);
+        const w = Math.min(maxW, Math.max(520, st.startW + (e.clientX - st.startX)));
+        const h = Math.min(maxH, Math.max(300, st.startH + (e.clientY - st.startY)));
+        const left = Math.max(margin, Math.min(st.left, window.innerWidth  - w - margin));
+        const top  = Math.max(margin, Math.min(st.top,  window.innerHeight - h - margin));
         if (st.raf) cancelAnimationFrame(st.raf);
-        st.raf = requestAnimationFrame(() => { win.style.setProperty('width', w + 'px', 'important'); win.style.setProperty('height', h + 'px', 'important'); });
+        st.raf = requestAnimationFrame(() => {
+          win.style.setProperty('width', w + 'px', 'important');
+          win.style.setProperty('height', h + 'px', 'important');
+          win.style.setProperty('left', left + 'px', 'important');
+          win.style.setProperty('top', top + 'px', 'important');
+        });
       }
     };
     const onUp = () => {
@@ -853,7 +912,7 @@ function App() {
     return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
   }, []);
 
-  const panelStyle   = panelPos ? { '--panel-x':panelPos.x + 'px', '--panel-y':panelPos.y + 'px', position:'fixed', left:panelPos.x + 'px', top:panelPos.y + 'px', right:'auto', bottom:'auto' } : {}; // free XY drag
+  const panelStyle   = panelPos ? { '--panel-x':panelPos.x + 'px', '--panel-y':panelPos.y + 'px', ...(panelH ? { '--panel-h': panelH + 'px' } : {}), position:'fixed', left:panelPos.x + 'px', top:panelPos.y + 'px', right:'auto', bottom:'auto' } : {}; // free XY drag, height pinned
   const hasAlphaMode = MODULE_HAS_ALPHA[mode] || false;
   const MotionPanel = window.MotionExportControls;
   const MobileUIComp = window.NymphMobileUI;

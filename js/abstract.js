@@ -232,8 +232,16 @@ float field(vec2 uv) {
 void paneTF(vec2 uv, float N, float ang,
             out float t, out float pI, out float perp) {
   float ca   = cos(ang), sa = sin(ang);
-  float axis = ca * uv.x + sa * uv.y;
-  perp       = -sa * uv.x + ca * uv.y;
+  // Aspect-correct the axis into height-units so a pane is the same physical
+  // thickness whether the stripes run vertically or horizontally. With raw uv
+  // (0..1 on both axes) a wide canvas makes vertical panes span the long edge,
+  // so they read visibly thicker than horizontal panes at the same density —
+  // most obvious in reflected/water mode. Measuring in height-units removes
+  // that asymmetry: horizontal stays as-is, vertical becomes correctly thinner.
+  float ar   = u_res.x / max(u_res.y, 1.0);
+  vec2  auv  = vec2(uv.x * ar, uv.y);
+  float axis = ca * auv.x + sa * auv.y;
+  perp       = -sa * auv.x + ca * auv.y;
   float px   = axis * N;
   t  = fract(px);
   pI = floor(px);
@@ -526,7 +534,10 @@ void main() {
     // Prismatic edge highlight: restrained iridescent caustic line.
     float N_p  = floor(u_density * 18.0 + 28.0);
     float ap   = u_glassAngle * 1.5708;
-    float t_p  = fract((cos(ap) * sv.x + sin(ap) * sv.y) * N_p);
+    // Same height-unit aspect correction as paneTF so the rainbow edge line
+    // stays locked to the (now orientation-consistent) prism pane boundaries.
+    float ar_p = u_res.x / max(u_res.y, 1.0);
+    float t_p  = fract((cos(ap) * (sv.x * ar_p) + sin(ap) * sv.y) * N_p);
     float edgeW = exp(-pow(t_p - 0.055, 2.0) * 230.0) * u_specular;
     float hue   = t_p * 18.8496 + u_seed * 2.3;
     vec3  rainbow = vec3(sin(hue)*0.5+0.5, sin(hue+2.094)*0.5+0.5, sin(hue+4.189)*0.5+0.5);
