@@ -55,6 +55,7 @@ uniform float u_vdist;
 uniform float u_vsize;
 uniform float u_contrast;
 uniform float u_grain;
+uniform float u_grainPitch; // dot pitch in render px; 0 = derive from resolution
 uniform float u_bw;
 uniform float u_invert;
 uniform float u_seed;
@@ -80,39 +81,71 @@ float hash21(vec2 p){
   return fract((p3.x + p3.y) * p3.z);
 }
 
+// ── Film grain ────────────────────────────────────────────────────────────────
+// Grain is a field of jittered, round, size-varied DOTS — not a quantised
+// lattice. The previous implementation locked 900 grain cells across the SHORT
+// edge and used floor(), so every cell was an axis-aligned SQUARE whose pixel
+// size grew with the render: ~3px blocks on a supersampled 2K export, ~11px
+// blocks at A0/300dpi. That is the "grey square pixels" artefact.
+//
+// Each cell now emits one dot with a randomised position, radius and polarity,
+// smoothstep-antialiased against the pixel grid, so the field is isotropic and
+// has no visible axis alignment at any resolution or aspect ratio.
+//
+// u_grainPitch is the dot pitch in RENDER pixels. The print exporter supplies
+// it explicitly so a 300 DPI file gets a physically fine tooth (~0.1 mm) rather
+// than grain that scales up with the page. When it is 0 — live preview and all
+// screen exports — the pitch is derived from the render size on a sqrt curve,
+// so grain stays visible when a large file is viewed scaled down but can never
+// grow into blocks.
+vec4 nymphHash42(vec2 p){
+  vec4 p4 = fract(p.xyxy * vec4(0.1031, 0.1030, 0.0973, 0.1099));
+  p4 += dot(p4, p4.wzxy + 33.33);
+  return fract(vec4((p4.x + p4.y) * p4.z,
+                    (p4.x + p4.z) * p4.w,
+                    (p4.y + p4.z) * p4.x,
+                    (p4.z + p4.w) * p4.y));
+}
+
+float nymphGrainDots(vec2 p, float seed){
+  vec2 g = floor(p);
+  vec2 f = p - g;
+  float acc = 0.0;
+  for (int y = -1; y <= 1; y++){
+    for (int x = -1; x <= 1; x++){
+      vec2  o  = vec2(float(x), float(y));
+      vec4  r  = nymphHash42(g + o + vec2(seed * 37.1, seed * 11.7));
+      // r.z squared: many small dots, few large ones — a natural size spread.
+      float rad = 0.13 + 0.27 * r.z * r.z;
+      float d   = length(f - o - r.xy);
+      acc += smoothstep(rad, rad * 0.25, d) * (r.w * 2.0 - 1.0);
+    }
+  }
+  return acc;
+}
+
 float nymphFilmGrain(vec2 fragCoord, float seed, float amount, float lum){
   float amt = clamp(amount, 0.0, 1.0);
   if (amt <= 0.0001) return 0.0;
 
-  // Non-linear response: the low end stays polite, the upper end finally has bite.
+  // Non-linear response: the low end stays polite, the upper end has bite.
   float strength = pow(amt, 0.72);
 
-  // Resolution-independent grain. Lock the grain cell to a fixed count across
-  // the SHORT edge, so the tooth reads identically in the live preview and in
-  // every export size / aspect ratio. Previously grain was floor(fragCoord) —
-  // one cell per device pixel — which made it vanish at 2K and change size
-  // between aspect ratios.
-  float grainPx = 900.0 / max(min(u_res.x, u_res.y), 1.0);
-  vec2 px = floor(fragCoord * grainPx);
+  float shortEdge = max(min(u_res.x, u_res.y), 1.0);
+  float pitch = u_grainPitch > 0.01
+    ? u_grainPitch
+    : clamp(1.15 * sqrt(shortEdge / 900.0), 1.0, 3.0);
+  float s = 1.0 / max(pitch, 0.35);
 
-  // Two independent fine layers.
-  float a = hash21(px + vec2(seed * 197.13 + 11.7, seed * 43.73 + 5.1));
-  float b = hash21(px * 1.37 + vec2(71.0 + seed * 51.7, 613.3 + seed * 23.1));
-  float fine = a + b - 1.0;
-  fine = sign(fine) * pow(abs(fine), 0.82);
-
-  // Sparse salt / pepper gives the surface grit instead of smooth digital haze.
-  float saltR   = hash21(px * 2.11 + vec2(seed * 911.7 + 17.0, 29.0));
-  float pepperR = hash21(px * 0.73 + vec2(seed * 421.9 + 109.0, 349.0));
-  float salt    = step(0.992 - strength * 0.045, saltR);
-  float pepper  = step(0.994 - strength * 0.038, pepperR);
-  float speck   = salt * 0.85 - pepper * 0.75;
+  float g = nymphGrainDots(fragCoord * s,        seed)       * 0.58
+          + nymphGrainDots(fragCoord * s * 2.63, seed + 4.3) * 0.46;
+  g = sign(g) * pow(abs(g), 0.85);
 
   // Protect highlights from dirty grey while letting mids/darks carry texture.
   float tonal = mix(0.78, 1.12, smoothstep(0.04, 0.62, lum));
   tonal *= mix(1.0, 0.58, smoothstep(0.82, 1.0, lum));
 
-  return (fine * 0.115 + speck * 0.105) * strength * tonal;
+  return g * 0.20 * strength * tonal;
 }
 
 
@@ -193,28 +226,48 @@ float blobField(vec2 uv) {
   float wt  = 0.0;
 
   int count = 5 + (u_variant - (u_variant / 4) * 4);
+  float fcount = float(count);
+
+  // BLOB_SHARP sharpens each blob's falloff. This field is a WEIGHTED MEAN of
+  // per-blob tones, and a weighted mean of broadly-overlapping Gaussians
+  // regresses hard to the centre: with the old flat falloff the field spent
+  // ~80% of the frame inside a single narrow band, so a 3-colour palette only
+  // ever rendered one blend and read as a single colour. Sharper weights make
+  // the nearest blob dominate, so each blob actually shows its own tone.
+  const float BLOB_SHARP = 2.1;
+
   for (int k = 0; k < 8; k++) {
     if (k >= count) continue;
     float fk = float(k);
-    float a  = seed + fk * 6.28318 / float(count);
+    float a  = seed + fk * 6.28318 / fcount;
     vec2  c  = vec2(0.5) + 0.44 * sp * vec2(cos(a), sin(a * (0.82 + 0.03*float(u_variant))));
     c += vec2(sin(seed + fk*2.17), cos(seed*0.77 + fk*1.41)) * 0.075;
 
     vec2  ell = vec2(0.32 + 0.22*sin(a*1.3), 0.30 + 0.20*cos(a*0.9)) * sz;
     float d   = length((uv - c) / ell);
-    float w   = exp(-d*d * (1.25 + 0.22*float((k + u_variant) / 3)));
-    float tone = mod(fk * 0.23 + float(u_variant) * 0.17, 1.0);
+    float w   = exp(-d*d * (1.25 + 0.22*float((k + u_variant) / 3)) * BLOB_SHARP);
+    // Tones sweep the FULL 0..1 palette range. The old mod(fk*0.23, 1.0) both
+    // capped out below 1.0 and clustered neighbouring blobs on near-identical
+    // tones. The stride keeps adjacent blobs far apart in the palette.
+    float stride = mod(fcount, 2.0) < 0.5 ? 2.0 : 3.0;
+    float tone   = mod(fk * stride + float(u_variant), fcount) / max(1.0, fcount - 1.0);
     val += w * tone;
     wt  += w;
   }
 
+  // The centre anchor alternates between the two ends of the palette instead of
+  // always sitting mid-range, so it stops dragging the whole frame to one tone.
   vec2  anchor = vec2(0.5) + 0.24 * vec2(cos(seed*1.3), sin(seed*0.9));
   float dc     = length((uv - anchor) / (vec2(0.20,0.26) * sz));
-  float wc     = exp(-dc*dc * (2.0 + float(u_variant)*0.12));
-  val += wc * (u_variant == 2 || u_variant == 5 ? 0.12 : 0.62);
+  float wc     = exp(-dc*dc * (2.0 + float(u_variant)*0.12) * BLOB_SHARP);
+  val += wc * (mod(float(u_variant), 2.0) < 0.5 ? 0.94 : 0.08);
   wt  += wc;
 
   float f = val / max(wt, 0.0001);
+  // Residual regression to the mean: expand about the midpoint so the field
+  // reliably reaches both ends of the palette.
+  f = clamp((f - 0.5) * 1.35 + 0.5, 0.0, 1.0);
+
   if (u_variant == 1 || u_variant == 6) f = smoothstep(0.18, 0.88, f);
   if (u_variant == 3) f = 1.0 - f * 0.88;
   return clamp(f, 0.0, 1.0);
@@ -829,7 +882,7 @@ void main() {
       'u_blur','u_vdist','u_vsize','u_contrast','u_grain',
       'u_bw','u_invert','u_seed','u_time',
       'u_mouse','u_mouseRaw','u_clickPulse','u_mouseActive',
-      'u_glassAngle','u_specular','u_vignette',
+      'u_glassAngle','u_specular','u_vignette','u_grainPitch',
     ].forEach(function (n) { uLoc[n] = gl.getUniformLocation(prog, n); });
 
     return { gl, prog, buf, aPos: gl.getAttribLocation(prog, 'a_pos'), uLoc };
@@ -845,17 +898,27 @@ void main() {
   // or a frozen snapshot for export so a later high-res render always
   // matches what was saved.
   // ═══════════════════════════════════════════════════════════════════════════
-  function applyAbstractFrame(gl, prog, uLoc, buf, aPos, canvasW, canvasH, tweaksState, time, mouse, pulse, mouseActive) {
+  function applyAbstractFrame(gl, prog, uLoc, buf, aPos, canvasW, canvasH, tweaksState, time, mouse, pulse, mouseActive, tile) {
     const st = getAbstractState(tweaksState);
     const p  = parsePalette(st.colors);
 
-    gl.viewport(0, 0, canvasW, canvasH);
+    // Tiled rendering for print-resolution output. The viewport is offset by
+    // the tile's position within the full image and sized to the FULL image,
+    // so gl_FragCoord still reports whole-image coordinates and every uniform
+    // (u_res included) stays identical across tiles. The field is therefore
+    // seamless — a tile is a true crop of the full render, not a re-render.
+    if (tile) gl.viewport(-tile.x, -tile.y, tile.fullW, tile.fullH);
+    else      gl.viewport(0, 0, canvasW, canvasH);
     gl.useProgram(prog);
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
     gl.enableVertexAttribArray(aPos);
     gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
 
-    gl.uniform2f(uLoc.u_res, canvasW, canvasH);
+    gl.uniform2f(uLoc.u_res, tile ? tile.fullW : canvasW, tile ? tile.fullH : canvasH);
+    // 0 = shader derives the grain pitch from resolution (live preview and all
+    // screen exports). The print exporter passes an explicit pitch in render
+    // pixels so grain stays physically fine at 300 DPI.
+    gl.uniform1f(uLoc.u_grainPitch, (tile && tile.grainPitch) || 0);
     gl.uniform1i(uLoc.u_form,      toFormationIndex(st.formation));
     gl.uniform1i(uLoc.u_glassType, toGlassTypeIndex(st.glassType));
     gl.uniform1i(uLoc.u_gsrc,      toGradientSourceIndex(st.gradientSource));
@@ -920,6 +983,66 @@ void main() {
     return dataUrl;
   }
   window.NurrAbstractRenderToDataURL = renderAbstractOffscreen;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Print tile session
+  // One WebGL context, reused for every tile of a print-resolution export.
+  // Browsers cap live WebGL contexts at ~16, so an A0/300dpi job (133 tiles at
+  // 1024px) MUST reuse a single context rather than create one per tile. The
+  // session renders any sub-rectangle of the full image and hands back raw RGBA
+  // rows in TOP-DOWN order, ready to stream straight into an encoder — the full
+  // bitmap is never materialised, which is what keeps a 139-megapixel page
+  // inside a few megabytes of memory.
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  // gl.readPixels returns rows bottom-up; encoders want top-down. Flip in place.
+  function nymphFlipRows(px, w, h) {
+    const stride = w * 4;
+    const tmp = new Uint8Array(stride);
+    for (let y = 0; y < (h >> 1); y++) {
+      const a = y * stride, b = (h - 1 - y) * stride;
+      tmp.set(px.subarray(a, a + stride));
+      px.copyWithin(a, b, b + stride);
+      px.set(tmp, b);
+    }
+    return px;
+  }
+  
+  window.NymphTileSession = window.NymphTileSession || {};
+  window.NymphTileSession.abstract = function (tweaksState, renderState, fullW, fullH, opts) {
+    if (!tweaksState) return null;
+    opts = opts || {};
+    const canvas = document.createElement('canvas');
+    canvas.width = opts.tileW || 1024;
+    canvas.height = opts.tileH || 1024;
+    const glState = initGL(canvas);
+    if (!glState) return null;
+    const { gl, prog, buf, aPos, uLoc } = glState;
+    const rs = renderState || {};
+    const mouse = rs.mouse || { x: 0.5, y: 0.5, chaosX: 0.5, chaosY: 0.5 };
+    const time = Number.isFinite(rs.time) ? rs.time : 0;
+    const pulse = Number.isFinite(rs.pulse) ? rs.pulse : 0;
+    const mouseActive = rs.mouseActive == null ? 1.0 : rs.mouseActive;
+    return {
+      canvas,
+      renderTile(tx, ty, tw, th) {
+        if (canvas.width !== tw || canvas.height !== th) { canvas.width = tw; canvas.height = th; }
+        // Output row ty is GL row (fullH - ty - th) counting up from the bottom.
+        applyAbstractFrame(gl, prog, uLoc, buf, aPos, tw, th, tweaksState,
+          time, mouse, pulse, mouseActive,
+          { x: tx, y: fullH - ty - th, fullW, fullH, grainPitch: opts.grainPitch || 0 });
+        const px = new Uint8Array(tw * th * 4);
+        gl.readPixels(0, 0, tw, th, gl.RGBA, gl.UNSIGNED_BYTE, px);
+        return nymphFlipRows(px, tw, th);
+      },
+      dispose() {
+        try { gl.deleteProgram(prog); gl.deleteBuffer(buf); } catch (e) {}
+        const lose = gl.getExtension('WEBGL_lose_context');
+        if (lose) lose.loseContext();
+      }
+    };
+  };
+
 
   // ═══════════════════════════════════════════════════════════════════════════
   // Helpers

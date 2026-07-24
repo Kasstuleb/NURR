@@ -425,6 +425,32 @@ function App() {
     }, mime, quality);
   });
 
+  // Lossless PDF. The previous path encoded the canvas to JPEG and embedded it
+  // with /DCTDecode; DCT ringing on smooth gradients is precisely the wrong
+  // failure mode for this artwork. FlateDecode via the print encoder is
+  // lossless and needs no library. The JPEG writer below is kept only as a
+  // fallback for browsers without CompressionStream.
+  const canvasToLosslessPdf = async (canvas, w, h) => {
+    const NP = window.NymphPrint;
+    if (!NP || !NP.hasDeflate()) {
+      const jpg = await canvasToBlob(canvas, 'image/jpeg', 0.98);
+      return jpegBlobToPdf(jpg, w, h);
+    }
+    const ctx = canvas.getContext('2d');
+    const provider = async (sink) => {
+      const BAND = 256;
+      for (let y = 0; y < h; y += BAND) {
+        const rows = Math.min(BAND, h - y);
+        const d = ctx.getImageData(0, y, w, rows).data;
+        const rgb = new Uint8Array(w * rows * 3);
+        for (let i = 0, q = 0; i < d.length; i += 4) { rgb[q++] = d[i]; rgb[q++] = d[i + 1]; rgb[q++] = d[i + 2]; }
+        await sink(rgb, rows, y);
+      }
+    };
+    // 72pt per 96 CSS px keeps the page the same physical size as before.
+    return NP._internal.encodePDF(w, h, { ptW: w * 0.75, ptH: h * 0.75 }, 3, provider, null);
+  };
+
   const jpegBlobToPdf = async (jpegBlob, w, h) => {
     const bytes = new Uint8Array(await jpegBlob.arrayBuffer());
     const pageW = Math.round(w * 0.75);
@@ -519,10 +545,7 @@ function App() {
       drawImageFitted(ctx, img, size.w, size.h, item.exportFit || ((item.type === 'object' && item.module !== 'geometric') ? 'contain' : 'contain'));
     }
     // No canvas grain pass — grain is baked into the shader render.
-    if (formatKey === 'pdf') {
-      const jpg = await canvasToBlob(canvas, 'image/jpeg', 0.98);
-      return jpegBlobToPdf(jpg, size.w, size.h);
-    }
+    if (formatKey === 'pdf') return canvasToLosslessPdf(canvas, size.w, size.h);
     const meta = EXPORT_FORMATS[formatKey] || EXPORT_FORMATS.png;
     return canvasToBlob(canvas, meta.mime, formatKey === 'png' ? undefined : 0.98);
   };
@@ -1072,7 +1095,7 @@ function App() {
             <div className="export-window-header" onMouseDown={onExportHeaderDown}>
               <div>
                 <div className="panel-eyebrow">Export Panel</div>
-                <div className="export-window-title">Still / Motion / Web / Recipe</div>
+                <div className="export-window-title">Still / Motion / Web / Print</div>
               </div>
               <button className="icon-btn" onClick={() => setPage('main')} title="Close">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
@@ -1081,10 +1104,17 @@ function App() {
 
             <div className="export-tabs">
               <button className={'export-tab' + (exportTab === 'still' ? ' active' : '')} onClick={() => setExportTab('still')}>Still</button>
-              <button className={'export-tab' + (exportTab === 'motion' ? ' active' : '')} onClick={() => setExportTab('motion')}>Motion / Web / Recipe</button>
+              <button className={'export-tab' + (exportTab === 'motion' ? ' active' : '')} onClick={() => setExportTab('motion')}>Motion / Web</button>
+              <button className={'export-tab is-print-tab' + (exportTab === 'print' ? ' active' : '')} onClick={() => setExportTab('print')}>Print</button>
             </div>
 
-            <div className="export-window-body">
+            <div className={'export-window-body' + (exportTab === 'print' ? ' is-print' : '')}>
+              {exportTab === 'print' && (
+                window.NymphPrintPanel
+                  ? <window.NymphPrintPanel library={library} moduleDisplay={moduleDisplay} showToast={showToast} />
+                  : <div className="export-empty">Print module failed to load.</div>
+              )}
+
               {exportTab === 'still' && (!library.length ? (
                 <div className="export-empty">
                   No snapshots yet — press <kbd>S</kbd> on any module to save.

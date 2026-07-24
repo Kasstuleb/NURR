@@ -89,6 +89,7 @@ uniform float u_flow;
 uniform float u_ripple;
 uniform float u_glow;
 uniform float u_grain;
+uniform float u_grainPitch; // dot pitch in render px; 0 = derive from resolution
 uniform float u_blur;
 uniform float u_pull;
 uniform int   u_bw;
@@ -125,39 +126,71 @@ float hash21(vec2 p){
   return fract((p3.x + p3.y) * p3.z);
 }
 
+// ── Film grain ────────────────────────────────────────────────────────────────
+// Grain is a field of jittered, round, size-varied DOTS — not a quantised
+// lattice. The previous implementation locked 900 grain cells across the SHORT
+// edge and used floor(), so every cell was an axis-aligned SQUARE whose pixel
+// size grew with the render: ~3px blocks on a supersampled 2K export, ~11px
+// blocks at A0/300dpi. That is the "grey square pixels" artefact.
+//
+// Each cell now emits one dot with a randomised position, radius and polarity,
+// smoothstep-antialiased against the pixel grid, so the field is isotropic and
+// has no visible axis alignment at any resolution or aspect ratio.
+//
+// u_grainPitch is the dot pitch in RENDER pixels. The print exporter supplies
+// it explicitly so a 300 DPI file gets a physically fine tooth (~0.1 mm) rather
+// than grain that scales up with the page. When it is 0 — live preview and all
+// screen exports — the pitch is derived from the render size on a sqrt curve,
+// so grain stays visible when a large file is viewed scaled down but can never
+// grow into blocks.
+vec4 nymphHash42(vec2 p){
+  vec4 p4 = fract(p.xyxy * vec4(0.1031, 0.1030, 0.0973, 0.1099));
+  p4 += dot(p4, p4.wzxy + 33.33);
+  return fract(vec4((p4.x + p4.y) * p4.z,
+                    (p4.x + p4.z) * p4.w,
+                    (p4.y + p4.z) * p4.x,
+                    (p4.z + p4.w) * p4.y));
+}
+
+float nymphGrainDots(vec2 p, float seed){
+  vec2 g = floor(p);
+  vec2 f = p - g;
+  float acc = 0.0;
+  for (int y = -1; y <= 1; y++){
+    for (int x = -1; x <= 1; x++){
+      vec2  o  = vec2(float(x), float(y));
+      vec4  r  = nymphHash42(g + o + vec2(seed * 37.1, seed * 11.7));
+      // r.z squared: many small dots, few large ones — a natural size spread.
+      float rad = 0.13 + 0.27 * r.z * r.z;
+      float d   = length(f - o - r.xy);
+      acc += smoothstep(rad, rad * 0.25, d) * (r.w * 2.0 - 1.0);
+    }
+  }
+  return acc;
+}
+
 float nymphFilmGrain(vec2 fragCoord, float seed, float amount, float lum){
   float amt = clamp(amount, 0.0, 1.0);
   if (amt <= 0.0001) return 0.0;
 
-  // Non-linear response: the low end stays polite, the upper end finally has bite.
+  // Non-linear response: the low end stays polite, the upper end has bite.
   float strength = pow(amt, 0.72);
 
-  // Resolution-independent grain. Lock the grain cell to a fixed count across
-  // the SHORT edge, so the tooth reads identically in the live preview and in
-  // every export size / aspect ratio. Previously grain was floor(fragCoord) —
-  // one cell per device pixel — which made it vanish at 2K and change size
-  // between aspect ratios.
-  float grainPx = 900.0 / max(min(u_resolution.x, u_resolution.y), 1.0);
-  vec2 px = floor(fragCoord * grainPx);
+  float shortEdge = max(min(u_resolution.x, u_resolution.y), 1.0);
+  float pitch = u_grainPitch > 0.01
+    ? u_grainPitch
+    : clamp(1.15 * sqrt(shortEdge / 900.0), 1.0, 3.0);
+  float s = 1.0 / max(pitch, 0.35);
 
-  // Two independent fine layers.
-  float a = hash21(px + vec2(seed * 197.13 + 11.7, seed * 43.73 + 5.1));
-  float b = hash21(px * 1.37 + vec2(71.0 + seed * 51.7, 613.3 + seed * 23.1));
-  float fine = a + b - 1.0;
-  fine = sign(fine) * pow(abs(fine), 0.82);
-
-  // Sparse salt / pepper gives the surface grit instead of smooth digital haze.
-  float saltR   = hash21(px * 2.11 + vec2(seed * 911.7 + 17.0, 29.0));
-  float pepperR = hash21(px * 0.73 + vec2(seed * 421.9 + 109.0, 349.0));
-  float salt    = step(0.992 - strength * 0.045, saltR);
-  float pepper  = step(0.994 - strength * 0.038, pepperR);
-  float speck   = salt * 0.85 - pepper * 0.75;
+  float g = nymphGrainDots(fragCoord * s,        seed)       * 0.58
+          + nymphGrainDots(fragCoord * s * 2.63, seed + 4.3) * 0.46;
+  g = sign(g) * pow(abs(g), 0.85);
 
   // Protect highlights from dirty grey while letting mids/darks carry texture.
   float tonal = mix(0.78, 1.12, smoothstep(0.04, 0.62, lum));
   tonal *= mix(1.0, 0.58, smoothstep(0.82, 1.0, lum));
 
-  return (fine * 0.115 + speck * 0.105) * strength * tonal;
+  return g * 0.20 * strength * tonal;
 }
 
 float vnoise(vec2 p){
@@ -568,9 +601,12 @@ function renderGeometricStaticToDataURL(moduleTweaks, renderState, width, height
 
   const w = Math.max(1, Math.round(width) || 1920);
   const h = Math.max(1, Math.round(height) || 1080);
-  const canvas = document.createElement('canvas');
-  canvas.width = w; canvas.height = h;
-  const R = initFlowGL(canvas);
+  // extra.session lets a print tile session reuse ONE context across many
+  // tiles; browsers cap live WebGL contexts at ~16, so per-tile creation would
+  // fail long before an A0 page finished.
+  const canvas = (extra.session && extra.session.canvas) || document.createElement('canvas');
+  if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+  const R = (extra.session && extra.session.R) || initFlowGL(canvas);
   if (!R) return null;
 
   const { gl, field } = R;
@@ -592,7 +628,10 @@ function renderGeometricStaticToDataURL(moduleTweaks, renderState, width, height
         r: f.r * scale
       }));
 
-  gl.viewport(0, 0, w, h);
+  // Tiled rendering for print output — see applyGradientFrame for the rationale.
+  const _tile = extra.tile || null;
+  if (_tile) gl.viewport(-_tile.x, -_tile.y, _tile.fullW, _tile.fullH);
+  else       gl.viewport(0, 0, w, h);
   gl.useProgram(field);
   gl.disable(gl.BLEND);
   gl.bindBuffer(gl.ARRAY_BUFFER, R.triBuf);
@@ -601,7 +640,8 @@ function renderGeometricStaticToDataURL(moduleTweaks, renderState, width, height
   [R.partPos, R.partProp, R.partShade].forEach(loc => { if (loc >= 0 && loc !== R.fieldPos) gl.disableVertexAttribArray(loc); });
 
   const u = (n) => gl.getUniformLocation(field, n);
-  gl.uniform2f(u('u_resolution'), w, h);
+  gl.uniform2f(u('u_resolution'), _tile ? _tile.fullW : w, _tile ? _tile.fullH : h);
+  gl.uniform1f(u('u_grainPitch'), (_tile && _tile.grainPitch) || 0);
   gl.uniform1f(u('u_time'), t);
   gl.uniform2f(u('u_mouse'), mouse.x, mouse.y);
   gl.uniform1f(u('u_pulse'), rs.pulse || 0);
@@ -653,11 +693,71 @@ function renderGeometricStaticToDataURL(moduleTweaks, renderState, width, height
 
   gl.drawArrays(gl.TRIANGLES, 0, 3);
   gl.flush();
+  if (extra.returnPixels) {
+    const px = new Uint8Array(w * h * 4);
+    gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    return nymphFlipRows(px, w, h);
+  }
   const dataUrl = canvas.toDataURL('image/png');
   try { const loseCtx = gl.getExtension('WEBGL_lose_context'); if (loseCtx) loseCtx.loseContext(); } catch (e) {}
   return dataUrl;
 }
 window.NurrGeometricRenderStaticToDataURL = renderGeometricStaticToDataURL;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Print tile session
+// One WebGL context, reused for every tile of a print-resolution export.
+// Browsers cap live WebGL contexts at ~16, so an A0/300dpi job (133 tiles at
+// 1024px) MUST reuse a single context rather than create one per tile. The
+// session renders any sub-rectangle of the full image and hands back raw RGBA
+// rows in TOP-DOWN order, ready to stream straight into an encoder — the full
+// bitmap is never materialised, which is what keeps a 139-megapixel page
+// inside a few megabytes of memory.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// gl.readPixels returns rows bottom-up; encoders want top-down. Flip in place.
+function nymphFlipRows(px, w, h) {
+  const stride = w * 4;
+  const tmp = new Uint8Array(stride);
+  for (let y = 0; y < (h >> 1); y++) {
+    const a = y * stride, b = (h - 1 - y) * stride;
+    tmp.set(px.subarray(a, a + stride));
+    px.copyWithin(a, b, b + stride);
+    px.set(tmp, b);
+  }
+  return px;
+}
+
+window.NymphTileSession = window.NymphTileSession || {};
+window.NymphTileSession.geometric = function (tweaks, renderState, fullW, fullH, opts) {
+  if (!tweaks) return null;
+  // Particle material needs the live simulation; there is no static field to
+  // tile, so print export falls back to the stored master for that mode.
+  if ((tweaks.material || 'gradient') === 'particles') return null;
+  opts = opts || {};
+  const canvas = document.createElement('canvas');
+  canvas.width = opts.tileW || 1024;
+  canvas.height = opts.tileH || 1024;
+  const R = initFlowGL(canvas);
+  if (!R) return null;
+  const session = { canvas, R };
+  return {
+    canvas,
+    renderTile(tx, ty, tw, th) {
+      return renderGeometricStaticToDataURL(tweaks, renderState, tw, th, {
+        session,
+        returnPixels: true,
+        exportQuality: true,
+        tile: { x: tx, y: fullH - ty - th, fullW, fullH, grainPitch: opts.grainPitch || 0 }
+      });
+    },
+    dispose() {
+      const lose = R.gl.getExtension('WEBGL_lose_context');
+      if (lose) lose.loseContext();
+    }
+  };
+};
+
 
 /* ─── GeometricMode ──────────────────────────────────────────────────────── */
 function GeometricMode({ tweaks, registerSnapshot, mouseRef }) {

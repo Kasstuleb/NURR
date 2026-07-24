@@ -49,6 +49,7 @@ uniform vec2  u_mouse;
 uniform vec2  u_mouseRaw;
 uniform float u_clickPulse;
 uniform float u_grain;
+uniform float u_grainPitch; // dot pitch in render px; 0 = derive from resolution
 uniform float u_flow;
 uniform float u_spread;
 uniform float u_distance;
@@ -111,39 +112,71 @@ float hash21(vec2 p){
   return fract((p3.x + p3.y) * p3.z);
 }
 
+// ── Film grain ────────────────────────────────────────────────────────────────
+// Grain is a field of jittered, round, size-varied DOTS — not a quantised
+// lattice. The previous implementation locked 900 grain cells across the SHORT
+// edge and used floor(), so every cell was an axis-aligned SQUARE whose pixel
+// size grew with the render: ~3px blocks on a supersampled 2K export, ~11px
+// blocks at A0/300dpi. That is the "grey square pixels" artefact.
+//
+// Each cell now emits one dot with a randomised position, radius and polarity,
+// smoothstep-antialiased against the pixel grid, so the field is isotropic and
+// has no visible axis alignment at any resolution or aspect ratio.
+//
+// u_grainPitch is the dot pitch in RENDER pixels. The print exporter supplies
+// it explicitly so a 300 DPI file gets a physically fine tooth (~0.1 mm) rather
+// than grain that scales up with the page. When it is 0 — live preview and all
+// screen exports — the pitch is derived from the render size on a sqrt curve,
+// so grain stays visible when a large file is viewed scaled down but can never
+// grow into blocks.
+vec4 nymphHash42(vec2 p){
+  vec4 p4 = fract(p.xyxy * vec4(0.1031, 0.1030, 0.0973, 0.1099));
+  p4 += dot(p4, p4.wzxy + 33.33);
+  return fract(vec4((p4.x + p4.y) * p4.z,
+                    (p4.x + p4.z) * p4.w,
+                    (p4.y + p4.z) * p4.x,
+                    (p4.z + p4.w) * p4.y));
+}
+
+float nymphGrainDots(vec2 p, float seed){
+  vec2 g = floor(p);
+  vec2 f = p - g;
+  float acc = 0.0;
+  for (int y = -1; y <= 1; y++){
+    for (int x = -1; x <= 1; x++){
+      vec2  o  = vec2(float(x), float(y));
+      vec4  r  = nymphHash42(g + o + vec2(seed * 37.1, seed * 11.7));
+      // r.z squared: many small dots, few large ones — a natural size spread.
+      float rad = 0.13 + 0.27 * r.z * r.z;
+      float d   = length(f - o - r.xy);
+      acc += smoothstep(rad, rad * 0.25, d) * (r.w * 2.0 - 1.0);
+    }
+  }
+  return acc;
+}
+
 float nymphFilmGrain(vec2 fragCoord, float seed, float amount, float lum){
   float amt = clamp(amount, 0.0, 1.0);
   if (amt <= 0.0001) return 0.0;
 
-  // Non-linear response: the low end stays polite, the upper end finally has bite.
+  // Non-linear response: the low end stays polite, the upper end has bite.
   float strength = pow(amt, 0.72);
 
-  // Resolution-independent grain. Lock the grain cell to a fixed count across
-  // the SHORT edge, so the tooth reads identically in the live preview and in
-  // every export size / aspect ratio. Previously grain was floor(fragCoord) —
-  // one cell per device pixel — which made it vanish at 2K and change size
-  // between aspect ratios.
-  float grainPx = 900.0 / max(min(u_resolution.x, u_resolution.y), 1.0);
-  vec2 px = floor(fragCoord * grainPx);
+  float shortEdge = max(min(u_resolution.x, u_resolution.y), 1.0);
+  float pitch = u_grainPitch > 0.01
+    ? u_grainPitch
+    : clamp(1.15 * sqrt(shortEdge / 900.0), 1.0, 3.0);
+  float s = 1.0 / max(pitch, 0.35);
 
-  // Two independent fine layers.
-  float a = hash21(px + vec2(seed * 197.13 + 11.7, seed * 43.73 + 5.1));
-  float b = hash21(px * 1.37 + vec2(71.0 + seed * 51.7, 613.3 + seed * 23.1));
-  float fine = a + b - 1.0;
-  fine = sign(fine) * pow(abs(fine), 0.82);
-
-  // Sparse salt / pepper gives the surface grit instead of smooth digital haze.
-  float saltR   = hash21(px * 2.11 + vec2(seed * 911.7 + 17.0, 29.0));
-  float pepperR = hash21(px * 0.73 + vec2(seed * 421.9 + 109.0, 349.0));
-  float salt    = step(0.992 - strength * 0.045, saltR);
-  float pepper  = step(0.994 - strength * 0.038, pepperR);
-  float speck   = salt * 0.85 - pepper * 0.75;
+  float g = nymphGrainDots(fragCoord * s,        seed)       * 0.58
+          + nymphGrainDots(fragCoord * s * 2.63, seed + 4.3) * 0.46;
+  g = sign(g) * pow(abs(g), 0.85);
 
   // Protect highlights from dirty grey while letting mids/darks carry texture.
   float tonal = mix(0.78, 1.12, smoothstep(0.04, 0.62, lum));
   tonal *= mix(1.0, 0.58, smoothstep(0.82, 1.0, lum));
 
-  return (fine * 0.115 + speck * 0.105) * strength * tonal;
+  return g * 0.20 * strength * tonal;
 }
 
 // Smoothstep-interpolated noise from hash21. Used by the chromatic-haze pass
@@ -810,8 +843,14 @@ function getNymphFormulaWeights(tweaks = {}) {
 // for its own mode and zeroes the other two modes' uniforms in the same
 // pass, so no leftover Pixelate grid or Chroma value can survive a mode
 // switch, a shuffle, a randomize, or a re-render at a different resolution.
-function applyGradientFrame(gl, prog, targetW, targetH, tweaks, time, mouse, pulse) {
-  gl.viewport(0, 0, targetW, targetH);
+function applyGradientFrame(gl, prog, targetW, targetH, tweaks, time, mouse, pulse, tile) {
+  // Tiled rendering for print-resolution output: offset the viewport by the
+  // tile origin and size it to the FULL image, so gl_FragCoord keeps reporting
+  // whole-image coordinates. Every tile is then a true crop of one continuous
+  // render rather than an independent re-render, which is what makes seamless
+  // A0 output possible without allocating a 139-megapixel canvas.
+  if (tile) gl.viewport(-tile.x, -tile.y, tile.fullW, tile.fullH);
+  else      gl.viewport(0, 0, targetW, targetH);
   gl.disable(gl.BLEND);
   gl.disable(gl.DEPTH_TEST);
   gl.disable(gl.CULL_FACE);
@@ -822,7 +861,10 @@ function applyGradientFrame(gl, prog, targetW, targetH, tweaks, time, mouse, pul
   const m = mouse || { x:0.5, y:0.5, chaosX:0.5, chaosY:0.5 };
 
   gl.uniform1f(u('u_time'), time || 0);
-  gl.uniform2f(u('u_resolution'), targetW, targetH);
+  gl.uniform2f(u('u_resolution'), tile ? tile.fullW : targetW, tile ? tile.fullH : targetH);
+  // 0 = shader derives grain pitch from resolution; the print exporter
+  // passes an explicit pitch so grain stays physically fine at 300 DPI.
+  gl.uniform1f(u('u_grainPitch'), (tile && tile.grainPitch) || 0);
   gl.uniform2f(u('u_mouse'), m.chaosX ?? m.x ?? 0.5, 1 - (m.chaosY ?? m.y ?? 0.5));
   gl.uniform2f(u('u_mouseRaw'), m.x ?? 0.5, 1 - (m.y ?? 0.5));
   gl.uniform1f(u('u_clickPulse'), pulse || 0);
@@ -927,6 +969,62 @@ function renderGradientOffscreen(tweaks, renderState, width, height) {
   return dataUrl;
 }
 window.NurrGradientRenderToDataURL = renderGradientOffscreen;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Print tile session
+// One WebGL context, reused for every tile of a print-resolution export.
+// Browsers cap live WebGL contexts at ~16, so an A0/300dpi job (133 tiles at
+// 1024px) MUST reuse a single context rather than create one per tile. The
+// session renders any sub-rectangle of the full image and hands back raw RGBA
+// rows in TOP-DOWN order, ready to stream straight into an encoder — the full
+// bitmap is never materialised, which is what keeps a 139-megapixel page
+// inside a few megabytes of memory.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// gl.readPixels returns rows bottom-up; encoders want top-down. Flip in place.
+function nymphFlipRows(px, w, h) {
+  const stride = w * 4;
+  const tmp = new Uint8Array(stride);
+  for (let y = 0; y < (h >> 1); y++) {
+    const a = y * stride, b = (h - 1 - y) * stride;
+    tmp.set(px.subarray(a, a + stride));
+    px.copyWithin(a, b, b + stride);
+    px.set(tmp, b);
+  }
+  return px;
+}
+
+window.NymphTileSession = window.NymphTileSession || {};
+window.NymphTileSession.gradient = function (tweaks, renderState, fullW, fullH, opts) {
+  if (!tweaks) return null;
+  opts = opts || {};
+  const canvas = document.createElement('canvas');
+  canvas.width = opts.tileW || 1024;
+  canvas.height = opts.tileH || 1024;
+  const res = initGradientGL(canvas);
+  if (!res) return null;
+  const { gl, prog } = res;
+  const rs = renderState || {};
+  const mouse = rs.mouse || { x: 0.5, y: 0.5, chaosX: 0.5, chaosY: 0.5 };
+  const time = Number.isFinite(rs.time) ? rs.time : 0;
+  const pulse = Number.isFinite(rs.pulse) ? rs.pulse : 0;
+  return {
+    canvas,
+    renderTile(tx, ty, tw, th) {
+      if (canvas.width !== tw || canvas.height !== th) { canvas.width = tw; canvas.height = th; }
+      applyGradientFrame(gl, prog, tw, th, tweaks, time, mouse, pulse,
+        { x: tx, y: fullH - ty - th, fullW, fullH, grainPitch: opts.grainPitch || 0 });
+      const px = new Uint8Array(tw * th * 4);
+      gl.readPixels(0, 0, tw, th, gl.RGBA, gl.UNSIGNED_BYTE, px);
+      return nymphFlipRows(px, tw, th);
+    },
+    dispose() {
+      const lose = gl.getExtension('WEBGL_lose_context');
+      if (lose) lose.loseContext();
+    }
+  };
+};
+
 
 // ── Persistent-context motion renderer ──────────────────────────────────────
 // One offscreen WebGL context, reused for every frame of a motion export, so
