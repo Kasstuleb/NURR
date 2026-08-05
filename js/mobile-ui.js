@@ -139,6 +139,7 @@
   const Icon = ({ name, size = 20 }) => {
     const p = { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round', strokeLinejoin: 'round' };
     if (name === 'shuffle') return <svg {...p}><path d="M16 3h5v5" /><path d="M4 20 21 3" /><path d="M21 16v5h-5" /><path d="m15 15 6 6" /><path d="M4 4l5 5" /></svg>;
+    if (name === 'randomize') return <svg {...p}><rect x="3" y="3" width="18" height="18" rx="3" /><circle cx="8" cy="8" r="1.3" fill="currentColor" stroke="none" /><circle cx="16" cy="8" r="1.3" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none" /><circle cx="8" cy="16" r="1.3" fill="currentColor" stroke="none" /><circle cx="16" cy="16" r="1.3" fill="currentColor" stroke="none" /></svg>;
     if (name === 'undo') return <svg {...p}><path d="M9 14 4 9l5-5" /><path d="M4 9h10a6 6 0 0 1 0 12h-3" /></svg>;
     if (name === 'export') return <svg {...p}><path d="M12 15V3" /><path d="m7 8 5-5 5 5" /><path d="M5 15v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" /></svg>;
     if (name === 'controls') return <svg {...p}><path d="M4 6h10" /><path d="M18 6h2" /><circle cx="16" cy="6" r="2" /><path d="M4 12h2" /><path d="M10 12h10" /><circle cx="8" cy="12" r="2" /><path d="M4 18h10" /><path d="M18 18h2" /><circle cx="16" cy="18" r="2" /></svg>;
@@ -439,43 +440,7 @@
     );
   }
 
-  /* ── Presets: collapsed by default ───────────────────────────────────── */
-  function SwatchPresets({ presets, onPick, cols }) {
-    if (!presets || !presets.length) return null;
-    return (
-      <div className="nm-preset-grid" style={{ '--nm-cols': cols || 4 }}>
-        {presets.map((p, i) => (
-          <button key={i} type="button" className="nm-preset" onClick={() => onPick(p)}>
-            {p.slice(0, 5).map((c, j) => <span key={j} style={{ background: c }} />)}
-          </button>
-        ))}
-      </div>
-    );
-  }
-  function PresetsCollapsible({ presets, onPick, cols, label }) {
-    const [open, setOpen] = useState(false);
-    if (!presets || !presets.length) return null;
-    return (
-      <div className={'nm-collapsible' + (open ? ' is-open' : '')}>
-        <button type="button" className="nm-collapse-btn"
-          onClick={() => setOpen(v => !v)}
-          aria-expanded={open}>
-          <span>{label || 'Presets'}</span>
-          <span className="nm-collapse-caret" aria-hidden="true">
-            <svg width="10" height="6" viewBox="0 0 10 6" fill="none">
-              <path d="M1 1l4 4 4-4" stroke="currentColor" strokeWidth="1.5"
-                strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </span>
-        </button>
-        {open && (
-          <div className="nm-collapse-body">
-            <SwatchPresets presets={presets} onPick={p => { onPick(p); setOpen(false); }} cols={cols} />
-          </div>
-        )}
-      </div>
-    );
-  }
+  /* Colour-preset components removed. */
 
   /* ── card sets per module ────────────────────────────────────────────────
      One grammar everywhere: Palette (what colours) → Form / Shape (what it is)
@@ -513,17 +478,6 @@
   const ABSTRACT_FORMS = [
     ['clear', 'Clear'], ['prism', 'Prism'], ['water', 'Reflected'], ['ripple', 'Ripple'],
   ];
-  const ABSTRACT_PRESETS = [
-    ['#EAF0F2', '#F04A2F', '#2637D9', '#2E2A4F', '#F7FAFB'],
-    ['#07104C', '#FC6C3D', '#98F2F4', '#E38BB8', '#05040A'],
-    ['#F4EDE0', '#BE1E2D', '#1E33B8', '#B9BCC9', '#11121E'],
-    ['#05040A', '#08015F', '#FC6C3D', '#F4BE62', '#98F2F4'],
-    ['#e8f4f8', '#b8d9e8', '#7ab8d4', '#3a85a8', '#0a3c5c'],
-    ['#f5ede0', '#d4b896', '#a07850', '#6b4428', '#2c1508'],
-    ['#0d0221', '#3a0e6f', '#7b2fbe', '#c77dff', '#e0aaff'],
-    ['#f2f7ff', '#c8dcf8', '#8ab8f0', '#4a88d8', '#0a3c8c'],
-  ];
-
   /* ── card body renderer ──────────────────────────────────────────────── */
   function renderCard(card, ctx) {
     const { mode } = ctx;
@@ -544,13 +498,11 @@
     const manualPatch = window.NURR_manualGradientPatch;
     const setColors = (next) => set(manualPatch ? manualPatch(next, t) : { colors: next.slice(0, 4), manualPalette: true });
     const displayColors = (t.colors || []).map(c => (adjust ? adjust(c, t) : c));
-    const presets = (window.WP && window.WP.PALETTE_PRESETS) || [];
     const surfaces = (window.NurrTextureEngine && window.NurrTextureEngine.list && window.NurrTextureEngine.list()) || [];
     const curSurface = t.texturePreset || 'clean';
 
     if (card === 'palette') return (<>
       <ActionRow>
-        <ActionButton icon="shuffle" label="Shuffle" onClick={ctx.onShuffle} primary />
         <ActionButton icon="undo" label="Undo" onClick={ctx.onUndo} disabled={!ctx.canUndo} />
       </ActionRow>
       <PaletteSwatches
@@ -559,7 +511,6 @@
         setColors={setColors}
         onEdit={i => ctx.setPicker({ i, module: 'gradient' })}
         maxColors={4} />
-      <PresetsCollapsible presets={presets} cols={4} onPick={p => setColors(p.slice(0, 4))} />
     </>);
 
     if (card === 'tone') return (<>
@@ -617,7 +568,6 @@
 
     if (card === 'palette') return (<>
       <ActionRow>
-        <ActionButton icon="shuffle" label="Shuffle" onClick={ctx.onShuffle} primary />
         <ActionButton icon="undo" label="Undo" onClick={ctx.onUndo} disabled={!ctx.canUndo} />
       </ActionRow>
       <PaletteSwatches
@@ -625,8 +575,6 @@
         setColors={setColors}
         onEdit={i => ctx.setPicker({ i, module: 'abstract' })}
         maxColors={4} />
-      <PresetsCollapsible presets={ABSTRACT_PRESETS} cols={4}
-        onPick={p => set({ colors: p.slice(0, 4), seed: Math.random() })} />
     </>);
 
     if (card === 'form') return (<>
@@ -677,7 +625,6 @@
     const t = ctx.geometricTweaks || {};
     const set = ctx.patchGeometric;
     const setColors = (next) => set({ colors: next.slice(0, 6) });
-    const presets = (window.WP && window.WP.PALETTE_PRESETS) || [];
     const comps = window.NURR_GEOMETRIC_COMPOSITIONS || [];
     const randomBackdrop = () => {
       const p = presets.length ? presets[Math.floor(Math.random() * presets.length)] : ['#F2F0E7', '#C9D7DA'];
@@ -688,7 +635,6 @@
 
     if (card === 'palette') return (<>
       <ActionRow>
-        <ActionButton icon="shuffle" label="Shuffle" onClick={ctx.onShuffle} primary />
         <ActionButton icon="undo" label="Undo" onClick={ctx.onUndo} disabled={!ctx.canUndo} />
       </ActionRow>
       <PaletteSwatches
@@ -705,7 +651,6 @@
           <ActionButton icon="controls" label="Flat backdrop" onClick={() => set({ backdropGradient: false })} />
         </ActionRow>
       )}
-      <PresetsCollapsible presets={presets} cols={4} onPick={p => set({ colors: p.slice(0, 3) })} />
     </>);
 
     if (card === 'shape') return (<>
@@ -1082,7 +1027,7 @@
 
         <nav className="nm-dock">
           <button type="button" className="nm-dock-btn" onClick={props.onShuffle}>
-            <Icon name="shuffle" /><span>Shuffle</span>
+            <Icon name="randomize" /><span>Randomize</span>
           </button>
           <button type="button" className="nm-dock-btn" onClick={props.onUndo} disabled={!props.canUndo}>
             <Icon name="undo" /><span>Undo</span>

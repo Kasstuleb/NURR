@@ -42,6 +42,11 @@ void main() { gl_Position = vec4(a_pos, 0.0, 1.0); }
 precision highp float;
 
 uniform vec2  u_res;
+uniform vec2  u_tileOrigin;   // whole-image pixel offset of this tile's origin
+                             // (0,0 for a normal full-frame render). Added to
+                             // gl_FragCoord so tiled print bands sample the
+                             // correct region of the full image instead of all
+                             // sampling the same slice.
 uniform int   u_form;        // 0=glass  1=ripple
 uniform int   u_glassType;   // 0=clear  1=ripple  2=prism  3=water
 uniform int   u_gsrc;        // 0=smooth 1=blob
@@ -556,7 +561,7 @@ vec3 blurSample(vec2 d) {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 void main() {
-  vec2 uv = gl_FragCoord.xy / u_res;
+  vec2 uv = (gl_FragCoord.xy + u_tileOrigin) / u_res;
 
   // Stretch 8% beyond viewport edges
   vec2 sv = uv * 1.16 - 0.08;
@@ -639,7 +644,7 @@ void main() {
   // ── Film grain ────────────────────────────────────────────────────────────
   // Pixel-scale monochrome grit. Stronger upper range, no coarse cell layer.
   float lumG = dot(col, vec3(0.299, 0.587, 0.114));
-  col += vec3(nymphFilmGrain(gl_FragCoord.xy, u_seed, u_grain, lumG));
+  col += vec3(nymphFilmGrain(gl_FragCoord.xy + u_tileOrigin, u_seed, u_grain, lumG));
 
   gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
 }
@@ -877,7 +882,7 @@ void main() {
 
     const uLoc = {};
     [
-      'u_res','u_form','u_glassType','u_gsrc','u_variant',
+      'u_res','u_tileOrigin','u_form','u_glassType','u_gsrc','u_variant',
       'u_pal','u_palN','u_density','u_strength',
       'u_blur','u_vdist','u_vsize','u_contrast','u_grain',
       'u_bw','u_invert','u_seed','u_time',
@@ -902,19 +907,22 @@ void main() {
     const st = getAbstractState(tweaksState);
     const p  = parsePalette(st.colors);
 
-    // Tiled rendering for print-resolution output. The viewport is offset by
-    // the tile's position within the full image and sized to the FULL image,
-    // so gl_FragCoord still reports whole-image coordinates and every uniform
-    // (u_res included) stays identical across tiles. The field is therefore
-    // seamless — a tile is a true crop of the full render, not a re-render.
-    if (tile) gl.viewport(-tile.x, -tile.y, tile.fullW, tile.fullH);
-    else      gl.viewport(0, 0, canvasW, canvasH);
+    // Tiled rendering for print-resolution output. Each tile renders into its
+    // own (tile-sized) viewport; the tile's whole-image pixel origin is passed
+    // as u_tileOrigin and added to gl_FragCoord in the shader. u_res stays the
+    // FULL image size, so every tile is a true crop of one seamless render.
+    // (The previous approach offset the *viewport* by the tile origin on the
+    // assumption that gl_FragCoord would then report whole-image coordinates —
+    // but gl_FragCoord is framebuffer-relative, not viewport-relative, so every
+    // band sampled the same slice and the output came out as repeated stripes.)
+    gl.viewport(0, 0, canvasW, canvasH);
     gl.useProgram(prog);
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
     gl.enableVertexAttribArray(aPos);
     gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
 
     gl.uniform2f(uLoc.u_res, tile ? tile.fullW : canvasW, tile ? tile.fullH : canvasH);
+    gl.uniform2f(uLoc.u_tileOrigin, tile ? tile.x : 0, tile ? tile.y : 0);
     // 0 = shader derives the grain pitch from resolution (live preview and all
     // screen exports). The print exporter passes an explicit pitch in render
     // pixels so grain stays physically fine at 300 DPI.
@@ -1476,43 +1484,7 @@ void main() {
           )
         ),
 
-        // ── Presets ─────────────────────────────────────────────────────────
-        React.createElement('div', {
-          className: 'section presets-section collapsible-presets ' + (presetsOpen ? 'is-open' : 'is-collapsed')
-        },
-          React.createElement('button', {
-            type: 'button',
-            className: 'section-label presets-toggle',
-            onClick: function () { setPresetsOpen(!presetsOpen); },
-            'aria-expanded': presetsOpen,
-          },
-            React.createElement('span', { className: 'name' }, 'Presets'),
-            React.createElement('span', { className: 'value' }, '8 styles'),
-            React.createElement('span', { className: 'preset-arrow' }, presetsOpen ? '⌃' : '⌄')
-          ),
-          React.createElement('div', { className: 'palette-grid' },
-            [
-              ['#EAF0F2','#F04A2F','#2637D9','#2E2A4F','#F7FAFB'],
-              ['#07104C','#FC6C3D','#98F2F4','#E38BB8','#05040A'],
-              ['#F4EDE0','#BE1E2D','#1E33B8','#B9BCC9','#11121E'],
-              ['#05040A','#08015F','#FC6C3D','#F4BE62','#98F2F4'],
-              ['#e8f4f8','#b8d9e8','#7ab8d4','#3a85a8','#0a3c5c'],
-              ['#f5ede0','#d4b896','#a07850','#6b4428','#2c1508'],
-              ['#0d0221','#3a0e6f','#7b2fbe','#c77dff','#e0aaff'],
-              ['#f2f7ff','#c8dcf8','#8ab8f0','#4a88d8','#0a3c8c'],
-            ].map(function (p, i) {
-              return React.createElement('button', {
-                key: i,
-                className: 'palette-card',
-                title: 'Preset ' + (i + 1),
-                onClick: function () { setTweaks({ colors: p, variant: i, seed: Math.random() }); },
-              }, p.map(function (c, j) {
-                return React.createElement('span', { key: j, style: { background: c } });
-              }));
-            })
-          )
-        ),
-
+        // Colour presets removed — Shuffle is the palette source.
         // ── Sliders ─────────────────────────────────────────────────────────
 
         // Strength

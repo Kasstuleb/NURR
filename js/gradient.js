@@ -45,6 +45,9 @@ precision highp float;
 varying vec2 v_uv;
 uniform float u_time;
 uniform vec2  u_resolution;
+uniform vec2  u_tileOrigin;   // whole-image pixel offset of this tile (0,0 for a
+                             // normal full-frame render); added to gl_FragCoord
+                             // so tiled print bands sample the right region.
 uniform vec2  u_mouse;
 uniform vec2  u_mouseRaw;
 uniform float u_clickPulse;
@@ -221,7 +224,7 @@ vec3 applyTextureSurface(vec3 col, vec2 uv, vec2 p, float time){
     fbm(uv*3.0 + vec2(-time*0.003 + u_textureSeed*1.7))
   ) * 0.018 * distort;
 
-  float fine = hash21(floor(gl_FragCoord.xy) + vec2(u_textureSeed*997.0)) - 0.5;
+  float fine = hash21(floor(gl_FragCoord.xy + u_tileOrigin) + vec2(u_textureSeed*997.0)) - 0.5;
   float cloud = fbm(q * sc * 0.055 + vec2(time*0.004, -time*0.003));
   float fiber = fbm(vec2(q.x*sc*0.10, q.y*sc*0.018) + vec2(u_textureSeed*4.0));
   float wrinkleA = fbm(vec2(q.x*sc*0.020, q.y*sc*0.090) + vec2(8.0, u_textureSeed));
@@ -401,7 +404,7 @@ vec3 weightedDirectionalRamp(float t, float distance, float blend, float spread,
 }
 
 void main(){
-  vec2 uv = gl_FragCoord.xy / max(u_resolution, vec2(1.0));
+  vec2 uv = (gl_FragCoord.xy + u_tileOrigin) / max(u_resolution, vec2(1.0));
   if(u_pixelateEnabled == 1 && u_pixelateAmount > 0.001){
     // Pixel surface prepass: only active for explicit Pixelate.
     // Chroma has independent uniforms and can never enter this path.
@@ -519,7 +522,7 @@ void main(){
   // Film grain overlay: sharper and stronger at the top end, but still
   // pixel-scale and monochrome so it exports as texture, not square blocks.
   float lumGrain = dot(col, vec3(0.2126, 0.7152, 0.0722));
-  col += vec3(nymphFilmGrain(gl_FragCoord.xy, u_textureSeed, u_grain, lumGrain));
+  col += vec3(nymphFilmGrain(gl_FragCoord.xy + u_tileOrigin, u_textureSeed, u_grain, lumGrain));
 
   // Pixelate must be visible as both block geometry and simplified colour.
   // Round 4 kept only the UV block prepass, so soft gradients still looked
@@ -812,6 +815,54 @@ window.NURR_NYMPH_GRADIENT_ENGINE = {
       grain:0.025,
       direction:(Math.random() < .34 ? 'organic' : (Math.random() < .50 ? 'horizontal' : 'vertical'))
     };
+  },
+
+  // Apply a SPECIFIC palette (curated preset, user pick) with the full Nymph
+  // role treatment. This is the missing piece that made presets look flat and
+  // muddy: preset picks used to go through manualGradientPatch(), which forces
+  // manualPalette:true + equal role weights, so a deliberately-composed palette
+  // rendered as a flat average. Here the palette keeps its exact colours — no
+  // mutation — but gets ordered into the dark-anchor / vivid-body / mist /
+  // accent hierarchy and rendered with a real formula, exactly like shuffle.
+  applyPalette(colors, opts){
+    opts = opts || {};
+    const clean = (typeof cleanGradientColors === 'function' ? cleanGradientColors(colors) : colors) || [];
+    if (clean.length < 2) return null;
+
+    // Pick the formula whose weighting best fits the palette's own structure,
+    // rather than a fixed one — a dark-anchored palette wants deep-shadow, a
+    // pale-dominant one wants mist-heavy, etc. Scored, not random, so the same
+    // preset is stable across taps.
+    const ordered = (typeof nymphSmartReorder === 'function') ? nymphSmartReorder(clean.slice()) : clean.slice();
+    const st = (typeof nymphPaletteStats === 'function') ? nymphPaletteStats(ordered) : null;
+
+    let formulaId = 'dominant-heavy';
+    if (st){
+      if (st.minL < 0.16) formulaId = 'deep-shadow';
+      else if (st.maxL > 0.80 && st.muted >= 2) formulaId = 'mist-heavy';
+      else if (st.vivid >= 3) formulaId = 'accent-pin';
+      else if (st.rangeL < 0.34) formulaId = 'equal-stress';
+      else formulaId = 'dominant-heavy';
+    }
+    const f = NYMPH_FORMULAS[formulaId] || NYMPH_FORMULAS['dominant-heavy'];
+
+    return {
+      colors: ordered.slice(0, 4),
+      manualPalette: false,
+      formula: f.id,
+      formulaLabel: f.label,
+      formulaWeights: (f.w || [1,1,1,.62]).slice(0,4),
+      spread: clampGradient(f.spread + (ordered.length >= 3 ? 0.04 : -0.06), 0.48, 0.80),
+      distance: clampGradient(f.distance, 0.44, 0.72),
+      blend: clampGradient(f.blend + 0.03, 0.38, 0.58),
+      // The pigment/saturation that make shuffle read as rich, dimensional
+      // gradients instead of washed-out CSS blends.
+      pigment: 0.92,
+      saturation: 0.58,
+      temperature: 0,
+      grain: 0.025,
+      direction: opts.direction || undefined
+    };
   }
 };
 
@@ -844,13 +895,15 @@ function getNymphFormulaWeights(tweaks = {}) {
 // pass, so no leftover Pixelate grid or Chroma value can survive a mode
 // switch, a shuffle, a randomize, or a re-render at a different resolution.
 function applyGradientFrame(gl, prog, targetW, targetH, tweaks, time, mouse, pulse, tile) {
-  // Tiled rendering for print-resolution output: offset the viewport by the
-  // tile origin and size it to the FULL image, so gl_FragCoord keeps reporting
-  // whole-image coordinates. Every tile is then a true crop of one continuous
-  // render rather than an independent re-render, which is what makes seamless
-  // A0 output possible without allocating a 139-megapixel canvas.
-  if (tile) gl.viewport(-tile.x, -tile.y, tile.fullW, tile.fullH);
-  else      gl.viewport(0, 0, targetW, targetH);
+  // Tiled rendering for print-resolution output: each tile renders into its own
+  // (tile-sized) viewport and receives its whole-image pixel origin as
+  // u_tileOrigin, which the shader adds to gl_FragCoord. u_resolution stays the
+  // FULL image size, so every tile is a true crop of one continuous render.
+  // (The earlier version offset the *viewport* instead, assuming gl_FragCoord
+  // would then be whole-image — but gl_FragCoord is framebuffer-relative, so
+  // every band read back the same slice and the file came out as repeated
+  // stripes. This keeps seamless A0 output without a 139-megapixel canvas.)
+  gl.viewport(0, 0, targetW, targetH);
   gl.disable(gl.BLEND);
   gl.disable(gl.DEPTH_TEST);
   gl.disable(gl.CULL_FACE);
@@ -862,6 +915,7 @@ function applyGradientFrame(gl, prog, targetW, targetH, tweaks, time, mouse, pul
 
   gl.uniform1f(u('u_time'), time || 0);
   gl.uniform2f(u('u_resolution'), tile ? tile.fullW : targetW, tile ? tile.fullH : targetH);
+  gl.uniform2f(u('u_tileOrigin'), tile ? tile.x : 0, tile ? tile.y : 0);
   // 0 = shader derives grain pitch from resolution; the print exporter
   // passes an explicit pitch so grain stays physically fine at 300 DPI.
   gl.uniform1f(u('u_grainPitch'), (tile && tile.grainPitch) || 0);
@@ -1063,6 +1117,15 @@ window.NurrGradientMotion = function (width, height) {
 // Exposed for the mobile UI so its palette edits go through the exact same
 // path as the desktop palette editor (keeps swatches, picker and canvas in sync).
 window.NURR_manualGradientPatch = manualGradientPatch;
+
+// Preset / curated-palette application: full Nymph role treatment, exact colours
+// preserved. Falls back to the manual patch only if the engine is unavailable.
+window.NURR_applyGradientPreset = function (colors, currentTweaks) {
+  const eng = window.NURR_NYMPH_GRADIENT_ENGINE;
+  const patch = (eng && typeof eng.applyPalette === 'function') ? eng.applyPalette(colors) : null;
+  if (patch) return patch;
+  return manualGradientPatch(colors, currentTweaks || {});
+};
 window.NURR_adjustGradientHex   = adjustGradientHex;
 
 function GradientMode({ tweaks, registerSnapshot, mouseRef }) {
@@ -1381,12 +1444,15 @@ function GradientControls({ tweaks, setTweaks }) {
   const applyPreset = (palette) => {
     const colors = cleanPresetColors(palette);
     if (colors.length < 2) return;
-    setTweaks({
-      ...manualGradientPatch(colors, tweaks),
-      spread: Math.max(tweaks.spread ?? 0.62, colors.length >= 3 ? 0.62 : 0.48),
-      colorDistance: tweaks.colorDistance ?? 0.56,
-      blend: tweaks.blend ?? 0.56
-    });
+    // Route curated presets through the Nymph role engine so they get the same
+    // dark-anchor / vivid-body / mist / accent hierarchy and pigment treatment
+    // as Shuffle. Previously presets went through manualGradientPatch(), which
+    // forced equal role weights and flat pigment — the reason curated palettes
+    // rendered muddy and washed-out compared to shuffled ones.
+    const patch = window.NURR_applyGradientPreset
+      ? window.NURR_applyGradientPreset(colors, tweaks)
+      : manualGradientPatch(colors, tweaks);
+    setTweaks({ ...patch, textureSeed: Math.random() });
   };
 
   const activePresetIdx = WP.PALETTE_PRESETS.findIndex(p =>
@@ -1458,27 +1524,7 @@ function GradientControls({ tweaks, setTweaks }) {
         )}
       />
 
-      <div className={'section presets-section collapsible-presets ' + (presetsOpen ? 'is-open' : 'is-collapsed')}>
-        <button
-          type="button"
-          className="section-label presets-toggle"
-          onClick={() => setPresetsOpen(!presetsOpen)}
-          aria-expanded={presetsOpen}
-        >
-          <span className="name">Presets</span>
-          <span className="value">{WP.PALETTE_PRESETS.length}</span>
-          <span className="preset-arrow">{presetsOpen ? '⌃' : '⌄'}</span>
-        </button>
-        <div className="palette-grid">
-          {WP.PALETTE_PRESETS.map((p,i) => (
-            <button key={i} className={'palette-card'+(i===activePresetIdx?' active':'')}
-              onClick={() => applyPreset(p)}
-              title={p.join(' · ')}>
-              {p.map((c,j) => <span key={j} style={{background:c}} />)}
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* Colour presets removed — Randomize/Shuffle is the palette source. */}
 
 
       <div className="section gradient-direction-section">

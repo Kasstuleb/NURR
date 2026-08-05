@@ -417,9 +417,57 @@ function App() {
   // a resolution-independent cell size — so it stays consistent across every
   // export size and aspect ratio and never doubles up into digital "dirt".
 
+  // ── Print resolution metadata ───────────────────────────────────────────
+  // Browser canvas.toBlob / toDataURL write PNGs with NO pHYs chunk, so every
+  // design app reads them as 72 DPI regardless of pixel count — which is why a
+  // 4K export dropped into a layout came in at the wrong physical size. We add
+  // a pHYs chunk declaring 300 DPI so the resolution travels with the file.
+  const EXPORT_DPI = 300;
+  const crc32 = (bytes, start, end) => {
+    let c = 0xFFFFFFFF;
+    for (let i = start; i < end; i++) {
+      c ^= bytes[i];
+      for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (0xEDB88320 & -(c & 1));
+    }
+    return (c ^ 0xFFFFFFFF) >>> 0;
+  };
+  // Insert a pHYs chunk (300 DPI) directly after IHDR, unless one already exists.
+  const pngWithDpi = (bytes, dpi = EXPORT_DPI) => {
+    if (!(bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47)) return bytes;
+    // Bail if a pHYs is already present in the first few chunks (avoid duplicates).
+    for (let i = 8; i < Math.min(bytes.length - 4, 128); i++) {
+      if (bytes[i] === 0x70 && bytes[i + 1] === 0x48 && bytes[i + 2] === 0x59 && bytes[i + 3] === 0x73) return bytes;
+    }
+    const ihdrEnd = 8 + 4 + 4 + 13 + 4; // sig + IHDR (len+type+13 data+crc)
+    const ppm = Math.round(dpi / 0.0254);
+    const chunk = new Uint8Array(4 + 4 + 9 + 4);
+    const dv = new DataView(chunk.buffer);
+    dv.setUint32(0, 9);                                  // data length
+    chunk.set([0x70, 0x48, 0x59, 0x73], 4);             // 'pHYs'
+    dv.setUint32(8, ppm); dv.setUint32(12, ppm);        // X/Y pixels per metre
+    chunk[16] = 1;                                       // unit = metre
+    dv.setUint32(17, crc32(chunk, 4, 17));              // CRC over type+data
+    const out = new Uint8Array(bytes.length + chunk.length);
+    out.set(bytes.subarray(0, ihdrEnd), 0);
+    out.set(chunk, ihdrEnd);
+    out.set(bytes.subarray(ihdrEnd), ihdrEnd + chunk.length);
+    return out;
+  };
+  const b64ToBytes = (b64) => { const bin = atob(b64); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u; };
+  const bytesToB64 = (u) => { let s = ''; for (let i = 0; i < u.length; i++) s += String.fromCharCode(u[i]); return btoa(s); };
+  // Add DPI to a base64 PNG payload (no data-url prefix), for ZIP entries.
+  const pngB64WithDpi = (b64) => { try { return bytesToB64(pngWithDpi(b64ToBytes(b64))); } catch (e) { return b64; } };
+
   const canvasToBlob = (canvas, mime, quality = 0.94) => new Promise((resolve, reject) => {
+    const finish = async (blob) => {
+      if (blob && mime === 'image/png') {
+        try { resolve(new Blob([pngWithDpi(new Uint8Array(await blob.arrayBuffer()))], { type: 'image/png' })); return; }
+        catch (e) { /* fall back to raw blob below */ }
+      }
+      resolve(blob);
+    };
     canvas.toBlob((blob) => {
-      if (blob) resolve(blob);
+      if (blob) finish(blob);
       else if (mime !== 'image/png') canvas.toBlob((fallback) => fallback ? resolve(fallback) : reject(new Error('Canvas export failed.')), 'image/png');
       else reject(new Error('Canvas export failed.'));
     }, mime, quality);
@@ -635,8 +683,8 @@ function App() {
       const zip = new JSZip();
       library.forEach((item, i) => {
         const name = `nurr-${String(i + 1).padStart(2, '0')}-${moduleDisplay(item.module)}-${item.type}`;
-        zip.file(name + '.png', (item.exportSource || item.preview).split(',')[1], { base64: true });
-        if (item.alphaPreview) zip.file(name + '-layer.png', item.alphaPreview.split(',')[1], { base64: true });
+        zip.file(name + '.png', pngB64WithDpi((item.exportSource || item.preview).split(',')[1]), { base64: true });
+        if (item.alphaPreview) zip.file(name + '-layer.png', pngB64WithDpi(item.alphaPreview.split(',')[1]), { base64: true });
       });
       const blob = await zip.generateAsync({ type: 'blob' });
       const url  = URL.createObjectURL(blob);
@@ -1104,8 +1152,8 @@ function App() {
 
             <div className="export-tabs">
               <button className={'export-tab' + (exportTab === 'still' ? ' active' : '')} onClick={() => setExportTab('still')}>Still</button>
-              <button className={'export-tab' + (exportTab === 'motion' ? ' active' : '')} onClick={() => setExportTab('motion')}>Motion / Web</button>
               <button className={'export-tab is-print-tab' + (exportTab === 'print' ? ' active' : '')} onClick={() => setExportTab('print')}>Print</button>
+              <button className={'export-tab' + (exportTab === 'motion' ? ' active' : '')} onClick={() => setExportTab('motion')}>Motion / Web</button>
             </div>
 
             <div className={'export-window-body' + (exportTab === 'print' ? ' is-print' : '')}>

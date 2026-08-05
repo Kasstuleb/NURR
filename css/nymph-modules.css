@@ -870,6 +870,22 @@
   grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
 }
 
+/* Op-art pattern picker: compact 4-across so the 8 patterns sit on two rows. */
+.panel.mode-geometric .geo-pattern-section {
+  display: block !important;
+}
+.panel.mode-geometric .geo-pattern-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 6px !important;
+}
+.panel.mode-geometric .geo-pattern-grid .geo-render-chip {
+  letter-spacing: 0.04em !important;
+  padding: 0 4px !important;
+}
+.panel.mode-geometric .geo-pattern-scale {
+  margin-top: 10px !important;
+}
+
 
 /* ---------- abstract.css ---------- */
 

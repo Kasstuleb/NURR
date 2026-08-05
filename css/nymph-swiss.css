@@ -1444,11 +1444,11 @@ body:not(.nymph-landing-active) .panel { animation: nymphAppReveal .8s var(--nx-
 }
 
 .print-group-label {
-  font: 500 8px/1 var(--nx-font) !important;
-  letter-spacing: .19em !important;
+  font: 600 9.5px/1 var(--nx-font) !important;
+  letter-spacing: .16em !important;
   text-transform: uppercase !important;
-  color: var(--nx-ink-faint) !important;
-  margin: 13px 0 7px !important;
+  color: var(--nx-ink-soft) !important;
+  margin: 13px 0 8px !important;
 }
 .print-group-label:first-child { margin-top: 0 !important; }
 
@@ -1461,9 +1461,9 @@ body:not(.nymph-landing-active) .panel { animation: nymphAppReveal .8s var(--nx-
   border: 1px solid var(--nx-line) !important;
   border-radius: var(--nx-r-s) !important;
   background: transparent !important;
-  color: var(--nx-ink-soft) !important;
-  font: 500 9px/1 var(--nx-font) !important;
-  letter-spacing: .13em !important;
+  color: var(--nx-ink) !important;
+  font: 500 10.5px/1 var(--nx-font) !important;
+  letter-spacing: .08em !important;
   text-transform: uppercase !important;
   cursor: pointer !important;
   transition: var(--nx-ink-fade) !important;
@@ -1482,33 +1482,33 @@ body:not(.nymph-landing-active) .panel { animation: nymphAppReveal .8s var(--nx-
   gap: 9px !important;
   margin-top: 14px !important;
   min-height: 30px !important;
-  font: 400 11px/1.4 var(--nx-font) !important;
-  color: var(--nx-ink-soft) !important;
+  font: 400 11.5px/1.4 var(--nx-font) !important;
+  color: var(--nx-ink) !important;
   cursor: pointer !important;
 }
 .print-toggle input { accent-color: var(--nx-accent) !important; width: 14px !important; height: 14px !important; }
 .print-icc input[type="file"] {
   max-width: 168px !important;
-  font: 400 10px/1 var(--nx-font) !important;
-  color: var(--nx-ink-faint) !important;
+  font: 400 10.5px/1 var(--nx-font) !important;
+  color: var(--nx-ink-soft) !important;
 }
 
 .print-note {
-  font: 400 10.5px/1.6 var(--nx-font) !important;
-  color: var(--nx-ink-soft) !important;
+  font: 400 11.5px/1.62 var(--nx-font) !important;
+  color: var(--nx-ink) !important;
   margin-top: 10px !important;
 }
 .print-note em { font-style: italic !important; color: var(--nx-accent) !important; }
-.print-note-dim { color: var(--nx-ink-faint) !important; }
+.print-note-dim { color: var(--nx-ink-soft) !important; }
 .print-warn { color: var(--nx-accent) !important; }
 
 .print-range { display: block !important; margin-top: 14px !important; }
 .print-range span {
   display: block !important;
-  font: 500 8px/1 var(--nx-font) !important;
-  letter-spacing: .19em !important;
+  font: 600 9.5px/1 var(--nx-font) !important;
+  letter-spacing: .16em !important;
   text-transform: uppercase !important;
-  color: var(--nx-ink-faint) !important;
+  color: var(--nx-ink-soft) !important;
   margin-bottom: 8px !important;
 }
 .print-range input[type="range"] { width: 100% !important; accent-color: var(--nx-accent) !important; }
@@ -1532,8 +1532,8 @@ body:not(.nymph-landing-active) .panel { animation: nymphAppReveal .8s var(--nx-
   left: 0; right: 0; bottom: 0;
   background: rgb(var(--veil-rgb) / .72) !important;
   color: var(--nx-ink) !important;
-  font: 600 7.5px/1 var(--nx-font) !important;
-  letter-spacing: .16em !important;
+  font: 700 8.5px/1 var(--nx-font) !important;
+  letter-spacing: .12em !important;
   padding: 3px 0 !important;
 }
 .print-snap.active { border-color: var(--nx-accent) !important; }
@@ -1557,12 +1557,12 @@ body:not(.nymph-landing-active) .panel { animation: nymphAppReveal .8s var(--nx-
 .print-fmt.active { border-color: var(--nx-accent-line) !important; background: var(--nx-accent-soft) !important; }
 .print-fmt input { position: absolute !important; opacity: 0 !important; width: 1px !important; height: 1px !important; }
 .print-fmt strong {
-  font: 600 9px/1 var(--nx-font) !important;
-  letter-spacing: .16em !important;
+  font: 700 11px/1 var(--nx-font) !important;
+  letter-spacing: .10em !important;
   text-transform: uppercase !important;
   color: var(--nx-ink) !important;
 }
-.print-fmt small { font: 400 10px/1.35 var(--nx-font) !important; color: var(--nx-ink-faint) !important; }
+.print-fmt small { font: 400 10.5px/1.4 var(--nx-font) !important; color: var(--nx-ink-soft) !important; }
 
 /* Sticky so the export control stays reachable however far the form scrolls. */
 .print-actions {
@@ -1581,10 +1581,10 @@ body:not(.nymph-landing-active) .panel { animation: nymphAppReveal .8s var(--nx-
 }
 .export-window .print-actions .btn {
   width: 100% !important;
-  min-height: 40px !important;
+  min-height: 44px !important;
   border-radius: var(--nx-r-s) !important;
-  font: 600 9px/1 var(--nx-font) !important;
-  letter-spacing: .19em !important;
+  font: 700 11px/1 var(--nx-font) !important;
+  letter-spacing: .14em !important;
   text-transform: uppercase !important;
 }
 .export-window .print-actions .btn[disabled] { opacity: .38 !important; cursor: default !important; }

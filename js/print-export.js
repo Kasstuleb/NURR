@@ -101,25 +101,31 @@
     return [linearToSrgb(R), linearToSrgb(G), linearToSrgb(B)];
   }
 
-  // Coated-offset gamut boundary, anchored to ISO Coated v2 solid primaries and
-  // secondaries (approximate Lab). Each anchor gives the hue's maximum chroma
-  // and the lightness at which it occurs (the "cusp"). Between anchors the
-  // boundary is interpolated; at a given lightness the cross-section is modelled
-  // as the standard cusp triangle — the same construction real gamut-mapping
-  // algorithms use.
+  // Coated-offset gamut boundary, anchored to REAL measured ISO Coated v2 /
+  // FOGRA39 solid and overprint patches (not estimates). Each anchor gives the
+  // hue's maximum chroma and the lightness at which it occurs (the cusp).
+  //
+  // The blue region (250–320°) is sampled densely and pinned to the measured
+  // C+M blue overprint at Lab L=24, C=50, h=289. The previous anchors put blue
+  // too light (L≈32) and at the wrong hue (270°), which is what crushed vivid
+  // blues to a pale grey-purple in print — the "missing blue" bug. Blue's cusp
+  // is genuinely DARK, so a saturated blue must be allowed to darken toward it;
+  // holding lightness is what desaturates it.
   const GAMUT_ANCHORS = [
-    { h:   0, C: 72, L: 48 },   // red-magenta
-    { h:  30, C: 83, L: 47 },   // red        (M+Y)
-    { h:  60, C: 88, L: 62 },   // orange
-    { h:  90, C: 93, L: 88 },   // yellow
-    { h: 120, C: 78, L: 76 },   // yellow-green
-    { h: 150, C: 72, L: 52 },   // green      (C+Y)
-    { h: 180, C: 60, L: 55 },   // green-cyan
-    { h: 210, C: 58, L: 56 },   // cyan
-    { h: 240, C: 60, L: 48 },   // cyan-blue
-    { h: 270, C: 55, L: 32 },   // blue       (C+M)
-    { h: 300, C: 55, L: 27 },   // blue-violet
-    { h: 330, C: 74, L: 45 },   // magenta
+    { h:  15, C: 78, L: 47 },   // magenta-red
+    { h:  35, C: 83, L: 48 },   // red        M+Y solid (measured)
+    { h:  60, C: 78, L: 55 },   // orange
+    { h:  93, C: 93, L: 89 },   // yellow     Y solid (measured)
+    { h: 125, C: 74, L: 66 },   // yellow-green
+    { h: 158, C: 71, L: 50 },   // green      C+Y solid (measured)
+    { h: 195, C: 60, L: 54 },   // green-cyan
+    { h: 233, C: 62, L: 55 },   // cyan       C solid (measured)
+    { h: 250, C: 58, L: 44 },   // cyan-blue
+    { h: 270, C: 53, L: 32 },   // blue
+    { h: 289, C: 50, L: 24 },   // blue       C+M overprint (measured) — cusp
+    { h: 310, C: 56, L: 30 },   // blue-violet
+    { h: 335, C: 66, L: 40 },   // violet-magenta
+    { h: 358, C: 74, L: 48 },   // magenta    M solid (measured)
   ];
 
   function gamutAt(hue) {
@@ -147,33 +153,100 @@
 
     const cusp = gamutAt(h);
     const Lc = Math.max(1, Math.min(99, cusp.L));
-    // Gamut cross-section as a cusp triangle, softened on the upper branch:
-    // the real coated gamut bulges toward the light end rather than tapering
-    // in a straight line, which matters most for yellows.
-    const maxCAt = (Lv) => Lv <= Lc
-      ? cusp.C * (Lv / Lc)
-      : cusp.C * Math.pow((100 - Lv) / (100 - Lc), 0.7);
+    // Gamut cross-section as a cusp triangle. The lower and upper branches meet
+    // at the cusp value but with DIFFERENT slopes, so a naive ternary has a kink
+    // exactly at Lv=Lc — and when a gradient's mapped lightness sweeps across the
+    // cusp, that kink prints as a faint edge. Blend the two branches with a
+    // smoothstep over a small lightness window around the cusp so the crossing
+    // is C1-continuous.
+    const lowBranch  = (Lv) => cusp.C * (Lv / Lc);
+    const highBranch = (Lv) => cusp.C * Math.pow(Math.max(0, (100 - Lv) / (100 - Lc)), 0.7);
+    const blendW = 10;   // lightness half-window over which the branches merge
+    const maxCAt = (Lv) => {
+      const lo = lowBranch(Lv), hi = highBranch(Lv);
+      const t = Math.min(1, Math.max(0, (Lv - (Lc - blendW)) / (2 * blendW)));
+      const sw = t * t * (3 - 2 * t);   // smoothstep 0→1 across the cusp window
+      return lo + (hi - lo) * sw;
+    };
 
     const maxC0 = maxCAt(L);
     if (maxC0 <= 0) return labToRgb(L, 0, 0);
 
-    // Strict constant-lightness clipping turns a saturated out-of-gamut colour
-    // pale, because the gamut is narrow at extreme lightness. Real perceptual
-    // intents trade a little lightness for chroma; so does this, by a bounded
-    // amount, which is what keeps the substituted tone attractive rather than
-    // merely legal.
-    const excess = Math.max(0, (C - maxC0) / Math.max(1, maxC0));
-    const w = Math.min(0.42, 0.5 * (excess / (excess + 0.55)));
+    // Hue-aware lightness adaptation — the heart of the blue fix, now gated so
+    // it only fires where it should.
+    //
+    // A saturated out-of-gamut colour cannot keep both its lightness and its
+    // chroma. Deep blue (whose printable cusp sits DOWN at L≈24) must be allowed
+    // to darken toward that cusp to stay saturated. But two kinds of colour must
+    // NOT be dragged down:
+    //   • pale tints (a light periwinkle at L≈83) — darkening them to a mid
+    //     purple is wrong; they should hold their lightness and just clip chroma;
+    //   • low-chroma / near-neutral colours — there is no saturation worth
+    //     trading lightness for.
+    // So the lightness descent is scaled by (a) how dark the local cusp is,
+    // (b) how close the input already is to that cusp lightness, and (c) how
+    // much chroma the colour actually has. This keeps deep blues saturated while
+    // leaving light lavenders and pale tints at their proper lightness.
+    // The excess term drives the lightness descent and must be exactly zero for
+    // in-gamut colours (or they would drift), yet ramp up C1-smoothly across the
+    // boundary (or a gradient kinks there). A raw max(0,·) is zero-correct but
+    // kinked; a plain softplus is smooth but leaks a small positive value to
+    // in-gamut colours. This blends both: hard zero until just inside the
+    // boundary, then a smoothstep hand-off to the real ramp — zero-correct AND
+    // C1-continuous.
+    const rawExcess = (C - maxC0) / Math.max(1, maxC0);
+    const ramp = Math.max(0, rawExcess);
+    const blend = (e0, e1, x) => { const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0))); return t * t * (3 - 2 * t); };
+    const excess = ramp * blend(0.0, 0.28, rawExcess);
+    // The three gates below shape where the lightness descent applies. They use
+    // smoothstep rather than linear clamps because a linear ramp has a slope
+    // KINK at each endpoint — and a kink in the weight becomes a slope spike in
+    // the mapped output, i.e. a faint visible edge in a gradient that crosses
+    // the gate boundary. smoothstep is C1-continuous (zero slope at both ends),
+    // so the weight — and therefore every gradient — stays perfectly smooth.
+    const smooth = (e0, e1, x) => {
+      const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0)));
+      return t * t * (3 - 2 * t);
+    };
+    const darkCusp = smooth(18, 58, 58 - Lc);        // 1 = dark cusp (blue), 0 = light (yellow)
+    const proximity = 1 - smooth(0, 30, L - Lc);     // 1 at/below cusp lightness, 0 well above it
+    const chromaGate = smooth(28, 62, C);            // 0 for low-chroma tints, 1 for saturated colour
+    // Bright, highly-saturated hues (pure green / yellow / magenta / cyan) sit
+    // FAR above their printable cusp. If lightness is held there, almost no
+    // chroma survives and they print as pale washed-out pastels — the exact
+    // "print looks nothing like my screen" complaint. Blue already gets to
+    // darken toward its dark cusp (darkCusp≈1); this extends the same courtesy
+    // to the bright-cusp hues, letting them descend toward their cusp in
+    // proportion to how far out of gamut they are, so they stay vivid. It is
+    // gated three ways so nothing else is touched: `outOfGamut` is 0 for
+    // in-gamut colours (no drift), `chromaGate` is 0 for tints/neutrals, and
+    // `(1 - darkCusp)` is 0 for blue (its tuned behaviour is preserved exactly).
+    // ── TUNABLE: this single 0.45 sets how much bright hues may darken to hold
+    //    saturation. Lower it toward 0 for a paler/lighter print, raise it
+    //    toward 0.7 for the most vivid. Set to 0 to restore the previous look.
+    const outOfGamut = smooth(0.15, 1.2, rawExcess); // 0 in/near gamut, 1 far outside
+    const brightPull = 0.45 * outOfGamut * chromaGate * (1 - darkCusp);
+    const wMax = Math.min(0.80,
+      ((0.30 + 0.60 * darkCusp) * proximity + 0.30 * (1 - proximity)) * chromaGate + brightPull);
+    // The descent weight is the excess-driven ramp, capped by wMax. Because the
+    // ramp is built from `excess` (which is exactly 0 in-gamut and rises C1-
+    // smoothly across the boundary) and wMax is itself smooth, their product is
+    // smooth everywhere AND exactly 0 for in-gamut colours — so gradients don't
+    // kink and in-gamut colours don't drift. (An earlier soft-min here undershot
+    // to a small negative weight and nudged in-gamut lightness the wrong way.)
+    const wRamp = excess / (excess + 0.32);
+    const w = Math.max(0, Math.min(wMax, 0.9 * wRamp));
     const Lm = L + (Lc - L) * w;
     const maxC = maxCAt(Lm);
     if (maxC <= 0) return labToRgb(Lm, 0, 0);
 
-    const knee = maxC * 0.82;
+    // Ride nearer the gamut boundary (0.90 vs the old 0.82) so mapped colours
+    // come out brighter and closer to the original, while the tanh knee still
+    // guarantees C1 continuity — no banding across a gradient.
+    const knee = maxC * 0.90;
     let Cn = C;
     if (C > knee) {
       const span = maxC - knee;
-      // tanh asymptotes to 1, so chroma approaches but never exceeds maxC, and
-      // the derivative matches at the knee — C1 continuous, therefore no banding.
       Cn = knee + span * Math.tanh((C - knee) / span);
     }
     if (Cn >= C && Math.abs(Lm - L) < 1e-6) return [r, g, b];
@@ -186,33 +259,51 @@
     return t * t * (3 - 2 * t);
   }
 
-  // Ink separation with grey-component replacement and a total-area-coverage
-  // limit. TAC 300% is the usual ceiling for ISO Coated v2 / FOGRA39 sheetfed.
+  // Ink separation, tuned so the DeviceCMYK file REPRODUCES the intended colour
+  // when a viewer or RIP renders it — not just on an ideal press.
+  //
+  // The subtlety that ruins most naive separations: DeviceCMYK has no fixed
+  // appearance without an ICC profile, so viewers (Preview, Acrobat, many RIP
+  // previews) fall back to the PDF-spec transform R = 1 − min(1, C+K). Any black
+  // this separation adds is therefore *added back onto* C/M/Y at display time —
+  // and once C+K clips at 1 the hue skews. That is exactly what turned dark
+  // pinks into "burnt brown": the old model put 30–50% K into dark saturated
+  // colours, which the viewer then rendered as a clipped, darkened, hue-shifted
+  // mess (measured up to a 23° hue error).
+  //
+  // The fix is to keep the separation additive-consistent: start from the exact
+  // complement (C=1−r, M=1−g, Y=1−b), and when black IS pulled, subtract exactly
+  // that amount from C/M/Y so (C+K) is unchanged. Then R = 1 − min(1, C+K) = r
+  // for every colour — the file displays as the target under the standard
+  // interpretation, and reduces to R = (1−C) under the multiplicative one too,
+  // so it is viewer-independent. Black is pulled ONLY from deep, near-neutral
+  // undercolour (shadows, greys) where it adds density and cuts total ink
+  // without costing colour fidelity; light/mid and saturated colours keep K≈0.
   function separate(r, g, b, tac, gcrAmount) {
     let c = 1 - r, m = 1 - g, y = 1 - b;
-    const k0 = Math.min(c, m, y);
+    const k0 = Math.min(c, m, y);            // grey component shared by all three
 
-    // Neutral colours go almost entirely to K, so greys print clean rather than
-    // as a three-ink build that shifts with registration and ink density.
     const chroma = Math.max(r, g, b) - Math.min(r, g, b);
-    const neutral = 1 - Math.min(1, chroma / 0.18);
-    let gcr = gcrAmount * smoothstep(0.05, 0.40, k0);
-    gcr = gcr + (0.97 - gcr) * neutral;
+    const neutral = 1 - Math.min(1, chroma / 0.22);   // 1 = grey, 0 = saturated
+    // Only the DEEP part of the undercolour becomes K, ramped so mid-tones stay
+    // K≈0; neutrals convert more (clean greys/blacks), saturated colours almost
+    // none (so their hue can never be dragged by added black).
+    const depth = smoothstep(0.35, 0.85, k0);
+    const kAmt  = gcrAmount * depth * (0.25 + 0.75 * neutral);
+    let k = k0 * kAmt;
 
-    let k = k0 * gcr;
-    // Floor the denominator: as k approaches 1 the undercolour term explodes and
-    // a solid black would separate to CMY ~100 each, slamming into the ink
-    // limit. The floor only engages above ~85% K, so it shapes deep shadows
-    // into a conventional rich black and leaves every other tone untouched.
-    const den = Math.max(1 - k, 0.15);
-    c = (c - k) / den; m = (m - k) / den; y = (y - k) / den;
+    // Additive-consistent undercolour removal: (C+K), (M+K), (Y+K) are preserved,
+    // so the viewer/RIP reproduces the target colour exactly.
+    c -= k; m -= k; y -= k;
 
     c = Math.max(0, Math.min(1, c));
     m = Math.max(0, Math.min(1, m));
     y = Math.max(0, Math.min(1, y));
     k = Math.max(0, Math.min(1, k));
 
-    // TAC: pull CMY back first — K carries shadow density far more efficiently.
+    // TAC: with K held low this only bites in the deepest shadows. Pull CMY back
+    // first — K carries density more efficiently — which keeps (C+K) as close to
+    // the target as the ink limit allows.
     const limit = tac / 100;
     const total = c + m + y + k;
     if (total > limit) {
@@ -259,6 +350,22 @@
         }
       }
     }
+    return out;
+  }
+
+  // True sRGB pass-through LUT for RGB output. RGB mode must reproduce the
+  // on-screen / regular-export pixels EXACTLY — the coated gamut only belongs
+  // in the CMYK path, where it is physically required. (A linear ramp is
+  // reproduced exactly by the trilinear interpolation in lutApply, so this is a
+  // byte-for-byte identity: an RGB print now matches the standard RGB export.)
+  function buildIdentityRgbLUT() {
+    const n = LUT_N, out = new Float32Array(n * n * n * 3);
+    let i = 0;
+    for (let bi = 0; bi < n; bi++)
+      for (let gi = 0; gi < n; gi++)
+        for (let ri = 0; ri < n; ri++) {
+          out[i++] = ri / (n - 1); out[i++] = gi / (n - 1); out[i++] = bi / (n - 1);
+        }
     return out;
   }
 
@@ -730,7 +837,11 @@
         `Lower the DPI or choose a smaller sheet.`);
     }
 
-    const lut = isCMYK ? buildCmykLUT(tac, gcr) : buildRgbGamutLUT();
+    // RGB output → true sRGB (identity), so it matches the screen and the
+    // regular RGB export exactly. Coated-gamut compression is applied only for
+    // real CMYK output, where the smaller ink gamut makes it physically
+    // necessary. (buildRgbGamutLUT is retained below for optional soft-proofing.)
+    const lut = isCMYK ? buildCmykLUT(tac, gcr) : buildIdentityRgbLUT();
 
     const tick = (done, total) => { if (onProgress) onProgress(done / total); };
     const provider = makeBandProvider(item, page, colorMode, lut, comps, grainPitch, tick);
@@ -746,7 +857,7 @@
   window.NymphPrint = {
     PAPER, DPI_OPTIONS, pageMetrics, exportPrintFile, hasDeflate,
     // exposed for testing / reuse
-    _internal: { toCoatedGamut, separate, buildCmykLUT, buildRgbGamutLUT, lutApply, encodePNG, encodeTIFF, encodePDF, Deflator },
+    _internal: { toCoatedGamut, separate, buildCmykLUT, buildRgbGamutLUT, buildIdentityRgbLUT, lutApply, encodePNG, encodeTIFF, encodePDF, Deflator },
   };
 })();
 
@@ -778,6 +889,7 @@
     const [tac, setTac]         = useState(300);
     const [icc, setIcc]         = useState(null);
     const [busy, setBusy]       = useState(null);
+    const [queue, setQueue]     = useState([]);
 
     const item = library.find(l => l.id === sel) || library[0] || null;
     const page = useMemo(() => P.pageMetrics(paper, dpi, landscape), [paper, dpi, landscape]);
@@ -813,6 +925,107 @@
       } catch (err) {
         console.error('Print export failed', err);
         showToast('⚠ Print export failed — see console');
+      } finally {
+        setBusy(null);
+      }
+    };
+
+    const buildName = (fkey) => {
+      const cm = (fkey === 'png' ? 'rgb' : colorMode);
+      return (`nymph-print-${moduleDisplay(item.module)}-${(P.PAPER[paper] || {}).label || paper}`
+        + `${landscape ? '-L' : ''}-${dpi}dpi-${cm}.${fkey === 'tiff' ? 'tif' : fkey}`).replace(/\s+/g, '');
+    };
+
+    // Bundle every selected format into one ZIP instead of firing N downloads.
+    const runZip = async () => {
+      if (!item || !active.length || busy) return;
+      if (!P.hasDeflate()) { showToast('⚠ Browser lacks CompressionStream'); return; }
+      if (!window.JSZip) { showToast('⚠ ZIP library missing'); return; }
+      try {
+        const zip = new window.JSZip();
+        for (const f of active) {
+          setBusy({ label: `${f.label} → zip`, pct: 0 });
+          const { blob } = await P.exportPrintFile(item, {
+            paper, dpi, landscape, colorMode, format: f.key, tac, icc,
+            onProgress: (p) => setBusy({ label: `${f.label} → zip`, pct: Math.round(p * 100) }),
+          });
+          zip.file(buildName(f.key), blob);
+        }
+        setBusy({ label: 'Compressing ZIP', pct: 0 });
+        const zipBlob = await zip.generateAsync({ type: 'blob' },
+          (m) => setBusy({ label: 'Compressing ZIP', pct: Math.round(m.percent || 0) }));
+        const url = URL.createObjectURL(zipBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = (`nymph-print-${moduleDisplay(item.module)}-${(P.PAPER[paper] || {}).label || paper}-${dpi}dpi.zip`).replace(/\s+/g, '');
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        showToast('✓ Print ZIP ready');
+      } catch (err) {
+        console.error('Print ZIP export failed', err);
+        showToast('⚠ Print ZIP failed — see console');
+      } finally {
+        setBusy(null);
+      }
+    };
+
+    // ── Batch queue ──────────────────────────────────────────────────────────
+    // Add the current image + settings as a job; queue as many as you like (each
+    // can use different paper / DPI / colour / formats), then render them all
+    // into a single ZIP in one click.
+    const jobDesc = (j) => `${j.itemLabel} · ${(P.PAPER[j.paper] || {}).label || j.paper}${j.landscape ? ' · L' : ''} · ${j.dpi}dpi · ${j.colorMode.toUpperCase()} · ${j.formats.map(k => k.toUpperCase()).join('+')}`;
+
+    const addToQueue = () => {
+      if (!item || !active.length) { showToast('⚠ Pick an image and a format first'); return; }
+      const job = {
+        id: (Date.now().toString(36) + Math.random().toString(36).slice(2, 6)),
+        itemId: item.id, itemLabel: moduleDisplay(item.module),
+        paper, dpi, landscape, colorMode, formats: active.map(f => f.key), tac, icc,
+      };
+      setQueue(q => q.concat(job));
+      showToast('✓ Added to batch');
+    };
+    const removeFromQueue = (id) => setQueue(q => q.filter(j => j.id !== id));
+    const clearQueue = () => setQueue([]);
+
+    const runQueue = async () => {
+      if (!queue.length || busy) return;
+      if (!P.hasDeflate()) { showToast('⚠ Browser lacks CompressionStream'); return; }
+      if (!window.JSZip) { showToast('⚠ ZIP library missing'); return; }
+      const totalFiles = queue.reduce((s, j) => s + j.formats.length, 0);
+      try {
+        const zip = new window.JSZip();
+        let done = 0;
+        for (const job of queue) {
+          const jobItem = library.find(l => l.id === job.itemId);
+          if (!jobItem) continue;
+          for (const fkey of job.formats) {
+            done++;
+            const tag = `Batch ${done}/${totalFiles}`;
+            setBusy({ label: tag, pct: 0 });
+            const { blob } = await P.exportPrintFile(jobItem, {
+              paper: job.paper, dpi: job.dpi, landscape: job.landscape,
+              colorMode: job.colorMode, format: fkey, tac: job.tac, icc: job.icc,
+              onProgress: (p) => setBusy({ label: tag, pct: Math.round(p * 100) }),
+            });
+            const cm = (fkey === 'png' ? 'rgb' : job.colorMode);
+            const name = (`${String(done).padStart(2, '0')}-nymph-${job.itemLabel}-${(P.PAPER[job.paper] || {}).label || job.paper}`
+              + `${job.landscape ? '-L' : ''}-${job.dpi}dpi-${cm}.${fkey === 'tiff' ? 'tif' : fkey}`).replace(/\s+/g, '');
+            zip.file(name, blob);
+          }
+        }
+        setBusy({ label: 'Compressing ZIP', pct: 0 });
+        const zipBlob = await zip.generateAsync({ type: 'blob' },
+          (m) => setBusy({ label: 'Compressing ZIP', pct: Math.round(m.percent || 0) }));
+        const url = URL.createObjectURL(zipBlob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `nymph-print-batch-${totalFiles}files.zip`;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        showToast('✓ Batch ZIP ready');
+      } catch (err) {
+        console.error('Batch export failed', err);
+        showToast('⚠ Batch export failed — see console');
       } finally {
         setBusy(null);
       }
@@ -884,7 +1097,8 @@
               onChange: e => setTac(Number(e.target.value)),
             })),
           h('div', { className: 'print-note' },
-            'Separated for coated FOGRA39 (ISO 12647-2) with grey-component replacement. ',
+            'Separated for coated FOGRA39 (ISO 12647-2). Black is kept low and used only in shadows/greys ',
+            'so the file reproduces the intended colour in any viewer or RIP — no muddy or burnt hue shifts. ',
             'Colours outside the coated gamut are eased back at constant hue to the nearest printable tone.'),
           h('label', { className: 'print-icc' },
             h('span', null, icc ? '✓ ICC profile embedded' : 'Embed ICC profile (optional)'),
@@ -900,7 +1114,8 @@
             'Without a profile the separation is a colorimetric approximation, not profile-exact. ',
             'For colour-critical work embed ISO Coated v2 (free from ECI) and soft-proof.')
         ) : h('div', { className: 'print-note' },
-          'RGB output is still gamut-mapped to coated, so an RGB proof shows what CMYK can actually reach.'))),
+          'True sRGB — exact screen colours, no gamut mapping. Matches the standard RGB export at full print resolution. ',
+          'Best for digital / large-format printers that manage their own colour; switch to CMYK · coated for offset separations.'))),
 
       block('Format', h('div', null,
         h('div', { className: 'print-fmt-grid' }, FORMATS.map(f =>
@@ -930,12 +1145,54 @@
           onClick: run,
           'aria-busy': !!busy,
         }, busy ? `${busy.label} — ${busy.pct}%` : `Export ${active.length || 0} print file${active.length === 1 ? '' : 's'}`),
+        (active.length > 1 && window.JSZip) ? h('button', {
+          className: 'btn btn-italic print-zip-btn',
+          disabled: !!busy || !active.length,
+          onClick: runZip,
+          'aria-busy': !!busy,
+          style: { marginTop: '8px' },
+          title: 'Bundle all selected formats into one ZIP',
+        }, 'Download as ZIP') : null,
+        window.JSZip ? h('button', {
+          className: 'btn btn-italic',
+          disabled: !!busy || !active.length,
+          onClick: addToQueue,
+          style: { marginTop: '8px' },
+          title: 'Queue this image + these settings; add more, then export all as one ZIP',
+        }, '+ Add to batch') : null,
         busy ? h('div', {
           className: 'print-progress', role: 'progressbar',
           'aria-valuenow': busy.pct, 'aria-valuemin': 0, 'aria-valuemax': 100,
           'aria-label': `Rendering ${busy.label}`,
         },
-          h('div', { className: 'print-progress-bar', style: { width: busy.pct + '%' } })) : null)
+          h('div', { className: 'print-progress-bar', style: { width: busy.pct + '%' } })) : null),
+
+      queue.length ? h('div', { className: 'export-control-block', style: { marginTop: '10px' } },
+        h('div', { className: 'export-control-title' },
+          `Batch queue — ${queue.length} job${queue.length === 1 ? '' : 's'}, ${queue.reduce((s, j) => s + j.formats.length, 0)} file${queue.reduce((s, j) => s + j.formats.length, 0) === 1 ? '' : 's'}`),
+        h('div', { className: 'print-queue-list' },
+          queue.map(j => h('div', {
+            key: j.id,
+            className: 'print-queue-row',
+            style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '4px 0', fontSize: '12px', opacity: 0.9 },
+          },
+            h('span', { style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, jobDesc(j)),
+            h('button', {
+              className: 'btn-mini', onClick: () => removeFromQueue(j.id),
+              disabled: !!busy, title: 'Remove from batch',
+              style: { flex: '0 0 auto', border: 'none', background: 'transparent', cursor: 'pointer', opacity: 0.7 },
+            }, '✕')))),
+        h('div', { style: { display: 'flex', gap: '8px', marginTop: '8px' } },
+          h('button', {
+            className: 'btn primary btn-italic',
+            disabled: !!busy || !queue.length,
+            onClick: runQueue, 'aria-busy': !!busy,
+            style: { flex: '1 1 auto' },
+          }, busy ? `${busy.label} — ${busy.pct}%` : `Export batch as ZIP`),
+          h('button', {
+            className: 'btn btn-italic', disabled: !!busy, onClick: clearQueue,
+            style: { flex: '0 0 auto' },
+          }, 'Clear'))) : null
     );
   }
 

@@ -1170,10 +1170,15 @@ body.nymph-landing-active .nurr-kofi-modal {
     transition: color 0.2s var(--nm-ease), background 0.2s var(--nm-ease);
   }
   .nm-mode-num {
-    font-family: "Instrument Serif", Georgia, serif;
-    font-style: italic;
-    font-size: 10.5px;
-    opacity: 0.68;
+    /* Matches the desktop module rail, which is uniformly Helvetica Neue with
+       no serif face. The old serif-italic treatment here was the only place in
+       either layout rendering live serif body text, which is why some mobile
+       panels read as "a different font" from the rest of the app. */
+    font-family: var(--nymph-font);
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    opacity: 0.55;
     color: inherit;
   }
   .nm-mode.is-on {
@@ -1271,9 +1276,12 @@ body.nymph-landing-active .nurr-kofi-modal {
     color: var(--nm-accent); font-weight: 600; margin-bottom: 3px;
   }
   .nm-sheet-title {
-    font-family: "Instrument Serif", Georgia, serif;
-    font-size: 20px; line-height: 1; color: var(--nm-ink);
-    font-weight: 400;
+    /* Desktop panel/window titles are Helvetica Neue 500 (e.g. the export
+       window header), not serif. Match that so mobile sheets read as the same
+       product, not a different one. */
+    font-family: var(--nymph-font);
+    font-size: 17px; line-height: 1.15; color: var(--nm-ink);
+    font-weight: 500; letter-spacing: 0.01em;
   }
   .nm-x {
     flex: none; width: 32px; height: 32px;
@@ -1328,6 +1336,12 @@ body.nymph-landing-active .nurr-kofi-modal {
 
   /* ── action row (Shuffle / Undo etc. at top of a card) ─────────────────── */
   .nm-action-row { display: flex; gap: 8px; }
+  /* A row with a single control (e.g. palette card's Undo, now that Randomize
+     lives only in the persistent dock) shouldn't stretch a lone button into a
+     full-width bar — that reads as a missing sibling. Size it to content and
+     left-align so it looks like a deliberate compact control. */
+  .nm-action-row:has(> .nm-action:only-child) { justify-content: flex-start; }
+  .nm-action-row > .nm-action:only-child { flex: 0 0 auto; min-width: 128px; }
   .nm-action {
     flex: 1 1 0;
     display: inline-flex; align-items: center; justify-content: center; gap: 6px;
