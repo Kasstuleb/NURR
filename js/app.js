@@ -13,15 +13,30 @@ const MODULE_HAS_ALPHA = { geometric: true };
 const MODULE_DISPLAY = { gradient:'gradient', abstract:'abstract', geometric:'flow', nature:'photo' };
 const moduleDisplay = (id) => MODULE_DISPLAY[id] || id;
 
+// Legacy press/CMYK export is intentionally kept in the build but hidden from
+// the public UI. Flip this to true to restore the old Print tab without bringing
+// any files back or changing the export engine.
+const ENABLE_LEGACY_PRINT_EXPORT = false;
+const EXPORT_DPI = 300;
+
 const EXPORT_SIZES = {
-  square:   { label: '1×1',   w: 1080, h: 1080, ratio: '1:1' },
-  wide:     { label: '16:9',  w: 1920, h: 1080, ratio: '16:9' },
-  story:    { label: '9:16',  w: 1080, h: 1920, ratio: '9:16' },
-  portrait: { label: '4:5',   w: 1600, h: 2000, ratio: '4:5' },
-  qhd:      { label: '2K',    w: 2560, h: 1440, ratio: '16:9' },
+  square:   { label: '1×1',   w: 1080, h: 1080, ratio: '1:1',  group: 'screen' },
+  wide:     { label: 'HD',    w: 1920, h: 1080, ratio: '16:9', group: 'screen' },
+  story:    { label: '9:16',  w: 1080, h: 1920, ratio: '9:16', group: 'screen' },
+  portrait: { label: '4:5',   w: 1600, h: 2000, ratio: '4:5',  group: 'screen' },
+  qhd:      { label: '2K',    w: 2560, h: 1440, ratio: '16:9', group: 'screen' },
+
+  // ISO A sizes at a true 300 PPI. These store the canonical paper dimensions;
+  // the universal export-orientation control resolves vertical/horizontal output.
+  a1: { label: 'A1', w: 7016, h: 9933, ratio: '594:841', group: 'poster', paper: 'a1', mmW: 594, mmH: 841, dpi: EXPORT_DPI },
+  a2: { label: 'A2', w: 4961, h: 7016, ratio: '420:594', group: 'poster', paper: 'a2', mmW: 420, mmH: 594, dpi: EXPORT_DPI },
+  a3: { label: 'A3', w: 3508, h: 4961, ratio: '297:420', group: 'poster', paper: 'a3', mmW: 297, mmH: 420, dpi: EXPORT_DPI },
+  a4: { label: 'A4', w: 2480, h: 3508, ratio: '210:297', group: 'poster', paper: 'a4', mmW: 210, mmH: 297, dpi: EXPORT_DPI },
 };
 
-const EXPORT_PANEL_KEYS = ['square', 'wide', 'story', 'portrait', 'qhd'];
+const SCREEN_EXPORT_KEYS = ['square', 'wide', 'story', 'portrait', 'qhd'];
+const POSTER_EXPORT_KEYS = ['a1', 'a2', 'a3', 'a4'];
+const EXPORT_PANEL_KEYS = [...SCREEN_EXPORT_KEYS, ...POSTER_EXPORT_KEYS];
 const EXPORT_FORMATS = {
   png:  { label: 'PNG',  mime: 'image/png',  ext: 'png' },
   jpg:  { label: 'JPG',  mime: 'image/jpeg', ext: 'jpg' },
@@ -191,7 +206,77 @@ function App() {
   const [exportChecks, setExportChecks] = useState({});
   const [exportTab, setExportTab] = useState('still');
   const [exportFormats, setExportFormats] = useState({ png: true, jpg: false, webp: false, pdf: false });
+  // Orientation is now owned per format instead of globally. Each non-square
+  // size keeps its own V/H state so the export matrix stays explicit and
+  // formats can be mixed optimally in one run.
+  const [exportOrientations, setExportOrientations] = useState(() => {
+    const seed = {};
+    EXPORT_PANEL_KEYS.forEach(sizeKey => {
+      const base = EXPORT_SIZES[sizeKey] || EXPORT_SIZES.qhd;
+      if (base.w === base.h) return;
+      const naturalVertical = base.h >= base.w;
+      seed[sizeKey] = { vertical: naturalVertical, horizontal: !naturalVertical };
+    });
+    return seed;
+  });
   const [exportStatus, setExportStatus] = useState({ busy: false, text: '' });
+
+  const getSizeOrientationState = (sizeKey) => {
+    const base = EXPORT_SIZES[sizeKey] || EXPORT_SIZES.qhd;
+    if (base.w === base.h) return { vertical: false, horizontal: false };
+    const current = exportOrientations[sizeKey];
+    if (current && (current.vertical || current.horizontal)) return current;
+    const naturalVertical = base.h >= base.w;
+    return { vertical: naturalVertical, horizontal: !naturalVertical };
+  };
+
+  const toggleExportOrientation = (sizeKey, orientation) => {
+    const base = EXPORT_SIZES[sizeKey] || EXPORT_SIZES.qhd;
+    if (base.w === base.h) return;
+    setExportOrientations(prev => {
+      const naturalVertical = base.h >= base.w;
+      const current = (prev[sizeKey] && (prev[sizeKey].vertical || prev[sizeKey].horizontal))
+        ? prev[sizeKey]
+        : { vertical: naturalVertical, horizontal: !naturalVertical };
+      const nextState = { ...current, [orientation]: !current[orientation] };
+      // Never leave a non-square format without an active orientation.
+      if (!nextState.vertical && !nextState.horizontal) return prev;
+      return { ...prev, [sizeKey]: nextState };
+    });
+  };
+
+  const activeExportOrientations = (sizeKey) => ['vertical', 'horizontal'].filter(key => getSizeOrientationState(sizeKey)[key]);
+
+  const resolveExportSize = (sizeKey, orientation = activeExportOrientations(sizeKey)[0] || 'vertical') => {
+    const base = EXPORT_SIZES[sizeKey] || EXPORT_SIZES.qhd;
+    const isSquare = base.w === base.h;
+    if (isSquare) return { ...base, orientation: 'square' };
+
+    const vertical = orientation === 'vertical';
+    const shortPx = Math.min(base.w, base.h);
+    const longPx = Math.max(base.w, base.h);
+    const hasPhysicalSize = Number.isFinite(base.mmW) && Number.isFinite(base.mmH);
+    const shortMm = hasPhysicalSize ? Math.min(base.mmW, base.mmH) : null;
+    const longMm = hasPhysicalSize ? Math.max(base.mmW, base.mmH) : null;
+    const w = vertical ? shortPx : longPx;
+    const h = vertical ? longPx : shortPx;
+    const mmW = hasPhysicalSize ? (vertical ? shortMm : longMm) : base.mmW;
+    const mmH = hasPhysicalSize ? (vertical ? longMm : shortMm) : base.mmH;
+
+    return {
+      ...base,
+      w, h, mmW, mmH,
+      ratio: `${w}:${h}`,
+      orientation,
+    };
+  };
+
+  const resolveExportVariants = (sizeKey) => {
+    const base = EXPORT_SIZES[sizeKey] || EXPORT_SIZES.qhd;
+    if (base.w === base.h) return [resolveExportSize(sizeKey, 'square')];
+    const active = activeExportOrientations(sizeKey);
+    return (active.length ? active : ['vertical']).map(orientation => resolveExportSize(sizeKey, orientation));
+  };
 
   const showToast = (text = '✓ Saved') => {
     setToast({ show: true, text });
@@ -237,7 +322,7 @@ function App() {
     } catch (err) {
       console.error('Snapshot export failed', err);
       const a = document.createElement('a');
-      a.href = source; a.download = `nymph-${mode}-${size.label}-${Date.now()}.png`;
+      a.href = pngDataUrlWithDpi(source); a.download = `nymph-${mode}-${size.label}-${Date.now()}.png`;
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
     }
   };
@@ -267,10 +352,10 @@ function App() {
       ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
       ctx.drawImage(img, 0, 0, size.w, size.h);
       // Grain comes from the shader render, applied once. No second pass.
-      return canvas.toDataURL('image/png');
+      return pngDataUrlWithDpi(canvas.toDataURL('image/png'));
     } catch (err) {
       console.error('Mobile export grain pass failed', err);
-      return source;
+      return pngDataUrlWithDpi(source);
     }
   };
 
@@ -357,9 +442,13 @@ function App() {
   const colAllChecked = (sizeKey) => !!library.length && library.every(item => !!exportChecks[item.id + ':' + sizeKey]);
   const rowAllChecked = (itemId) => EXPORT_PANEL_KEYS.every(sk => !!exportChecks[itemId + ':' + sk]);
   const selectedCount = library.reduce((n, item) => n + EXPORT_PANEL_KEYS.filter(sk => exportChecks[item.id + ':' + sk]).length, 0);
+  const selectedOutputCount = library.reduce((total, item) => total + EXPORT_PANEL_KEYS.reduce((count, sk) => {
+    if (!exportChecks[item.id + ':' + sk]) return count;
+    return count + resolveExportVariants(sk).length;
+  }, 0), 0);
 
   const activeExportFormats = Object.keys(exportFormats).filter(k => exportFormats[k]);
-  const selectedFileCount = selectedCount * Math.max(1, activeExportFormats.length);
+  const selectedFileCount = selectedOutputCount * Math.max(1, activeExportFormats.length);
 
   const downloadBlob = (blob, filename) => {
     const url = URL.createObjectURL(blob);
@@ -422,7 +511,6 @@ function App() {
   // design app reads them as 72 DPI regardless of pixel count — which is why a
   // 4K export dropped into a layout came in at the wrong physical size. We add
   // a pHYs chunk declaring 300 DPI so the resolution travels with the file.
-  const EXPORT_DPI = 300;
   const crc32 = (bytes, start, end) => {
     let c = 0xFFFFFFFF;
     for (let i = start; i < end; i++) {
@@ -457,11 +545,59 @@ function App() {
   const bytesToB64 = (u) => { let s = ''; for (let i = 0; i < u.length; i++) s += String.fromCharCode(u[i]); return btoa(s); };
   // Add DPI to a base64 PNG payload (no data-url prefix), for ZIP entries.
   const pngB64WithDpi = (b64) => { try { return bytesToB64(pngWithDpi(b64ToBytes(b64))); } catch (e) { return b64; } };
+  const pngDataUrlWithDpi = (url) => {
+    if (!url || !url.startsWith('data:image/png;base64,')) return url;
+    const split = url.indexOf(',');
+    return url.slice(0, split + 1) + pngB64WithDpi(url.slice(split + 1));
+  };
+
+  // Canvas JPEGs normally contain a JFIF APP0 block but leave density at the
+  // browser default. Patch (or inject) that block so JPG exports also declare
+  // the same 300 PPI as PNG/PDF. WebP has no reliably honoured physical-density
+  // field across design applications, so its pixel dimensions remain the source
+  // of truth while PNG/JPG/PDF carry physical-resolution metadata.
+  const jpegWithDpi = (bytes, dpi = EXPORT_DPI) => {
+    if (!(bytes[0] === 0xFF && bytes[1] === 0xD8)) return bytes;
+    const density = Math.max(1, Math.min(65535, Math.round(dpi)));
+    for (let i = 2; i + 17 < bytes.length;) {
+      if (bytes[i] !== 0xFF) { i++; continue; }
+      const marker = bytes[i + 1];
+      if (marker === 0xDA || marker === 0xD9) break;
+      if (marker === 0x00 || marker === 0xD8 || (marker >= 0xD0 && marker <= 0xD7)) { i += 2; continue; }
+      const len = (bytes[i + 2] << 8) | bytes[i + 3];
+      if (marker === 0xE0 && len >= 16 &&
+          bytes[i + 4] === 0x4A && bytes[i + 5] === 0x46 && bytes[i + 6] === 0x49 && bytes[i + 7] === 0x46 && bytes[i + 8] === 0x00) {
+        const out = bytes.slice();
+        out[i + 11] = 1; // dots per inch
+        out[i + 12] = (density >> 8) & 255; out[i + 13] = density & 255;
+        out[i + 14] = (density >> 8) & 255; out[i + 15] = density & 255;
+        return out;
+      }
+      if (len < 2) break;
+      i += 2 + len;
+    }
+    const app0 = new Uint8Array([
+      0xFF,0xE0,0x00,0x10, 0x4A,0x46,0x49,0x46,0x00,
+      0x01,0x02,0x01,
+      (density >> 8) & 255, density & 255,
+      (density >> 8) & 255, density & 255,
+      0x00,0x00
+    ]);
+    const out = new Uint8Array(bytes.length + app0.length);
+    out.set(bytes.subarray(0, 2), 0);
+    out.set(app0, 2);
+    out.set(bytes.subarray(2), 2 + app0.length);
+    return out;
+  };
 
   const canvasToBlob = (canvas, mime, quality = 0.94) => new Promise((resolve, reject) => {
     const finish = async (blob) => {
       if (blob && mime === 'image/png') {
         try { resolve(new Blob([pngWithDpi(new Uint8Array(await blob.arrayBuffer()))], { type: 'image/png' })); return; }
+        catch (e) { /* fall back to raw blob below */ }
+      }
+      if (blob && mime === 'image/jpeg') {
+        try { resolve(new Blob([jpegWithDpi(new Uint8Array(await blob.arrayBuffer()))], { type: 'image/jpeg' })); return; }
         catch (e) { /* fall back to raw blob below */ }
       }
       resolve(blob);
@@ -478,11 +614,11 @@ function App() {
   // failure mode for this artwork. FlateDecode via the print encoder is
   // lossless and needs no library. The JPEG writer below is kept only as a
   // fallback for browsers without CompressionStream.
-  const canvasToLosslessPdf = async (canvas, w, h) => {
+  const canvasToLosslessPdf = async (canvas, w, h, dpi = EXPORT_DPI) => {
     const NP = window.NymphPrint;
     if (!NP || !NP.hasDeflate()) {
       const jpg = await canvasToBlob(canvas, 'image/jpeg', 0.98);
-      return jpegBlobToPdf(jpg, w, h);
+      return jpegBlobToPdf(jpg, w, h, dpi);
     }
     const ctx = canvas.getContext('2d');
     const provider = async (sink) => {
@@ -495,14 +631,17 @@ function App() {
         await sink(rgb, rows, y);
       }
     };
-    // 72pt per 96 CSS px keeps the page the same physical size as before.
-    return NP._internal.encodePDF(w, h, { ptW: w * 0.75, ptH: h * 0.75 }, 3, provider, null);
+    // PDF page dimensions are derived from the declared output resolution,
+    // so placing the file in a layout app preserves 300 PPI physical sizing.
+    const ptW = (w / dpi) * 72;
+    const ptH = (h / dpi) * 72;
+    return NP._internal.encodePDF(w, h, { ptW, ptH }, 3, provider, null);
   };
 
-  const jpegBlobToPdf = async (jpegBlob, w, h) => {
+  const jpegBlobToPdf = async (jpegBlob, w, h, dpi = EXPORT_DPI) => {
     const bytes = new Uint8Array(await jpegBlob.arrayBuffer());
-    const pageW = Math.round(w * 0.75);
-    const pageH = Math.round(h * 0.75);
+    const pageW = (w / dpi) * 72;
+    const pageH = (h / dpi) * 72;
     const enc = new TextEncoder();
     const chunks = [];
     let pos = 0;
@@ -572,8 +711,27 @@ function App() {
   };
 
   const renderExportBlob = async (item, size, formatKey) => {
-    // Render the native source supersampled (up to 2×), then downsample to the
-    // requested size — matches the retina preview's effective resolution.
+    // Poster PNG/PDF goes through the retained streaming print engine, but in
+    // normal sRGB mode. It renders the exact A-size field at 300 PPI in bands,
+    // avoiding browser canvas-memory limits while keeping the old CMYK/Print UI
+    // completely dormant. The saved renderState is still the source of truth.
+    if (size.group === 'poster' && window.NymphPrint && window.NymphPrint.hasDeflate && window.NymphPrint.hasDeflate() &&
+        (formatKey === 'png' || formatKey === 'pdf')) {
+      const out = await window.NymphPrint.exportPrintFile(item, {
+        paper: size.paper,
+        dpi: size.dpi || EXPORT_DPI,
+        landscape: size.orientation === 'horizontal',
+        colorMode: 'rgb',
+        format: formatKey,
+        // 0 tells the tile shader to derive grain exactly as the regular native
+        // renderer does, so poster exports keep the same visual texture.
+        grainPitchOverride: 0,
+      });
+      if (out && out.blob) return out.blob;
+    }
+
+    // Screen sizes and browser-encoded poster JPG/WEBP render natively at the
+    // requested aspect. No center crop or stretch is introduced by the export.
     const ss = exportSupersample(size);
     const renderSize = { w: Math.round(size.w * ss), h: Math.round(size.h * ss) };
     const native = await highResExportSource(item, renderSize, false);
@@ -593,7 +751,7 @@ function App() {
       drawImageFitted(ctx, img, size.w, size.h, item.exportFit || ((item.type === 'object' && item.module !== 'geometric') ? 'contain' : 'contain'));
     }
     // No canvas grain pass — grain is baked into the shader render.
-    if (formatKey === 'pdf') return canvasToLosslessPdf(canvas, size.w, size.h);
+    if (formatKey === 'pdf') return canvasToLosslessPdf(canvas, size.w, size.h, size.dpi || EXPORT_DPI);
     const meta = EXPORT_FORMATS[formatKey] || EXPORT_FORMATS.png;
     return canvasToBlob(canvas, meta.mime, formatKey === 'png' ? undefined : 0.98);
   };
@@ -604,7 +762,9 @@ function App() {
     library.forEach((item, idx) => {
       EXPORT_PANEL_KEYS.forEach(sizeKey => {
         if (exportChecks[item.id + ':' + sizeKey]) {
-          formats.forEach(formatKey => jobs.push({ item, idx, sizeKey, size: EXPORT_SIZES[sizeKey], formatKey }));
+          resolveExportVariants(sizeKey).forEach(size => {
+            formats.forEach(formatKey => jobs.push({ item, idx, sizeKey, size, formatKey }));
+          });
         }
       });
     });
@@ -628,7 +788,8 @@ function App() {
           const meta = EXPORT_FORMATS[job.formatKey] || EXPORT_FORMATS.png;
           setExportStatus({ busy: true, text: `Rendering ${i + 1}/${jobs.length}…` });
           const blob = await renderExportBlob(job.item, job.size, job.formatKey);
-          zip.file(`nymph-${String(job.idx + 1).padStart(2, '0')}-${moduleDisplay(job.item.module)}-${job.size.label.replace(':', 'x')}-${job.size.w}x${job.size.h}.${meta.ext}`, blob);
+          const orientationSuffix = job.size.orientation && job.size.orientation !== 'square' ? `-${job.size.orientation}` : '';
+          zip.file(`nymph-${String(job.idx + 1).padStart(2, '0')}-${moduleDisplay(job.item.module)}-${job.size.label.replace(':', 'x')}${orientationSuffix}-${job.size.w}x${job.size.h}.${meta.ext}`, blob);
         }
         setExportStatus({ busy: true, text: 'Compressing ZIP…' });
         const blob = await zip.generateAsync({ type: 'blob' }, (meta) => {
@@ -646,7 +807,8 @@ function App() {
         const meta = EXPORT_FORMATS[job.formatKey] || EXPORT_FORMATS.png;
         setExportStatus({ busy: true, text: `Downloading ${i + 1}/${jobs.length}…` });
         const blob = await renderExportBlob(job.item, job.size, job.formatKey);
-        downloadBlob(blob, `nymph-${String(job.idx + 1).padStart(2, '0')}-${moduleDisplay(job.item.module)}-${job.size.label.replace(':', 'x')}-${job.size.w}x${job.size.h}.${meta.ext}`);
+        const orientationSuffix = job.size.orientation && job.size.orientation !== 'square' ? `-${job.size.orientation}` : '';
+        downloadBlob(blob, `nymph-${String(job.idx + 1).padStart(2, '0')}-${moduleDisplay(job.item.module)}-${job.size.label.replace(':', 'x')}${orientationSuffix}-${job.size.w}x${job.size.h}.${meta.ext}`);
         await new Promise(resolve => setTimeout(resolve, 120));
       }
       showToast('Downloads started');
@@ -1143,21 +1305,23 @@ function App() {
             <div className="export-window-header" onMouseDown={onExportHeaderDown}>
               <div>
                 <div className="panel-eyebrow">Export Panel</div>
-                <div className="export-window-title">Still / Motion / Web / Print</div>
+                <div className="export-window-title">{ENABLE_LEGACY_PRINT_EXPORT ? 'Still / Motion / Web / Print' : 'Still / Motion / Web'}</div>
               </div>
               <button className="icon-btn" onClick={() => setPage('main')} title="Close">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
               </button>
             </div>
 
-            <div className="export-tabs">
+            <div className={'export-tabs' + (!ENABLE_LEGACY_PRINT_EXPORT ? ' print-dormant' : '')}>
               <button className={'export-tab' + (exportTab === 'still' ? ' active' : '')} onClick={() => setExportTab('still')}>Still</button>
-              <button className={'export-tab is-print-tab' + (exportTab === 'print' ? ' active' : '')} onClick={() => setExportTab('print')}>Print</button>
+              {ENABLE_LEGACY_PRINT_EXPORT && (
+                <button className={'export-tab is-print-tab' + (exportTab === 'print' ? ' active' : '')} onClick={() => setExportTab('print')}>Print</button>
+              )}
               <button className={'export-tab' + (exportTab === 'motion' ? ' active' : '')} onClick={() => setExportTab('motion')}>Motion / Web</button>
             </div>
 
-            <div className={'export-window-body' + (exportTab === 'print' ? ' is-print' : '')}>
-              {exportTab === 'print' && (
+            <div className={'export-window-body' + (ENABLE_LEGACY_PRINT_EXPORT && exportTab === 'print' ? ' is-print' : '')}>
+              {ENABLE_LEGACY_PRINT_EXPORT && exportTab === 'print' && (
                 window.NymphPrintPanel
                   ? <window.NymphPrintPanel library={library} moduleDisplay={moduleDisplay} showToast={showToast} />
                   : <div className="export-empty">Print module failed to load.</div>
@@ -1177,28 +1341,58 @@ function App() {
                     </div>
                   </div>
                   <div className="export-control-block export-format-block">
-                    <div className="export-control-title">File format</div>
-                    <div className="export-format-grid">
-                      {Object.keys(EXPORT_FORMATS).map(fk => (
-                        <label className={'export-format-chip' + (exportFormats[fk] ? ' active' : '')} key={fk}>
-                          <input type="checkbox" checked={!!exportFormats[fk]} onChange={(e) => setExportFormats(prev => ({ ...prev, [fk]: e.target.checked }))} />
-                          <span>{EXPORT_FORMATS[fk].label}</span>
-                        </label>
-                      ))}
+                    <div className="export-control-title">Output</div>
+                    <div className="export-output-grid">
+                      <div className="export-output-section">
+                        <div className="export-output-label">File format</div>
+                        <div className="export-format-grid">
+                          {Object.keys(EXPORT_FORMATS).map(fk => (
+                            <label className={'export-format-chip' + (exportFormats[fk] ? ' active' : '')} key={fk}>
+                              <input type="checkbox" checked={!!exportFormats[fk]} onChange={(e) => setExportFormats(prev => ({ ...prev, [fk]: e.target.checked }))} />
+                              <span>{EXPORT_FORMATS[fk].label}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  <div className="export-control-count">{selectedFileCount} file{selectedFileCount === 1 ? '' : 's'}</div>
+                  <div className="export-control-count"><strong>{selectedFileCount}</strong><span>file{selectedFileCount === 1 ? '' : 's'}</span></div>
                 </div>
 
                 <div className="export-matrix-shell">
+                  <div className="export-matrix-groups" aria-hidden="true">
+                    <span></span>
+                    <span className="export-group-label export-group-screen">Screen</span>
+                    <span className="export-group-label export-group-poster">Poster · 300 PPI</span>
+                  </div>
                   <div className="export-grid-head">
                     <span>Snapshot</span>
-                    {EXPORT_PANEL_KEYS.map(sk => { const sz = EXPORT_SIZES[sk]; return (
-                      <label className="export-col-select" key={sk} title={'All ' + sz.label}>
-                        <input type="checkbox" checked={colAllChecked(sk)} onChange={(e) => setExportCol(sk, e.target.checked)} />
-                        <span>{sz.label}<small>{sz.w}×{sz.h}</small></span>
-                      </label>
-                    ); })}
+                    {EXPORT_PANEL_KEYS.map(sk => {
+                      const base = EXPORT_SIZES[sk];
+                      const variants = resolveExportVariants(sk);
+                      const isSquare = base.w === base.h;
+                      const orientationState = getSizeOrientationState(sk);
+                      return (
+                        <div className={'export-col-select export-col-' + base.group + (isSquare ? ' is-square' : ' has-orientation')} key={sk}>
+                          <label className="export-col-pick" title={'All ' + base.label}>
+                            <input type="checkbox" checked={colAllChecked(sk)} onChange={(e) => setExportCol(sk, e.target.checked)} />
+                            <span className="export-col-copy">
+                              <strong>{base.label}</strong>
+                              {variants.map((sz, vi) => (
+                                <small className="export-col-dim" key={sz.orientation + ':' + vi}>{isSquare ? '' : (sz.orientation === 'vertical' ? 'V ' : 'H ')}{sz.w}×{sz.h}</small>
+                              ))}
+                              {base.group === 'poster' ? <small className="export-col-mm">{Math.min(base.mmW, base.mmH)}×{Math.max(base.mmW, base.mmH)} mm</small> : null}
+                            </span>
+                          </label>
+                          {!isSquare && (
+                            <div className="export-col-orientation" role="group" aria-label={base.label + ' orientation'} onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+                              <button type="button" aria-pressed={!!orientationState.vertical} className={orientationState.vertical ? 'active' : ''} onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleExportOrientation(sk, 'vertical'); }}>V</button>
+                              <button type="button" aria-pressed={!!orientationState.horizontal} className={orientationState.horizontal ? 'active' : ''} onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleExportOrientation(sk, 'horizontal'); }}>H</button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
 
                   <div className="export-list">
@@ -1219,7 +1413,7 @@ function App() {
                           </div>
                         </div>
                         {EXPORT_PANEL_KEYS.map(sk => (
-                          <label className="export-check" key={sk} title={EXPORT_SIZES[sk].label + ' export'}>
+                          <label className={'export-check export-check-' + EXPORT_SIZES[sk].group} key={sk} title={EXPORT_SIZES[sk].label + ' export'}>
                             <input type="checkbox" checked={!!exportChecks[item.id + ':' + sk]} onChange={() => toggleCheck(item.id, sk)} />
                             <span></span>
                           </label>

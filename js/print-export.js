@@ -724,22 +724,43 @@
     return _maxViewport;
   }
 
-  function openSource(item, fullW, fullH, grainPitch) {
+  function openSource(item, fullW, fullH, grainPitch, tileW) {
     const mod = item.module;
     const tweaks = item.tweaks ? item.tweaks[mod] : null;
     if (!tweaks) return null;
     const S = window.NymphTileSession || {};
     const key = mod === 'nature' ? null : mod;
     if (key && typeof S[key] === 'function') {
-      const sess = S[key](tweaks, item.renderState || {}, fullW, fullH, { tileW: fullW, tileH: BAND_ROWS, grainPitch });
+      const sess = S[key](tweaks, item.renderState || {}, fullW, fullH, { tileW: tileW || Math.min(fullW, 2048), tileH: BAND_ROWS, grainPitch });
       if (sess) return sess;
     }
     return null;
   }
 
+  function drawSourceFitted(ctx, img, w, h, fit) {
+    const iw = img.naturalWidth || img.width || w;
+    const ih = img.naturalHeight || img.height || h;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    if (fit === 'contain-soft') {
+      const coverScale = Math.max(w / Math.max(1, iw), h / Math.max(1, ih));
+      const coverW = iw * coverScale, coverH = ih * coverScale;
+      ctx.save();
+      ctx.globalAlpha = 0.34;
+      ctx.filter = 'blur(18px) saturate(1.03)';
+      ctx.drawImage(img, (w - coverW) * 0.5, (h - coverH) * 0.5, coverW, coverH);
+      ctx.restore();
+      fit = 'contain';
+    }
+    const scale = (fit === 'cover' ? Math.max : Math.min)(w / Math.max(1, iw), h / Math.max(1, ih));
+    const dw = iw * scale, dh = ih * scale;
+    ctx.drawImage(img, (w - dw) * 0.5, (h - dh) * 0.5, dw, dh);
+  }
+
   // Photo/nature and FLOW particle mode have no tileable static field, so they
-  // fall back to a single full-frame render. Their ceiling is the source image,
-  // not the page, which the UI states plainly rather than pretending otherwise.
+  // fall back to a single capped full-frame render. Crucially, that fallback is
+  // FITTED rather than stretched: changing from portrait to landscape preserves
+  // the saved composition in the same way as the regular export path.
   async function fallbackFullFrame(item, fullW, fullH) {
     const tweaks = item.tweaks ? item.tweaks[item.module] : null;
     let src = null;
@@ -762,7 +783,8 @@
     c.width = cw; c.height = ch;
     const ctx = c.getContext('2d');
     ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(img, 0, 0, cw, ch);
+    ctx.clearRect(0, 0, cw, ch);
+    drawSourceFitted(ctx, img, cw, ch, item.exportFit || (item.forceVisualExport ? 'contain-soft' : 'contain'));
     return c;
   }
 
@@ -770,7 +792,8 @@
   function makeBandProvider(item, page, colorMode, lut, comps, grainPitch, onTick) {
     const W = page.px, H = page.py;
     return async function bandProvider(sink) {
-      const session = openSource(item, W, H, grainPitch);
+      const safeTileW = Math.min(W, Math.max(64, Math.min(2048, maxViewportDim())));
+      const session = openSource(item, W, H, grainPitch, safeTileW);
       let canvasFallback = null;
       if (!session) canvasFallback = await fallbackFullFrame(item, W, H);
       let bandCanvas = null, bandCtx = null;
@@ -781,7 +804,19 @@
           const rows = Math.min(BAND_ROWS, H - y);
           let rgba;
           if (session) {
-            rgba = session.renderTile(0, y, W, rows);
+            // Render a band in horizontal tiles and stitch only that band in RAM.
+            // This removes the old GPU-width ceiling for A1 landscape while the
+            // shader still sees the full output resolution + exact tile origin.
+            rgba = new Uint8Array(W * rows * 4);
+            for (let x = 0; x < W; x += safeTileW) {
+              const tw = Math.min(safeTileW, W - x);
+              const tile = session.renderTile(x, y, tw, rows);
+              for (let r = 0; r < rows; r++) {
+                const src0 = r * tw * 4;
+                const dst0 = (r * W + x) * 4;
+                rgba.set(tile.subarray(src0, src0 + tw * 4), dst0);
+              }
+            }
           } else {
             const sy = y * (canvasFallback.height / H);
             const sh = rows * (canvasFallback.height / H);
@@ -816,6 +851,7 @@
       paper = 'a2', dpi = 300, landscape = false,
       colorMode = 'cmyk', format = 'pdf',
       tac = 300, gcr = 0.75, icc = null,
+      grainPitchOverride = null,
       onProgress = null,
     } = opts || {};
 
@@ -828,14 +864,14 @@
     // Grain pitch in render pixels, held at a constant physical size (~0.085 mm)
     // so a 300 DPI page gets a fine film tooth instead of grain that scales up
     // with the paper. Floored at 1 px so it can never alias below the grid.
-    const grainPitch = Math.max(1.0, (dpi / MM_PER_IN) * 0.085);
+    const grainPitch = grainPitchOverride == null
+      ? Math.max(1.0, (dpi / MM_PER_IN) * 0.085)
+      : Math.max(0, Number(grainPitchOverride) || 0);
 
+    // The renderer is tiled in both axes, so page dimensions may safely exceed
+    // a GPU's single-viewport limit (A1 landscape often does on Safari).
     const maxVp = maxViewportDim();
-    if (Math.max(page.px, page.py) > maxVp) {
-      throw new Error(
-        `${page.px}×${page.py}px exceeds this GPU's ${maxVp}px render limit. ` +
-        `Lower the DPI or choose a smaller sheet.`);
-    }
+    if (maxVp < BAND_ROWS) throw new Error(`GPU render limit (${maxVp}px) is too small for export.`);
 
     // RGB output → true sRGB (identity), so it matches the screen and the
     // regular RGB export exactly. Coated-gamut compression is applied only for
