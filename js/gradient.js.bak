@@ -50,7 +50,6 @@ uniform vec2  u_tileOrigin;   // whole-image pixel offset of this tile (0,0 for 
                              // so tiled print bands sample the right region.
 uniform vec2  u_mouse;
 uniform vec2  u_mouseRaw;
-uniform vec2  u_clickMouse;
 uniform float u_clickPulse;
 uniform float u_grain;
 uniform float u_grainPitch; // dot pitch in render px; 0 = derive from resolution
@@ -434,7 +433,6 @@ void main(){
   vec2 p = (uv - 0.5) * aspect;
   vec2 m = (u_mouse - 0.5) * aspect * 1.8;
   vec2 mr = (u_mouseRaw - 0.5) * aspect;
-  vec2 cmr = (u_clickMouse - 0.5) * aspect;
 
   // Restored from the older NURR motion base: the field is always in slow
   // liquid movement and the mouse bends the actual colour body, not only a
@@ -451,13 +449,8 @@ void main(){
   vec2 wp = p + warp * 0.32 * flow;
 
   float dmr = distance(p, mr);
-  float dcr = distance(p, cmr);
-  // Click response is anchored to the actual click position, rather than the
-  // cursor's later position. This keeps the pulse readable even if the mouse
-  // moves immediately after clicking.
-  float ripple = sin(dcr * 18.0 - u_clickPulse * 9.0) * exp(-dcr * 2.15) * u_clickPulse * 0.50;
-  vec2 clickDir = normalize(p - cmr + vec2(0.0001));
-  wp += clickDir * ripple;
+  float ripple = sin(dmr * 18.0 - u_clickPulse * 9.0) * exp(-dmr * 2.2) * u_clickPulse * 0.42;
+  wp += normalize(toMouse + 0.0001) * ripple;
 
   float cnt = float(u_count);
   float spread = clamp(u_spread, 0.0, 1.0);
@@ -502,48 +495,16 @@ void main(){
   vec3 col = organicCol;
 
   if(u_directionMode == 1 || u_directionMode == 2){
-    // Directional modes stay recognisably horizontal/vertical, but are no
-    // longer static ramps. The cursor gently pushes the ramp locally in BOTH
-    // axes, autonomous drift keeps it breathing, and clicks send a restrained
-    // ripple through the actual colour field.
-    bool isVertical = (u_directionMode == 2);
-    float axis = isVertical ? uv.y : uv.x;
-    float crossAxis = isVertical ? uv.x : uv.y;
-    float mouseAlong = isVertical ? u_mouseRaw.y : u_mouseRaw.x;
-    float mouseCross = isVertical ? u_mouseRaw.x : u_mouseRaw.y;
-    float clickAlong = isVertical ? u_clickMouse.y : u_clickMouse.x;
-    float clickCross = isVertical ? u_clickMouse.x : u_clickMouse.y;
-
-    // Slow, multi-frequency movement — visible when watched, never restless.
-    float timeDrift = (
-      sin(u_time * 0.055 + u_textureSeed * 5.7) * 0.014 +
-      sin(u_time * 0.021 + u_textureSeed * 2.3 + 1.7) * 0.008
-    ) * flow;
-
-    // Global following makes left/right or up/down movement immediately legible.
-    float mouseDrift = (mouseAlong - 0.5) * 0.105 * flow;
-
-    // Local push makes movement on the cross axis matter too, without turning
-    // the directional field back into an organic blob.
-    vec2 localDelta = uv - u_mouseRaw;
-    float localInfluence = exp(-dot(localDelta, localDelta) * 10.0);
-    float localPush = (
-      (mouseAlong - axis) * 0.20 +
-      (mouseCross - crossAxis) * 0.060
-    ) * localInfluence * flow;
-
-    // Click wave is fixed to the click point. Its displacement is along the
-    // ramp axis, so the reaction reads clearly in both V and H modes.
-    vec2 clickDelta = uv - u_clickMouse;
-    float clickDist = length(clickDelta);
-    float clickInfluence = exp(-clickDist * 4.2);
-    float clickWave = sin(clickDist * 21.0 - u_clickPulse * 8.0) * clickInfluence * u_clickPulse * 0.060;
-    float clickPush = (clickAlong - axis) * exp(-(
-      (axis-clickAlong)*(axis-clickAlong)*9.0 +
-      (crossAxis-clickCross)*(crossAxis-clickCross)*6.0
-    )) * u_clickPulse * 0.055;
-
-    float dirT = clamp(axis + timeDrift + mouseDrift + localPush + clickWave + clickPush, 0.0, 1.0);
+    // True horizontal / vertical: no cross-axis bending. Movement is limited
+    // to a very small axis drift so the gradient is alive but still optically
+    // straight. Spread is handled inside weightedDirectionalRamp, where it has
+    // a clear territory/separation effect.
+    float axis = (u_directionMode == 2) ? uv.y : uv.x;
+    float mouseAxis = (u_directionMode == 2) ? (u_mouseRaw.y - 0.5) : (u_mouseRaw.x - 0.5);
+    float timeDrift = sin(u_time * 0.042 + u_textureSeed * 5.7) * 0.010 * flow;
+    float mouseDrift = mouseAxis * 0.060 * flow;
+    float clickDrift = sin(dmr * 9.0 - u_clickPulse * 6.0) * exp(-dmr * 2.2) * u_clickPulse * 0.018;
+    float dirT = clamp(axis + timeDrift + mouseDrift + clickDrift, 0.0, 1.0);
     vec3 rampCol = weightedDirectionalRamp(dirT, distanceCtrl, blendCtrl, spread, cnt);
     col = rampCol;
   }
@@ -960,7 +921,6 @@ function applyGradientFrame(gl, prog, targetW, targetH, tweaks, time, mouse, pul
   gl.uniform1f(u('u_grainPitch'), (tile && tile.grainPitch) || 0);
   gl.uniform2f(u('u_mouse'), m.chaosX ?? m.x ?? 0.5, 1 - (m.chaosY ?? m.y ?? 0.5));
   gl.uniform2f(u('u_mouseRaw'), m.x ?? 0.5, 1 - (m.y ?? 0.5));
-  gl.uniform2f(u('u_clickMouse'), m.clickX ?? m.x ?? 0.5, 1 - (m.clickY ?? m.y ?? 0.5));
   gl.uniform1f(u('u_clickPulse'), pulse || 0);
   gl.uniform1f(u('u_grain'), tweaks.grain);
   gl.uniform1f(u('u_flow'), tweaks.flow);
@@ -1180,12 +1140,7 @@ function GradientMode({ tweaks, registerSnapshot, mouseRef }) {
     pausedTime: null,
     mouseLocked: false,
     lockedMouse: null,
-    // Direct canvas-local hover state. This keeps Gradient self-contained and
-    // responsive even if the app-wide mouse tracker or export clock is paused.
-    hoverMouse: { x:0.5, y:0.5, chaosX:0.5, chaosY:0.5 },
     smoothMouse: { x:0.5, y:0.5, chaosX:0.5, chaosY:0.5 },
-    clickMouse: { x:0.5, y:0.5 },
-    lastPointer: null,
     pointerDown: false,
     pointerStart: null,
     pointerCurrent: null,
@@ -1245,24 +1200,16 @@ function GradientMode({ tweaks, registerSnapshot, mouseRef }) {
       const canvas = canvasRef.current;
       if (!canvas) return null;
       const rect = canvas.getBoundingClientRect();
-      if (!rect.width || !rect.height) return null;
       if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) return null;
       const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
       const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
-      const st = stateRef.current;
-      const prev = st.lastPointer || { x, y, time: performance.now() };
-      const now = performance.now();
-      const dt = Math.max(8, Math.min(40, now - (prev.time || now)));
-      const speedScale = 16 / dt;
-      const vx = (x - prev.x) * speedScale;
-      const vy = (y - prev.y) * speedScale;
-      st.lastPointer = { x, y, time: now };
+      const live = mouseRef.current || { x, y, chaosX: x, chaosY: y };
+      const dx = x - (live.x ?? x);
+      const dy = y - (live.y ?? y);
       return {
         x, y,
-        // A small velocity overshoot gives the cursor a liquid feel while still
-        // keeping the actual interaction anchored to the pointer position.
-        chaosX: Math.max(0, Math.min(1, x + vx * 0.95)),
-        chaosY: Math.max(0, Math.min(1, y + vy * 0.95))
+        chaosX: Math.max(0, Math.min(1, (live.chaosX ?? x) + dx)),
+        chaosY: Math.max(0, Math.min(1, (live.chaosY ?? y) + dy))
       };
     };
     const movedEnough = (a, b) => {
@@ -1284,14 +1231,9 @@ function GradientMode({ tweaks, registerSnapshot, mouseRef }) {
     };
     const onPointerMove = (e) => {
       const st = stateRef.current;
-      const pt = readPoint(e);
-      if (!pt) { st.lastPointer = null; return; }
-
-      // Cursor tracking belongs to the gradient canvas itself. Keep this live
-      // regardless of whether a drag is active; the render loop eases toward it.
-      st.hoverMouse = pt;
-
       if (!st.pointerDown || !st.pointerStart) return;
+      const pt = readPoint(e);
+      if (!pt) return;
       st.pointerCurrent = { clientX:e.clientX, clientY:e.clientY, pt };
       if (!st.isDragging && movedEnough(st.pointerStart, st.pointerCurrent)) {
         st.isDragging = true;
@@ -1330,25 +1272,21 @@ function GradientMode({ tweaks, registerSnapshot, mouseRef }) {
       if (performance.now() < st.suppressClickUntil) return;
       const pt = readPoint(e);
       if (!pt) return;
-
-      // The visual response happens immediately; only the freeze toggle waits
-      // briefly so a double-click can still be distinguished cleanly.
-      st.clickMouse = { x: pt.x, y: pt.y };
-      st.hoverMouse = pt;
-      st.pulse = 1.0;
-
       if (st.clickTimer) clearTimeout(st.clickTimer);
       st.clickTimer = setTimeout(() => {
+        st.pulse = 1.0;
         st.positionPaused = !st.positionPaused;
         if (st.positionPaused) {
-          st.pausedMouse = st.smoothMouse ? { ...st.smoothMouse } : pt;
-          st.pausedTime = performance.now() / 1000;
+          // One click is a soft freeze: it preserves the exact current field position
+          // and leaves only the slow breathing motion alive.
+          st.pausedMouse = st.smoothMouse || pt;
+          st.pausedTime = (window.__NURR_T ?? performance.now() / 1000);
         } else {
           st.pausedMouse = null;
           st.pausedTime = null;
         }
         st.clickTimer = null;
-      }, 190);
+      }, 210);
     };
     const onDoubleClick = (e) => {
       if (isInterfaceEvent(e)) return;
@@ -1359,13 +1297,12 @@ function GradientMode({ tweaks, registerSnapshot, mouseRef }) {
       st.positionPaused = false;
       st.pausedMouse = null;
       st.pausedTime = null;
-      // Double click always releases the field back to live cursor tracking.
-      // Drag can still place/lock it; a double click is the deterministic reset.
-      st.mouseLocked = false;
-      st.lockedMouse = null;
-      st.hoverMouse = pt;
-      st.clickMouse = { x: pt.x, y: pt.y };
-      st.pulse = Math.max(st.pulse, 0.92);
+      st.mouseLocked = !st.mouseLocked;
+      // Double click toggles cursor tracking without snapping the field back.
+      // When locking, use the current smoothed field position; when releasing,
+      // the same smoothed position eases toward the live cursor in drawAt().
+      st.lockedMouse = st.mouseLocked ? (st.smoothMouse || pt) : null;
+      st.pulse = Math.max(st.pulse, 0.65);
       e.preventDefault();
     };
     window.addEventListener('pointerdown', onPointerDown, true);
@@ -1398,22 +1335,17 @@ function GradientMode({ tweaks, registerSnapshot, mouseRef }) {
       ? stInteract.pausedMouse
       : (stInteract.mouseLocked && stInteract.lockedMouse
         ? stInteract.lockedMouse
-        : (stInteract.hoverMouse || mouseRef.current || { x:0.5, y:0.5, chaosX:0.5, chaosY:0.5 }));
+        : (mouseRef.current || { x:0.5, y:0.5, chaosX:0.5, chaosY:0.5 }));
     const prevMouse = stInteract.smoothMouse || targetMouse;
     const ease = stInteract.positionPaused ? 0.055 : (stInteract.mouseLocked ? 0.20 : 0.16);
     const m = {
       x: prevMouse.x + ((targetMouse.x ?? 0.5) - prevMouse.x) * ease,
       y: prevMouse.y + ((targetMouse.y ?? 0.5) - prevMouse.y) * ease,
       chaosX: prevMouse.chaosX + ((targetMouse.chaosX ?? targetMouse.x ?? 0.5) - prevMouse.chaosX) * ease,
-      chaosY: prevMouse.chaosY + ((targetMouse.chaosY ?? targetMouse.y ?? 0.5) - prevMouse.chaosY) * ease,
-      clickX: stInteract.clickMouse?.x ?? 0.5,
-      clickY: stInteract.clickMouse?.y ?? 0.5
+      chaosY: prevMouse.chaosY + ((targetMouse.chaosY ?? targetMouse.y ?? 0.5) - prevMouse.chaosY) * ease
     };
     stInteract.smoothMouse = m;
-    // Use a local monotonic clock for the live canvas. Export/motion renderers
-    // still receive explicit renderState time, but the artwork can no longer be
-    // frozen by a stale shared __NURR_T value.
-    const liveTime = performance.now() / 1000;
+    const liveTime = window.__NURR_T ?? performance.now() / 1000;
     const t = stInteract.positionPaused && stInteract.pausedTime != null
       ? stInteract.pausedTime + (liveTime - stInteract.pausedTime) * 0.16
       : liveTime;
@@ -1436,10 +1368,8 @@ function GradientMode({ tweaks, registerSnapshot, mouseRef }) {
     // spread, blend, direction, texture) and morph outward from there.
     window.NurrGradientLiveState = () => {
       const st = stateRef.current || {};
-      const liveTime = performance.now() / 1000;
+      const liveTime = window.__NURR_T ?? performance.now() / 1000;
       const mouse = st.smoothMouse ? { ...st.smoothMouse } : { x: 0.5, y: 0.5, chaosX: 0.5, chaosY: 0.5 };
-      mouse.clickX = st.clickMouse?.x ?? mouse.x ?? 0.5;
-      mouse.clickY = st.clickMouse?.y ?? mouse.y ?? 0.5;
       return {
         tweaks: JSON.parse(JSON.stringify(tweaks)),
         renderState: { time: liveTime, mouse, pulse: st.pulse || 0 }
@@ -1458,15 +1388,13 @@ function GradientMode({ tweaks, registerSnapshot, mouseRef }) {
       // against the live rAF loop and the Safari stale-canvas behaviour
       // that race could trigger.
       const stInteract = stateRef.current;
-      const liveTime = performance.now() / 1000;
+      const liveTime = window.__NURR_T ?? performance.now() / 1000;
       const time = stInteract.positionPaused && stInteract.pausedTime != null
         ? stInteract.pausedTime + (liveTime - stInteract.pausedTime) * 0.16
         : liveTime;
       const mouse = stInteract.smoothMouse
         ? { ...stInteract.smoothMouse }
         : { x:0.5, y:0.5, chaosX:0.5, chaosY:0.5 };
-      mouse.clickX = stInteract.clickMouse?.x ?? mouse.x ?? 0.5;
-      mouse.clickY = stInteract.clickMouse?.y ?? mouse.y ?? 0.5;
       const liveRenderState = { time, mouse, pulse: stInteract.pulse || 0 };
       const renderState = opts.renderStateOverride || opts.renderState || liveRenderState;
 
